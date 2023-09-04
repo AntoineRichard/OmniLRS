@@ -1,0 +1,350 @@
+from typing import List, Tuple
+import numpy as np
+import os
+
+from semantics.schema.editor import PrimSemanticData
+from pxr import UsdGeom, Sdf
+import omni
+
+from terrain_generation import GenerateProceduralMoonYard
+from WorldBuilders import pxr_utils
+
+
+class TerrainManager:
+    """
+    TerrainManager is a class that manages the terrain in the simulation.
+    It is responsible for generating the terrain, and updating the terrain.
+    It can also use pre-existing terrain data to update the terrain mesh."""
+
+    def __init__(self, crater_spline_profiles: str = "crater_spline_profiles.pkl",
+                       dems_path: str = "Terrains",
+                       sim_length: float = 10.0,
+                       sim_width: float = 6.5,
+                       resolution: float = 0.01,
+                       mesh_pos: tuple = (0.0, 0.0, 0.0),
+                       mesh_rot: tuple = (0.0, 0.0, 0.0, 1.0),
+                       mesh_scale: tuple = (1.0, 1.0, 1.0),
+                       max_elevation: float = 0.25,
+                       min_elevation: float = -0.025,
+                       z_scale: float = 1,
+                       pad: int = 500,
+                       num_repeat: float = 0,
+                       densities: List[float] = [0.025,0.05,0.5],
+                       radius: List[Tuple[float,float]] = [(1.5,2.5),(0.75,1.5),(0.25,0.5)],
+                       root_path="/root",
+                       texture_path="/root/Looks/texture",
+                       seed: int = 42) -> None:
+        """
+        Args:
+            crater_spline_profiles (str): path to the crater spline profiles.
+            sim_length (float): length of the simulation grid (in meters).
+            sim_width (float): width of the simulation grid (in meters).
+            resolution (float): resolution of the simulation grid (in meters per pixel).
+            mesh_pos (tuple): position of the terrain mesh.
+            mesh_rot (tuple): rotation of the terrain mesh.
+            mesh_scale (tuple): scale of the terrain mesh.
+            max_elevation (float): maximum elevation of the DEM (in meters).
+            min_elevation (float): minimum elevation of the DEM (in meters).
+            z_scale (float): scale of the DEM.
+            pad (int): size of the padding to add to the DEM.
+            num_repeat (int): number of times to repeat the hardcore rejection.
+            densities (list): densities of the craters (in units per square meters).
+            radius (list): radii of the craters (in meters).
+            root_path (str): path to the root of the terrain mesh.
+            texture_path (str): path to the texture of the terrain mesh.
+            seed (float): random seed."""
+        
+        self._crater_spline_profiles = crater_spline_profiles
+        self._dems_path = dems_path
+        self._G = GenerateProceduralMoonYard(self._crater_spline_profiles,
+                                             x_size=sim_length,
+                                             y_size=sim_width,
+                                             resolution=resolution,
+                                             max_elevation=max_elevation,
+                                             min_elevation=min_elevation,
+                                             z_scale=z_scale,
+                                             pad=pad,
+                                             num_repeat=num_repeat,
+                                             densities=densities,
+                                             radius=radius,
+                                             seed=seed)
+
+        self._stage = omni.usd.get_context().get_stage()
+        self._texture_path = texture_path
+        self._root_path = root_path
+
+        self._dems = {}
+        self._DEM = None
+        self._mask = None
+        self._material = None
+
+        self._sim_width = int(sim_width / resolution)
+        self._sim_length = int(sim_length / resolution)
+        self._grid_size = resolution
+        self._mesh_pos = mesh_pos
+        self._mesh_rot = mesh_rot
+        self._mesh_scale = mesh_scale
+
+        self._indices = []
+        self._sim_uvs = []
+        self._sim_verts = []
+        self._sim_grid = []
+
+        self._id = 0
+        self._og_mesh_path = self._root_path+"/Terrain/terrain_mesh"
+        self._mesh_path = self._root_path+"/Terrain/terrain_mesh"
+
+        pxr_utils.createXform(self._stage, self._root_path, add_default_op=True)
+        pxr_utils.createXform(self._stage, self._root_path+"/Terrain", add_default_op=True)
+        pxr_utils.createXform(self._stage, self._root_path+"/Terrain/terrain_mesh", add_default_op=True)
+
+        self.buildGrid()
+        self.fetchPreGeneratedDEMs()
+
+    def fetchPreGeneratedDEMs(self) -> None:
+        """
+        fetches the path to the pre-generated DEMs and masks from the given path.
+        To load the DEMs and masks, the paths must contain the following files:
+            - Folder1:
+                - DEM.npy
+                - mask.npy
+            - Folder2:
+                - DEM.npy
+                - mask.npy
+            - ...
+        
+        Args:
+            dems_path (str): path to the folders containing the DEMs and masks.
+            
+        Raises:
+            AssertionError: if dems_path is not a directory.
+            AssertionError: if dems_path contains files other than folders.
+            AssertionError: if a folder does not contain DEM.npy.
+            AssertionError: if a folder does not contain mask.npy."""
+
+        assert os.path.isdir(self._dems_path), "dems_path must be a directory."
+
+        for folder in os.listdir(self._dems_path):
+            assert os.path.isdir(os.path.join(self._dems_path, folder)), "dems_path must contain only folders."
+            dem_path = os.path.join(self._dems_path, folder, "dem.npy")
+            mask_path = os.path.join(self._dems_path, folder, "mask.npy")
+            assert os.path.isfile(dem_path), "dem.npy not found in folder."
+            assert os.path.isfile(mask_path), "mask.npy not found in folder."
+            self._dems[folder] = [dem_path, mask_path]
+
+    def loadDEMAndMask(self, name:str) -> None:
+        """
+        Loads the DEM and mask from the given paths.
+        
+        Args:
+            name (str): the name matching the dictionaty entry.
+
+        Raises:
+            AssertionError: if the name is not found in the dictionary.
+            AssertionError: if the DEM.npy is not found in the folder.
+            AssertionError: if the mask.npy is not found in the folder.
+        """
+
+        assert name in self._dems, "name not found in dictionary."
+        dem_path = self._dems[name][0]
+        mask_path = self._dems[name][1]
+        assert os.path.isfile(dem_path), "DEM.npy not found in folder."
+        assert os.path.isfile(mask_path), "mask.npy not found in folder."
+        DEM = np.load(dem_path)
+        mask = np.load(mask_path)
+
+    
+        self._DEM = np.zeros((self._sim_length, self._sim_width), dtype=np.float32)
+        self._mask = np.zeros((self._sim_length, self._sim_width), dtype=np.float32)
+        self._DEM[:DEM.shape[0],:DEM.shape[1]] = DEM[:self._sim_length, :self._sim_width]
+        self._mask[:mask.shape[0],:mask.shape[1]] = mask[:self._sim_length, :self._sim_width]
+
+
+    @staticmethod
+    def gridIndex(x: int, y: int, stride: int) -> int:
+        """
+        Returns the index of the grid point at (x, y) in a grid of width stride.
+        
+        Args:
+            x (int): x coordinate of the grid point.
+            y (int): y coordinate of the grid point.
+            stride (int): width of the grid.
+            
+        Returns:
+            int: index of the grid point at (x, y)."""
+
+        return y * stride + x
+
+    def buildGrid(self):
+        """
+        Builds the grid of vertices and indices for the terrain mesh.
+        Also generates the UVs coordinates for the terrain mesh."""
+
+        vertices = []
+        uvs = []
+        for y in range(self._sim_length):
+            for x in range(self._sim_width):
+                pos = (
+                    float(x) * self._grid_size,
+                    float(y) * self._grid_size,
+                    float(0),
+                )
+
+                # Generates vertices indices for the terrain mesh.
+                vertices.append(pos)
+                if x > 0 and y > 0: # Two triangles per pixel.
+                    # First triangle.
+                    self._indices.append(self.gridIndex(x-1, y-1, self._sim_width))
+                    self._indices.append(self.gridIndex(x, y, self._sim_width))
+                    self._indices.append(self.gridIndex(x, y-1, self._sim_width))
+                    # Second triangle.
+                    self._indices.append(self.gridIndex(x-1, y-1, self._sim_width))
+                    self._indices.append(self.gridIndex(x-1, y, self._sim_width))
+                    self._indices.append(self.gridIndex(x, y, self._sim_width))
+                
+                # Generates UVs coordinates for the terrain mesh.
+                if x > 0 and y > 0: # Two triangles per pixel.
+                    # First triangle.
+                    uvs.append((x-1, y-1))
+                    uvs.append((x, y))
+                    uvs.append((x, y-1))
+                    # Second triangle.
+                    uvs.append((x-1, y-1))
+                    uvs.append((x-1, y))
+                    uvs.append((x, y))
+
+        self._sim_grid = np.zeros(self._sim_width * self._sim_length, dtype=np.float32)
+        self._sim_verts = np.array(vertices, dtype=np.float32)
+        self._sim_uvs = np.array(uvs, dtype=np.float32)
+        self._sim_uvs = self._sim_uvs * self._grid_size
+        print(self._sim_uvs.max())
+        print(self._sim_uvs.shape)
+
+    def renderMesh(self, points:np.ndarray, indices:np.ndarray, uvs:np.ndarray, colors=None, update_topology:bool=False) -> None:
+            """
+            Creates or updates a mesh prim with the given points and indices.
+            
+            Args:
+                points (np.ndarray): array of points to set as the mesh vertices.
+                indices (np.ndarray): array of indices to set as the mesh indices.
+                uvs (np.ndarray): array of uvs to set as the mesh uvs.
+                colors (np.ndarray): array of colors to set as the mesh colors.
+                update_topology (bool): whether to update the mesh topology."""
+
+            mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
+            self._mesh_path = self._og_mesh_path +"_"+ str(self._id)
+            if not mesh:
+                mesh = UsdGeom.Mesh.Define(self._stage, self._mesh_path)
+                UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
+                pxr_utils.addDefaultOps(mesh)
+
+                # force topology update on first update
+                update_topology = True
+
+            mesh.GetPointsAttr().Set(points)
+
+            if update_topology:
+                idxs = np.array(indices).reshape(-1, 3)
+                mesh.GetFaceVertexIndicesAttr().Set(idxs)
+                mesh.GetFaceVertexCountsAttr().Set([3] * len(idxs))
+                UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
+                pv = UsdGeom.PrimvarsAPI(mesh.GetPrim()).CreatePrimvar("st", Sdf.ValueTypeNames.Float2Array)
+                pv.Set(uvs)
+                pv.SetInterpolation('faceVarying')
+
+            if colors:
+                mesh.GetDisplayColorAttr().Set(colors)
+
+            self._id += 1
+            pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
+
+    def updateTerrainCollider(self):
+        """
+        Updates the terrain collider. This function should be called after the terrain mesh is updated."""
+
+        #pxr_utils.removeCollision(self._stage, self._mesh_path)
+        pxr_utils.addCollision(self._stage, self._mesh_path)
+
+    def update(self) -> None:
+        """
+        Updates the terrain mesh. This function should be called after the DEM and mask are updated."""
+
+        pxr_utils.deletePrim(self._stage, self._mesh_path)
+        self._sim_verts[:,-1] = np.flip(self._DEM, 0).flatten()
+        self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
+        self.updateTerrainCollider()
+        self.autoLabel()
+        pxr_utils.applyMaterialFromPath(self._stage, self._mesh_path, self._texture_path)
+
+    def randomizeTerrain(self) -> None:
+        """
+        Randomizes the terrain."""
+
+        self._DEM, self._mask = self._G.randomize()
+        print(self._DEM.shape)
+        self.update()
+
+    def loadTerrainByName(self, name: str) -> None:
+        """
+        Loads the terrain from the given name.
+        
+        Args:
+            name (str): the name matching the dictionaty entry."""
+
+        self.loadDEMAndMask(name)
+        self.update()
+
+    def loadTerrainId(self, idx: int) -> None:
+        """
+        Loads the terrain from the given name.
+        
+        Args:
+            name (str): the name matching the dictionaty entry.
+            
+        Raises:
+            AssertionError: if idx is out of bounds."""
+
+        assert idx < len(self._dems), "idx out of bounds." 
+        name = list(self._dems.keys())[idx]
+        self.loadTerrainByName(name)
+    
+    def autoLabel(self):
+        prim_sd = PrimSemanticData(self._stage.GetPrimAtPath(self._mesh_path))
+        prim_sd.add_entry("class", "ground")
+
+    def getDEM(self):
+        """
+        Returns the DEM of the terrain.
+        
+        Returns:
+            np.ndarray: the DEM of the terrain."""
+        
+        return self._DEM
+    
+    def getMask(self):
+        """
+        Returns the mask of the terrain.
+        
+        Returns:
+            np.ndarray: the mask of the terrain."""
+
+        return self._mask
+    
+
+
+#if __name__ == "__main__":
+#    from omni.isaac.core import World
+#    world = World(stage_units_in_meters=1.0)
+#    T =  TerrainManager()
+#
+#    j = 0
+#    while(True):
+#        T.randomizeTerrain()
+#        T.loadTerrainId(j)
+#        j += 1
+#        for i in range(2000):
+#            world.step(render=True)
+#        
+#import omni
+#from omni.isaac.kit import SimulationApp
+#simulation_app = SimulationApp({"headless": False})
