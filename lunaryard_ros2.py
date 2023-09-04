@@ -25,7 +25,7 @@ simulation_app.update()
 # Loads ROS2 dependent libraries
 from std_msgs.msg import Bool, Float32, ColorRGBA, Int8, Int32, String, Empty
 from rclpy.executors import SingleThreadedExecutor as Executor
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, PoseStamped
 from rclpy.node import Node
 import rclpy
 
@@ -39,31 +39,22 @@ class ROS_LabManager(Node):
         self.LC.load()
         self.trigger_reset = False
 
-        self.create_subscription(Bool, "/Lunalab/Projector/TurnOn", self.setProjectorOn, 1)
-        self.create_subscription(Float32, "/Lunalab/Projector/Intensity", self.setProjectorIntensity, 1)
-        self.create_subscription(Float32, "/Lunalab/Projector/Radius", self.setProjectorRadius, 1)
-        self.create_subscription(Pose, "/Lunalab/Projector/Pose", self.setProjectorPose, 1)
-        #self.create_subscription(ColorRGBA, "/Lunalab/Projector/Color", self.setProjectorColor, 1)
-        #self.create_subscription(Bool, "/Lunalab/CeilingLights/TurnOn", self.setCeilingOn, 1)
-        #self.create_subscription(Float32, "/Lunalab/CeilingLights/Intensity", self.setCeilingIntensity, 1)
-        #self.create_subscription(Float32, "/Lunalab/CeilingLights/Radius", self.setCeilingRadius, 1)
-        #self.create_subscription(Float32, "/Lunalab/CeilingLights/FOV", self.setCeilingFOV, 1)
-        #self.create_subscription(ColorRGBA, "/Lunalab/CeilingLights/Color", self.setCeilingColor, 1)
-        #self.create_subscription(Bool, "/Lunalab/Curtains/Extend", self.setCurtainsMode, 1)
-        self.create_subscription(Int32, "/Lunalab/Terrain/Switch", self.switchTerrain, 1)
-        self.create_subscription(Bool, "/Lunalab/Terrain/EnableRocks", self.enableRocks, 1)
-        self.create_subscription(Int32, "/Lunalab/Terrain/RandomizeRocks", self.randomizeRocks, 1)
-        #self.create_subscription(String, "/Lunalab/Terrain/PlaceRocks", self.placeRocks, 1)
-        self.create_subscription(Empty, "/Lunalab/Render/EnableRTXRealTime", self.useRTXRealTimeRender, 1)
-        self.create_subscription(Empty, "/Lunalab/Render/EnableRTXInteractive", self.useRTXInteractiveRender, 1)
-        self.create_subscription(Bool, "/Lunalab/LensFlare/EnableLensFlares", self.setLensFlareOn, 1)
-        self.create_subscription(Int8, "/Lunalab/LensFlare/NumBlades", self.setLensFlareNumBlade, 1)
-        self.create_subscription(Float32, "/Lunalab/LensFlare/Scale", self.setLensFlareScale, 1)
-        self.create_subscription(Float32, "/Lunalab/LensFlare/ApertureRotation", self.setLensFlareApertureRotation, 1)
-        self.create_subscription(Float32, "/Lunalab/LensFlare/FocalLength", self.setLensFlareFocalLength, 1)
-        self.create_subscription(Float32, "/Lunalab/LensFlare/Fstop", self.setLensFlareFstop, 1)
-        self.create_subscription(Float32, "/Lunalab/LensFlare/SensorAspectRatio", self.setLensFlareSensorAspectRatio, 1)
-        self.create_subscription(Float32, "/Lunalab/LensFlare/SensorDiagonal", self.setLensFlareSensorDiagonal, 1)
+        self.create_subscription(Float32, "/LunarYard/Sun/Intensity", self.setSunIntensity, 1)
+        self.create_subscription(Pose, "/LunarYard/Sun/Pose", self.setSunPose, 1)
+        self.create_subscription(ColorRGBA, "/LunarYard/Sun/Color", self.setSunColor, 1)
+        self.create_subscription(Int32, "/LunarYard/Terrain/Switch", self.switchTerrain, 1)
+        self.create_subscription(Bool, "/LunarYard/Terrain/EnableRocks", self.enableRocks, 1)
+        self.create_subscription(Int32, "/LunarYard/Terrain/RandomizeRocks", self.randomizeRocks, 1)
+        self.create_subscription(Empty, "/LunarYard/Render/EnableRTXRealTime", self.useRTXRealTimeRender, 1)
+        self.create_subscription(Empty, "/LunarYard/Render/EnableRTXInteractive", self.useRTXInteractiveRender, 1)
+        self.create_subscription(Bool, "/LunarYard/LensFlare/EnableLensFlares", self.setLensFlareOn, 1)
+        self.create_subscription(Int8, "/LunarYard/LensFlare/NumBlades", self.setLensFlareNumBlade, 1)
+        self.create_subscription(Float32, "/LunarYard/LensFlare/Scale", self.setLensFlareScale, 1)
+        self.create_subscription(Float32, "/LunarYard/LensFlare/ApertureRotation", self.setLensFlareApertureRotation, 1)
+        self.create_subscription(Float32, "/LunarYard/LensFlare/FocalLength", self.setLensFlareFocalLength, 1)
+        self.create_subscription(Float32, "/LunarYard/LensFlare/Fstop", self.setLensFlareFstop, 1)
+        self.create_subscription(Float32, "/LunarYard/LensFlare/SensorAspectRatio", self.setLensFlareSensorAspectRatio, 1)
+        self.create_subscription(Float32, "/LunarYard/LensFlare/SensorDiagonal", self.setLensFlareSensorDiagonal, 1)
 
         self.modifications = []
 
@@ -87,36 +78,16 @@ class ROS_LabManager(Node):
 
         pass
 
-    def setProjectorOn(self, data:Bool) -> None:
-        """
-        Turns the projector on or off.
-        
-        Args:
-            data (Bool): True to turn the projector on, False to turn it off."""
-        
-        self.modifications.append([self.LC.turnProjectorOnOff, data.data])
-
-    def setProjectorIntensity(self, data:Float32) -> None:
+    def setSunIntensity(self, data:Float32) -> None:
         """
         Sets the projector intensity.
         
         Args:
             data (Float32): Intensity in percentage."""
         
-        default_intensity = 300000000.0
-        data = default_intensity*float(data)/100.0
-        self.modifications.append([self.LC.setProjectorIntensity, data])
+        self.modifications.append([self.LC.setSunIntensity, data.data])
 
-    def setProjectorRadius(self, data: Float32) -> None:
-        """
-        Sets the projector radius.
-        
-        Args:
-            data (Float32): Radius in meters."""
-        
-        self.modifications.append([self.LC.setProjectorRadius, data.data])
-
-    def setProjectorColor(self, data:ColorRGBA) -> None:
+    def setSunColor(self, data:ColorRGBA) -> None:
         """
         Sets the projector color.
         
@@ -124,9 +95,9 @@ class ROS_LabManager(Node):
             data (ColorRGBA): Color in RGBA format."""
         
         color = [data.r, data.g, data.b]
-        self.modifications.append([self.LC.setProjectorColor, color])
+        self.modifications.append([self.LC.setSunColor, color])
 
-    def setProjectorPose(self, data:Pose) -> None:
+    def setSunPose(self, data:Pose) -> None:
         """
         Sets the projector pose.
         
@@ -135,7 +106,7 @@ class ROS_LabManager(Node):
         
         position = [data.position.x, data.position.y, data.position.z]
         quaternion = [data.orientation.x, data.orientation.y, data.orientation.z, data.orientation.w]
-        self.modifications.append([self.LC.setProjectorPose, (position, quaternion)])
+        self.modifications.append([self.LC.setSunPose, (position, quaternion)])
 
     def setCeilingOn(self, data:Bool) -> None:
         """
@@ -340,21 +311,19 @@ class ROS_RobotManager(Node):
 
     def __init__(self) -> None:
         super().__init__("Robot_spawn_manager_node")
-        spawning_pose_list = [{"position":Gf.Vec3d(1.5,-0.5,0.25),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))},
-                              {"position":Gf.Vec3d(2.5,-0.5,0.25),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))},
-                              {"position":Gf.Vec3d(3.5,-0.5,0.25),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))},
-                              {"position":Gf.Vec3d(4.5,-0.5,0.25),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))},
-                              {"position":Gf.Vec3d(5.5,-0.5,0.25),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))}]
-        print(spawning_pose_list)
+        spawning_pose_list = [{"position":Gf.Vec3d(8, 10, 4),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))},
+                              {"position":Gf.Vec3d(9, 10, 4),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))},
+                              {"position":Gf.Vec3d(10, 10, 4),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))},
+                              {"position":Gf.Vec3d(11, 10, 4),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))},
+                              {"position":Gf.Vec3d(12, 10, 4),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))}]
         self.RM = RobotManager(spawning_pose_list, is_ROS2=True, max_robots=len(spawning_pose_list), robots_root="/Robots")
 
-        self.create_subscription(String, "/Lunalab/Robots/Spawn", self.spawnRobot, 1)
-        self.create_subscription(Pose, "/Lunalab/Robots/Teleport", self.teleportRobot, 1)
-        self.create_subscription(String, "/Lunalab/Robots/Reset", self.resetRobot, 1)
-        self.create_subscription(String, "/Lunalab/Robots/ResetAll", self.resetRobots, 1)
-
-        self.robot_usd_path = "/home/antoine/Documents/Lunalab/Robots/Loe_revor.usd"
-        self.domain_id = 42
+        self.create_subscription(String, "/LunarYard/Robots/Spawn", self.spawnRobot, 1)
+        self.create_subscription(PoseStamped, "/LunarYard/Robots/Teleport", self.teleportRobot, 1)
+        self.create_subscription(String, "/LunarYard/Robots/Reset", self.resetRobot, 1)
+        self.create_subscription(String, "/LunarYard/Robots/ResetAll", self.resetRobots, 1)
+        self.robot_usd_path = "Robots/Loe_revor.usd"
+        self.domain_id = 0
 
         self.modifications = []
 
@@ -388,7 +357,7 @@ class ROS_RobotManager(Node):
         
         self.modifications.append([self.RM.addRobot, [self.robot_usd_path, data.data, self.domain_id]])
 
-    def teleportRobot(self, data:Pose) -> None:
+    def teleportRobot(self, data:PoseStamped) -> None:
         """
         Teleports a robot.
         

@@ -28,7 +28,13 @@ from pxr import Gf, UsdGeom, Usd
 
 
 class RobotManager:
+    """
+    RobotManager class."""
+
     def __init__(self, spawning_poses:list, uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots"):
+        """
+        Args:
+            spawning_poses (list): List of dictionaries containing the spawning poses of the robots."""
         self.stage = omni.usd.get_context().get_stage()
         self.spawning_poses = spawning_poses
         self.uses_nucleus = uses_nucleus
@@ -62,12 +68,12 @@ class RobotManager:
         self.robots[robot_name].teleport(position, orienation)
 
 class Robot:
-    def __init__(self, usd_path, robot_name, robots_root="/Robots", is_on_nucleus=False, is_ROS2=False, domain_id=42):
+    def __init__(self, usd_path, robot_name, robots_root="/Robots", is_on_nucleus=False, is_ROS2=False, domain_id=0):
         self.stage = omni.usd.get_context().get_stage()
         self.usd_path = str(usd_path)
         self.robots_root = robots_root
         self.robot_name = robot_name
-        self.robot_path = os.path.join(self.robots_root, self.robot_name)
+        self.robot_path = os.path.join(self.robots_root, self.robot_name.strip("/"))
         self.is_on_nucleus = is_on_nucleus
         self.is_ROS2 = is_ROS2
         self.domain_id = int(domain_id)
@@ -97,6 +103,7 @@ class Robot:
         if self.is_on_nucleus:
             nucleus = get_assets_root_path()
             self.usd_path = os.path.join(nucleus,self.usd_path)
+        print(self.robot_path)
         createObject(self.robot_path, self.stage, self.usd_path, is_instance=False, position=position, rotation=orientation)
         self.editGraphs()
     

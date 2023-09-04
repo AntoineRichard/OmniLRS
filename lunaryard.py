@@ -6,14 +6,9 @@ import carb
 import cv2
 import os
 
-from omni.isaac.core.utils.stage import open_stage, add_reference_to_stage
-from omni.isaac.core.utils.extensions import enable_extension
-from omni.isaac.core.materials import PreviewSurface
+from omni.isaac.core.utils.stage import add_reference_to_stage
 
-from pxr import UsdGeom, Sdf, UsdLux, Gf, UsdShade, Usd
-
-
-from semantics.schema.editor import PrimSemanticData
+from pxr import UsdGeom, UsdLux, Gf, Usd
 
 from WorldBuilders.pxr_utils import setTransform, getTransform, createInstancerAndCache, setInstancerParameters
 from terrain_manager import TerrainManager
@@ -93,16 +88,16 @@ class LabController:
         self.dem = None
         self.mask = None
         self.mixer = None
+        self.scene_name = "/Lunaryard"
 
     def load(self) -> None:
         """
         Loads the lab interactive elements in the stage.
         Creates the instancer for the rocks, and generates the terrain."""
 
-        scene_name = "/Lunaryard"
         scene_path = WORKINGDIR+"/Lunaryard.usd"
         # Loads the Lunalab
-        add_reference_to_stage(scene_path, scene_name)
+        add_reference_to_stage(scene_path, self.scene_name)
         # Fetches the interactive elements
         self.collectInteractiveAssets()
         # Generates the instancer for the rocks
@@ -122,9 +117,9 @@ class LabController:
         assets = [[os.path.join(root, asset, i) for i in os.listdir(os.path.join(root,asset)) if i.split('.')[-1]=="usd"] for asset in assets]
         assets = [item for sublist in assets for item in sublist]
         # Creates the instancer
-        self._rocks_prim = self.stage.DefinePrim("/Lunalab/Rocks", "Xform")
-        self._rock_instancer = createInstancerAndCache(self.stage, "/Lunalab/Rocks/instancer", assets)
-        self._rocks_instancer_prim = self.stage.GetPrimAtPath("/Lunalab/Rocks/instancer")
+        self._rocks_prim = self.stage.DefinePrim(self.scene_name+"/Rocks", "Xform")
+        self._rock_instancer = createInstancerAndCache(self.stage, self.scene_name+"/Rocks/instancer", assets)
+        self._rocks_instancer_prim = self.stage.GetPrimAtPath(self.scene_name+"/Rocks/instancer")
         #self._rocks_prim.GetAttribute("visibility").Set("invisible")
 
     def createSampler(self) -> None:
@@ -222,11 +217,11 @@ class LabController:
         #self._projector_flare = self.stage.GetPrimAtPath(PROJECTOR_SHADER_PATH)
 
 # ==============================================================================
-# Projector control
+# Sun control
 # ==============================================================================
-    def setProjectorPose(self, pose:Tuple[List[float],List[float]]) -> None:
+    def setSunPose(self, pose:Tuple[List[float],List[float]]) -> None:
         """
-        Sets the pose of the projector.
+        Sets the pose of the sun.
         
         Args:
             pose (Tuple[List[float],List[float]]): The pose of the projector. The first element is the position, the second is the quaternion."""
@@ -238,25 +233,16 @@ class LabController:
         transform = getTransform(rotation,position)
         setTransform(self._projector_xform, transform)
 
-    def setProjectorIntensity(self, intensity: float) -> None:
+    def setSunIntensity(self, intensity: float) -> None:
         """
-        Sets the intensity of the projector.
+        Sets the intensity of the sun.
         
         Args:
             intensity (float): The intensity of the projector (arbitrary unit)."""
         
         self.setAttributeBatch(self._projector_lux, "intensity", intensity)
 
-    def setProjectorRadius(self, radius:float) -> None:
-        """
-        Sets the radius of the projector.
-        
-        Args:
-            radius (float): The radius of the projector (in meters)."""
-        
-        self.setAttributeBatch(self._projector_lux, "radius", radius)
-
-    def setProjectorColor(self, color: List[float]) -> None:
+    def setSunColor(self, color: List[float]) -> None:
         """
         Sets the color of the projector.
         
@@ -264,22 +250,7 @@ class LabController:
             color (List[float]): The color of the projector (RGB)."""
         
         color = Gf.Vec3d(color[0], color[1], color[2])
-        self.setAttributeBatch(self._projector_flare, "inputs:emissive_color", color)
-        self.setAttributeBatch(self._projector_flare, "inputs:diffuse_color_constant", color)
-        self.setAttributeBatch(self._projector_flare, "inputs:diffuse_tint", color)
         self.setAttributeBatch(self._projector_lux, "color", color) 
-
-    def turnProjectorOnOff(self, flag:bool) -> None:
-        """
-        Turns the projector on or off.
-        
-        Args:
-            flag (bool): True to turn the projector on, False to turn it off."""
-        
-        if flag:
-            self._projector_prim.GetAttribute("visibility").Set("visible")
-        else:
-            self._projector_prim.GetAttribute("visibility").Set("invisible")
 
 # ==============================================================================
 # Terrain control
@@ -297,7 +268,7 @@ class LabController:
             self.T.loadTerrainId(flag)
         self.loadDEM()
         self.createSampler()
-        self.randomizeRocks(10)
+        self.randomizeRocks(500)
 
     def enableRocks(self, flag: bool) -> None:
         """
@@ -325,7 +296,7 @@ class LabController:
         position = attributes["xformOp:translation"]
         scale = attributes["xformOp:scale"]
         orientation = attributes["xformOp:orientation"]
-        setInstancerParameters(self.stage, "/Lunalab/Rocks/instancer", pos=position, scale=scale, quat=orientation)
+        setInstancerParameters(self.stage, self.scene_name+"/Rocks/instancer", pos=position, scale=scale, quat=orientation)
 
     def placeRocks(self, file_path) -> None:
         pass

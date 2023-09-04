@@ -25,7 +25,7 @@ simulation_app.update()
 # Loads ROS2 dependent libraries
 from std_msgs.msg import Bool, Float32, ColorRGBA, Int8, Int32, String, Empty
 from rclpy.executors import SingleThreadedExecutor as Executor
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, PoseStamped
 from rclpy.node import Node
 import rclpy
 
@@ -53,7 +53,6 @@ class ROS_LabManager(Node):
         self.create_subscription(Int32, "/Lunalab/Terrain/Switch", self.switchTerrain, 1)
         self.create_subscription(Bool, "/Lunalab/Terrain/EnableRocks", self.enableRocks, 1)
         self.create_subscription(Int32, "/Lunalab/Terrain/RandomizeRocks", self.randomizeRocks, 1)
-        #self.create_subscription(String, "/Lunalab/Terrain/PlaceRocks", self.placeRocks, 1)
         self.create_subscription(Empty, "/Lunalab/Render/EnableRTXRealTime", self.useRTXRealTimeRender, 1)
         self.create_subscription(Empty, "/Lunalab/Render/EnableRTXInteractive", self.useRTXInteractiveRender, 1)
         self.create_subscription(Bool, "/Lunalab/LensFlare/EnableLensFlares", self.setLensFlareOn, 1)
@@ -104,7 +103,7 @@ class ROS_LabManager(Node):
             data (Float32): Intensity in percentage."""
         
         default_intensity = 300000000.0
-        data = default_intensity*float(data)/100.0
+        data = default_intensity*float(data.data)/100.0
         self.modifications.append([self.LC.setProjectorIntensity, data])
 
     def setProjectorRadius(self, data: Float32) -> None:
@@ -345,7 +344,6 @@ class ROS_RobotManager(Node):
                               {"position":Gf.Vec3d(3.5,-0.5,0.25),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))},
                               {"position":Gf.Vec3d(4.5,-0.5,0.25),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))},
                               {"position":Gf.Vec3d(5.5,-0.5,0.25),"orientation":Gf.Quatd(0.707, Gf.Vec3d(0,0,0.707))}]
-        print(spawning_pose_list)
         self.RM = RobotManager(spawning_pose_list, is_ROS2=True, max_robots=len(spawning_pose_list), robots_root="/Robots")
 
         self.create_subscription(String, "/Lunalab/Robots/Spawn", self.spawnRobot, 1)
@@ -388,7 +386,7 @@ class ROS_RobotManager(Node):
         
         self.modifications.append([self.RM.addRobot, [self.robot_usd_path, data.data, self.domain_id]])
 
-    def teleportRobot(self, data:Pose) -> None:
+    def teleportRobot(self, data:PoseStamped) -> None:
         """
         Teleports a robot.
         
