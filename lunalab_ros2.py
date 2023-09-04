@@ -219,7 +219,7 @@ class ROS_LabManager(Node):
         Args:
             data (Int32): Number of rocks to randomize."""
         int(data.data)
-        self.modifications.append([self.LC.randomizeRocks, data])
+        self.modifications.append([self.LC.randomizeRocks, data.data])
         self.trigger_reset = True
 
     def placeRocks(self, data:str) -> None:
