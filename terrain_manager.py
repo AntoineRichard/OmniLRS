@@ -37,6 +37,7 @@ class TerrainManager:
         """
         Args:
             crater_spline_profiles (str): path to the crater spline profiles.
+            dems_path (str): path to the folders containing the DEMs and masks.
             sim_length (float): length of the simulation grid (in meters).
             sim_width (float): width of the simulation grid (in meters).
             resolution (float): resolution of the simulation grid (in meters per pixel).
@@ -71,6 +72,7 @@ class TerrainManager:
 
         self._stage = omni.usd.get_context().get_stage()
         self._texture_path = texture_path
+        print(texture_path)
         self._root_path = root_path
 
         self._dems = {}
