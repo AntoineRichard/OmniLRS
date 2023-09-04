@@ -1,3 +1,4 @@
 [submodule "WorldBuilders"]
 	path = WorldBuilders
 	url = https://github.com/AntoineRichard/WorldBuilders.git
+	branch = main
