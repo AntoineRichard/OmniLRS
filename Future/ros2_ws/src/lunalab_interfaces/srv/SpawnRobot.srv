@@ -1,0 +1,7 @@
+std_msgs/String robot_name
+std_msgs/String usd_path
+std_msgs/Bool is_on_nucleus
+std_msgs/String nucleus_ip
+std_msgs/Int64 domain_id
+---
+std_msgs/Bool result
