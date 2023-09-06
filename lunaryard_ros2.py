@@ -406,6 +406,8 @@ class SimulationManager:
     def __init__(self) -> None:
         self.timeline = omni.timeline.get_timeline_interface()
         self.world = World(stage_units_in_meters=1.0)
+        self.physics_ctx = self.world.get_physics_context()
+        self.physics_ctx.set_solver_type("PGS")
         # Lab manager thread
         self.ROSLabManager = ROS_LabManager()
         exec1 = Executor()
