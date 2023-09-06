@@ -217,6 +217,7 @@ class ROS_LabManager(Node):
         
         Args:
             data (Int32): Number of rocks to randomize."""
+
         int(data.data)
         self.modifications.append([self.LC.randomizeRocks, data.data])
         self.trigger_reset = True
@@ -284,6 +285,7 @@ class ROS_LabManager(Node):
         
         Args:
             data (Float32): Fstop."""
+
         data = float(data.data)
         self.modifications.append([self.LC.setFlareFstop, data])
 
@@ -347,12 +349,11 @@ class ROS_RobotManager(Node):
         self.RM = RobotManager(spawning_pose_list, is_ROS2=True, max_robots=len(spawning_pose_list), robots_root="/Robots")
 
         self.create_subscription(String, "/Lunalab/Robots/Spawn", self.spawnRobot, 1)
-        self.create_subscription(Pose, "/Lunalab/Robots/Teleport", self.teleportRobot, 1)
+        self.create_subscription(PoseStamped, "/Lunalab/Robots/Teleport", self.teleportRobot, 1)
         self.create_subscription(String, "/Lunalab/Robots/Reset", self.resetRobot, 1)
         self.create_subscription(String, "/Lunalab/Robots/ResetAll", self.resetRobots, 1)
 
-        self.robot_usd_path = "/home/antoine/Documents/Lunalab/Robots/Loe_revor.usd"
-        self.domain_id = 42
+        self.domain_id = 0
 
         self.modifications = []
 
@@ -382,9 +383,13 @@ class ROS_RobotManager(Node):
         Spawns a robot.
         
         Args:
-            data (String): Name of the robot to spawn."""
-        
-        self.modifications.append([self.RM.addRobot, [self.robot_usd_path, data.data, self.domain_id]])
+            data (String): Name and path of the robot to spawn.
+                           Must be in the format: robot_name:usd_path"""
+
+        assert len(data.data.split(":")) == 2, "The data should be in the format: robot_name:usd_path"
+        robot_name = data.data.split(":")[0]
+        usd_path = data.data.split(":")[1]
+        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, self.domain_id]])
 
     def teleportRobot(self, data:PoseStamped) -> None:
         """
@@ -435,6 +440,8 @@ class SimulationManager:
     def __init__(self) -> None:
         self.timeline = omni.timeline.get_timeline_interface()
         self.world = World(stage_units_in_meters=1.0)
+        self.physics_ctx = self.world.get_physics_context()
+        self.physics_ctx.set_solver_type("PGS")
         # Lab manager thread
         self.ROSLabManager = ROS_LabManager()
         exec1 = Executor()
