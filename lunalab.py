@@ -52,7 +52,7 @@ FLARE = {"Scale":0.43,
          "FocalLength":1.0}
 
 terrain_settings = {"crater_spline_profiles": "crater_spline_profiles.pkl",
-                    "dems_path": "Terrains",
+                    "dems_path": "Terrains/Lunalab",
                     "sim_length": 10.0,
                     "sim_width": 6.5,
                     "resolution": 0.01,
@@ -112,8 +112,6 @@ class LabController:
         self.createRockInstancer()
         # Loads the DEM and the mask
         self.switchTerrain(0)
-        # Setups the auto labeling
-        self.autoLabel()
     
     def createRockInstancer(self) -> None:
         """
@@ -189,12 +187,23 @@ class LabController:
         Sets the value of an attribute for a list of prims.
         
         Args:
-            prims (list): A list of prims.
+            prims (List[Usd.Prim]): A list of prims.
             attr (str): The name of the attribute.
             val (Union[float,int]): The value to be set."""
         
         for prim in prims:
             prim.GetAttribute(attr).Set(val)
+
+    def setAttribute(self, prim, attr, val):
+        """
+        Sets the value of an attribute for a prim.
+        
+        Args:
+            prim (Usd.Prim): The prim.
+            attr (str): The name of the attribute.
+            val (Union[float,int]): The value to be set."""
+
+        prim.GetAttribute(attr).Set(val)
     
     def loadDEM(self) -> None:
         """
@@ -202,17 +211,6 @@ class LabController:
 
         self.dem = self.T.getDEM()
         self.mask = self.T.getMask()
-
-    def autoLabel(self) -> None:
-        """
-        Automatically labels the rocks."""
-
-        #for prim in Usd.PrimRange(self.stage.GetPrimAtPath("/Lunalab/Rocks/instancer/cache")):
-            #if str(prim.GetPath()).split("/")[-1].split("_")[0] == "instance":
-            #    prim_sd = PrimSemanticData(prim)
-            #    prim_sd.add_entry("class", "rock")
-        pass
-
 
     def collectInteractiveAssets(self) -> None:
         """
