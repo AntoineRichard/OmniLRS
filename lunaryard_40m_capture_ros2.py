@@ -8,15 +8,28 @@ import os
 # Isaac sim SDK imports
 from omni.isaac.kit import SimulationApp
 # Start the simulation
-simulation_app = SimulationApp({"headless": False})
+renderer = "PathTracing"
+renderer = "RayTracedLighting"
+CONFIG = {
+    "samples_per_pixel_per_frame":32, 
+    "max_bounces": 4, 
+    "max_specular_transmission_bounces":6, 
+    "max_volume_bounces": 4, 
+    "subdiv_refinement_level": 0, 
+    "renderer": renderer,
+    "headless":True,
+}
+
+simulation_app = SimulationApp(CONFIG)
 # Once the sim is started load isaac libs (including ROS)
 import omni
 from omni.isaac.core.utils.extensions import enable_extension
 from omni.isaac.core import World
 from pxr import Gf
 # Custom libs
-from lunaryard import LabController
+from lunaryard_capture import LabController
 from robot import RobotManager
+from auto_label import AutonomousLabeling
 
 # Enables ROS2
 enable_extension("omni.isaac.ros2_bridge")
@@ -29,13 +42,44 @@ from geometry_msgs.msg import Pose, PoseStamped
 from rclpy.node import Node
 import rclpy
 
+LAB_X_MIN = 0.5
+LAB_X_MAX = 39.5
+LAB_Y_MIN = 0.5
+LAB_Y_MAX = 39.5
+MPP = 0.04
+
+terrain_settings = {"crater_spline_profiles": "crater_spline_profiles.pkl",
+                    "dems_path": "Terrains/Lunaryard",
+                    "sim_length": LAB_Y_MAX - LAB_Y_MIN + 1,
+                    "sim_width": LAB_X_MAX - LAB_X_MIN + 1,
+                    "lab_x_min": LAB_X_MIN,
+                    "lab_x_max": LAB_X_MAX,
+                    "lab_y_min": LAB_Y_MIN,
+                    "lab_y_max": LAB_Y_MAX,
+                    "resolution": MPP,
+                    "mesh_pos": (0.0, 0.0, 0.0),
+                    "mesh_rot": (0.0, 0.0, 0.0, 1.0),
+                    "mesh_scale": (1.0, 1.0, 1.0),
+                    "max_elevation": 1.0,
+                    "min_elevation": -1.0,
+                    "z_scale": 1,
+                    "pad":500,
+                    "num_repeat":0,
+                    "densities": [0.025, 0.05, 0.5],
+                    "radius": [(1.5,2.5), (0.75,1.5), (0.25,0.5)],
+                    "root_path": "/Lunaryard",
+                    "texture_path": "/Lunaryard/Looks/Basalt",
+                    "seed": 42,
+                    "is_yard": True,
+                    "is_lab": False}
+
 class ROS_LabManager(Node):
     """
     ROS2 node that manages the lab environment"""
 
     def __init__(self) -> None:
         super().__init__("Lab_controller_node")
-        self.LC = LabController()
+        self.LC = LabController(terrain_settings=terrain_settings)
         self.LC.load()
         self.trigger_reset = False
 
@@ -107,61 +151,6 @@ class ROS_LabManager(Node):
         position = [data.position.x, data.position.y, data.position.z]
         quaternion = [data.orientation.x, data.orientation.y, data.orientation.z, data.orientation.w]
         self.modifications.append([self.LC.setSunPose, (position, quaternion)])
-
-    def setCeilingOn(self, data:Bool) -> None:
-        """
-        Turns the ceiling lights on or off.
-        
-        Args:
-            data (Bool): True to turn the lights on, False to turn them off."""
-        
-        self.modifications.append([self.LC.turnRoomLightsOnOff, data.data])
-
-    def setCeilingIntensity(self, data:Float32) -> None:
-        """
-        Sets the ceiling lights intensity.
-        
-        Args:
-            data (Float32): Intensity in percentage."""
-        
-        self.modifications.append([self.LC.setRoomLightsIntensity, data.data])
-
-    def setCeilingRadius(self, data:Float32) -> None:
-        """
-        Sets the ceiling lights radius.
-        
-        Args:
-            data (Float32): Radius in meters."""
-        
-        self.modifications.append([self.LC.setRoomLightsRadius, data.data])
-
-    def setCeilingFOV(self, data:Float32) -> None:
-        """
-        Sets the ceiling lights field of view.
-        
-        Args:
-            data (Float32): Field of view in degrees."""
-        
-        self.modifications.append([self.LC.setRoomLightsFOV, data.data])
-
-    def setCeilingColor(self, data:ColorRGBA) -> None:
-        """
-        Sets the ceiling lights color.
-        
-        Args:
-            data (ColorRGBA): Color in RGBA format."""
-        
-        color = [data.r, data.g, data.b]
-        self.modifications.append([self.LC.setRoomLightsColor, color])
-
-    def setCurtainsMode(self, data:Bool) -> None:
-        """
-        Sets the curtains mode.
-        
-        Args:
-            data (Bool): True to extend the curtains, False to retract them."""
-        
-        self.modifications.append([self.LC.curtainsExtend, data.data])
 
     def switchTerrain(self, data:Int32) -> None:
         """
@@ -409,38 +398,50 @@ class SimulationManager:
         self.physics_ctx = self.world.get_physics_context()
         self.physics_ctx.set_solver_type("PGS")
         # Lab manager thread
+        print("Before ROS")
+        self.world.reset()
         self.ROSLabManager = ROS_LabManager()
         exec1 = Executor()
         exec1.add_node(self.ROSLabManager)
         self.exec1_thread = Thread(target=exec1.spin, daemon=True, args=())
         self.exec1_thread.start()
+        print("After lab is loaded")
         # Robot manager thread
         self.ROSRobotManager = ROS_RobotManager()
         exec2 = Executor()
         exec2.add_node(self.ROSRobotManager)
         self.exec2_thread = Thread(target=exec2.spin, daemon=True, args=())
         self.exec2_thread.start()
-        self.world.reset()
+        print("After robots are loaded")
+        #self.world.step()
+        for i in range(100):
+            self.world.step(render=True)
+        print("After world reset")
+        self.AL = AutonomousLabeling("/Lunaryard/Camera")
+        self.AL.load()
         
     def run_simulation(self) -> None:
         """
         Runs the simulation."""
-
+        
         self.timeline.play()
+        i = 0
         while simulation_app.is_running():
             self.world.step(render=True)
             if self.world.is_playing():
+                try:
+                    self.AL.record()
+                except:
+                    pass
+                self.ROSLabManager.LC.randomizeSun()
+                self.ROSLabManager.LC.randomizeEarth()
                 # Apply modifications to the lab only once the simulation step is finished
-                if self.world.current_time_step_index == 0:
-                    self.world.reset()
-                    self.ROSLabManager.reset()
-                    self.ROSRobotManager.reset()
-                self.ROSLabManager.applyModifications()
-                if self.ROSLabManager.trigger_reset:
-                    self.ROSRobotManager.reset()
-                    self.ROSLabManager.trigger_reset = False
-                self.ROSRobotManager.applyModifications()
-
+                self.ROSLabManager.LC.randomizeCamera()
+                if i%100 == 0:
+                    self.ROSLabManager.LC.randomizeRocks()
+                if i%1000 == 0:
+                    self.ROSLabManager.LC.switchTerrain(-1)
+            i+=1
         self.timeline.stop()
         simulation_app.close()
 

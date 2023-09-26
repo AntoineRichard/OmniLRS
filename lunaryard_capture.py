@@ -1,3 +1,4 @@
+from scipy.spatial.transform import Rotation as SSTR
 from typing import List, Tuple, Union
 import omni.kit.actions.core
 import numpy as np
@@ -10,9 +11,11 @@ from omni.isaac.core.utils.stage import add_reference_to_stage
 
 from pxr import UsdGeom, UsdLux, Gf, Usd
 
-from WorldBuilders.pxr_utils import setTransform, getTransform, createInstancerAndCache, setInstancerParameters
+from WorldBuilders.pxr_utils import setTransform, getTransform, createInstancerAndCache, setInstancerParameters, createInstancerFromCache
+from WorldBuilders.pxr_utils import addDefaultOps, setDefaultOps
 from terrain_manager import TerrainManager
 from WorldBuilders.Mixer import *
+from Instancer import StandaloneInstancer
 
 # ==============================================================================
 #                               LAB GLOBAL VARIABLES
@@ -22,6 +25,7 @@ WORKINGDIR = os.path.dirname(__file__)
 
 # USD path of the lab interactive elements
 PROJECTOR_PATH = "/Lunaryard/Sun"
+EARTH_PATH = "/Lunaryard/Earth"
 
 # Default lab size
 LAB_X_MIN = 0.5
@@ -86,7 +90,7 @@ class LabController:
             
         Args:
             terrain_settings (dict): The settings for the terrain manager."""
-        
+        self.rng = np.random.default_rng(seed=42) 
         self.stage = omni.usd.get_context().get_stage()
         self.terrain_settings = terrain_settings
         self.T = TerrainManager(**terrain_settings)
@@ -94,7 +98,9 @@ class LabController:
         self.active_mask = None
         self.dem = None
         self.mask = None
-        self.mixer = None
+        self.mixer_rocks = None
+        self.mixer_rocks_large = None
+        self.mixer_camera = None
         self.scene_name = "/Lunaryard"
 
     def load(self) -> None:
@@ -109,6 +115,7 @@ class LabController:
         self.collectInteractiveAssets()
         # Generates the instancer for the rocks
         self.createRockInstancer()
+        self.createCamera()
         # Loads the DEM and the mask
         self.switchTerrain(-1)
         # Setups the auto labeling
@@ -127,9 +134,33 @@ class LabController:
         self._rocks_prim = self.stage.DefinePrim(self.scene_name+"/Rocks", "Xform")
         self._rock_instancer = createInstancerAndCache(self.stage, self.scene_name+"/Rocks/instancer", assets)
         self._rocks_instancer_prim = self.stage.GetPrimAtPath(self.scene_name+"/Rocks/instancer")
+        self._rocks_prim2 = self.stage.DefinePrim(self.scene_name+"/Rocks", "Xform")
+        self._rock_instancer2 = StandaloneInstancer(self.scene_name+"/Rocks/instancer2", assets, seed=42)
+        #createInstancerAndCache(self.stage, self.scene_name+"/Rocks/instancer2", assets)
+        self._rocks_instancer_prim2 = self.stage.GetPrimAtPath(self.scene_name+"/Rocks/instancer2")
         #self._rocks_prim.GetAttribute("visibility").Set("invisible")
 
-    def createSampler(self) -> None:
+    def createCamera(self):
+        self._camera_path = self.scene_name+"/Camera/camera_annotations"
+        self._camera_prim = self.stage.DefinePrim(self.scene_name+"/Camera","Xform")
+        self._camera = UsdGeom.Camera.Define(self.stage, self._camera_path)
+        self._camera.CreateFocalLengthAttr().Set(1.93)
+        self._camera.CreateFocusDistanceAttr().Set(10.0)
+        self._camera.CreateHorizontalApertureAttr().Set(2.4)
+        self._camera.CreateVerticalApertureAttr().Set(1.8)
+        self._camera.CreateFocalLengthAttr().Set(1.93)
+        self._camera.CreateFStopAttr().Set(0.00)
+        self._camera.CreateFocusDistanceAttr().Set(10.0)
+        self._camera.CreateHorizontalApertureAttr().Set(2.4)
+        self._camera.CreateVerticalApertureAttr().Set(1.8)
+        self._camera.CreateClippingRangeAttr().Set(Gf.Vec2f(0.01,1000000.0))
+
+        addDefaultOps(UsdGeom.Xformable(self._camera_prim))
+        addDefaultOps(UsdGeom.Xformable(self._camera.GetPrim()))
+        setDefaultOps(UsdGeom.Xformable(self._camera.GetPrim()), (0.0,0.0,-0.2),(-0.5,-0.5,0.5,0.5),(1.0,1.0,1.0))
+        setDefaultOps(UsdGeom.Xformable(self._camera_prim), (0.0,0.0,0.0),(1,0,0,0),(1.0,1.0,1.0))
+
+    def createRockSampler(self) -> None:
         """
         Creates the sampler for the rocks."""
 
@@ -145,10 +176,7 @@ class LabController:
         # Generates the requests to be sent to the procedural rock placement.
         # Positiion based on the mask
         xy_mask = Image_T(data=self.mask, mpp_resolution=self.terrain_settings["resolution"], output_space=2)
-        xy_sampler = HardCoreUniformSampler_T(min=(self.terrain_settings["lab_x_min"], self.terrain_settings["lab_y_min"]),
-                                              max=(self.terrain_settings["lab_x_max"], self.terrain_settings["lab_y_max"]),
-                                              randomization_space=2, seed=42, core_radius=ROCK_FOOT_PRINT, num_repeat=2)
-        xy_sampler = ThomasClusterSampler_T(lambda_parent=1, lambda_daughter=100, sigma=0.2,
+        xy_sampler = ThomasClusterSampler_T(lambda_parent=0.1, lambda_daughter=200, sigma=0.2,
                                                  randomization_space=2, seed=42)
         req_pos_xy = UserRequest_T(p_type = Position_T(), sampler=xy_sampler, layer=xy_mask, axes=["x","y"])
         # Random yaw
@@ -161,11 +189,117 @@ class LabController:
         req_pos_z = UserRequest_T(p_type = Position_T(), sampler=image_clipper, layer=image_layer, axes=["z"])
         # Scale range and distribution
         uni = UniformSampler_T(randomization_space=1)
-        line = Line_T(xmin=0.1, xmax=0.4)
+        line = Line_T(xmin=0.1, xmax=1.0)
         req_scale = UserRequest_T(p_type = Scale_T(), sampler=uni, layer=line, axes=["xyz"])
         # Builds an executation graph to apply the requests.
         requests = [req_pos_xy, req_pos_z, req_ori, req_scale]
-        self.mixer = RequestMixer(requests)
+        self.mixer_rocks = RequestMixer(requests)
+
+    def createLargeRockSampler(self) -> None:
+        """
+        Creates the sampler for the rocks."""
+
+        H,W = self.dem.shape
+        # Erodes the spawning masks such that the rocks do not spawn on forbidden regions.
+        kernel_radius = 4
+        kernel = np.zeros((9, 9), np.uint8)                                                                                      
+        kernel = cv2.circle(kernel,(4,4),kernel_radius,1,-1)
+        num_iterations = int((ROCK_FOOT_PRINT / 0.01) / kernel_radius)
+        if num_iterations:
+            self.mask = cv2.erode(self.mask, kernel, iterations=num_iterations)
+
+        # Generates the requests to be sent to the procedural rock placement.
+        # Positiion based on the mask
+        xy_mask = Image_T(data=self.mask, mpp_resolution=self.terrain_settings["resolution"], output_space=2)
+        xy_sampler = ThomasClusterSampler_T(lambda_parent=0.25, lambda_daughter=5, sigma=0.05,
+                                            randomization_space=2, seed=42, inherit_parents=True)
+        req_pos_xy = UserRequest_T(p_type = Position_T(), sampler=xy_sampler, layer=xy_mask, axes=["x","y"])
+        # Random yaw
+        rpy_layer = RollPitchYaw_T(rmax=0, rmin=0, pmax=0, pmin=0, ymax=np.pi*2, ymin=0)
+        rpy_sampler = UniformSampler_T(randomization_space=3, seed=42)
+        req_ori = UserRequest_T(p_type = Orientation_T(), sampler=rpy_sampler, layer=rpy_layer, axes=["x", "y", "z", "w"])
+        # DEM clipper
+        image_layer = Image_T(output_space=1)
+        image_clipper = ImageClipper_T(randomization_space=1, resolution=(H, W), mpp_resolution=self.terrain_settings["resolution"], data=self.dem)
+        req_pos_z = UserRequest_T(p_type = Position_T(), sampler=image_clipper, layer=image_layer, axes=["z"])
+        # Scale range and distribution
+        uni = UniformSampler_T(randomization_space=1)
+        line = Line_T(xmin=2.0, xmax=5.0)
+        req_scale = UserRequest_T(p_type = Scale_T(), sampler=uni, layer=line, axes=["xyz"])
+        # Builds an executation graph to apply the requests.
+        requests = [req_pos_xy, req_pos_z, req_ori, req_scale]
+        self.mixer_rocks_large = RequestMixer(requests)
+    
+    def createSmallRockSampler(self) -> None:
+        """
+        Creates the sampler for the rocks."""
+
+        H,W = self.dem.shape
+        # Erodes the spawning masks such that the rocks do not spawn on forbidden regions.
+        kernel_radius = 4
+        kernel = np.zeros((9, 9), np.uint8)                                                                                      
+        kernel = cv2.circle(kernel,(4,4),kernel_radius,1,-1)
+        num_iterations = int((ROCK_FOOT_PRINT / 0.01) / kernel_radius)
+        if num_iterations:
+            self.mask = cv2.erode(self.mask, kernel, iterations=num_iterations)
+
+        # Generates the requests to be sent to the procedural rock placement.
+        # Positiion based on the mask
+        xy_mask = Image_T(data=self.mask, mpp_resolution=self.terrain_settings["resolution"], output_space=2)
+        xy_sampler = ThomasClusterSampler_T(lambda_parent=0.25, lambda_daughter=500, sigma=0.3,
+                                            randomization_space=2, seed=42, inherit_parents=True)
+        req_pos_xy = UserRequest_T(p_type = Position_T(), sampler=xy_sampler, layer=xy_mask, axes=["x","y"])
+        # Random yaw
+        rpy_layer = RollPitchYaw_T(rmax=0, rmin=0, pmax=0, pmin=0, ymax=np.pi*2, ymin=0)
+        rpy_sampler = UniformSampler_T(randomization_space=3, seed=42)
+        req_ori = UserRequest_T(p_type = Orientation_T(), sampler=rpy_sampler, layer=rpy_layer, axes=["x", "y", "z", "w"])
+        # DEM clipper
+        image_layer = Image_T(output_space=1)
+        image_clipper = ImageClipper_T(randomization_space=1, resolution=(H, W), mpp_resolution=self.terrain_settings["resolution"], data=self.dem)
+        req_pos_z = UserRequest_T(p_type = Position_T(), sampler=image_clipper, layer=image_layer, axes=["z"])
+        # Scale range and distribution
+        uni = UniformSampler_T(randomization_space=1)
+        line = Line_T(xmin=0.01, xmax=0.05)
+        req_scale = UserRequest_T(p_type = Scale_T(), sampler=uni, layer=line, axes=["xyz"])
+        # Builds an executation graph to apply the requests.
+        requests = [req_pos_xy, req_pos_z, req_ori, req_scale]
+        self.mixer_rocks_small = RequestMixer(requests)
+
+    def createCameraSampler(self) -> None:
+        """
+        Creates the sampler for a camera."""
+
+        H,W = self.dem.shape
+        # Erodes the spawning masks such that the rocks do not spawn on forbidden regions.
+        kernel_radius = 4
+        kernel = np.zeros((9, 9), np.uint8)                                                                                      
+        kernel = cv2.circle(kernel,(4,4),kernel_radius,1,-1)
+        num_iterations = int((ROCK_FOOT_PRINT / 0.01) / kernel_radius)
+        if num_iterations:
+            self.mask = cv2.erode(self.mask, kernel, iterations=num_iterations)
+
+        # Generates the requests to be sent to the procedural rock placement.
+        # Positiion based on the mask
+        xy_mask = Image_T(data=self.mask, mpp_resolution=self.terrain_settings["resolution"], output_space=2)
+        xy_sampler = UniformSampler_T(min=(self.terrain_settings["lab_x_min"], self.terrain_settings["lab_y_min"]),
+                                      max=(self.terrain_settings["lab_x_max"], self.terrain_settings["lab_y_max"]),
+                                      randomization_space=2, seed=42)
+        req_pos_xy = UserRequest_T(p_type = Position_T(), sampler=xy_sampler, layer=xy_mask, axes=["x","y"])
+        # Random yaw
+        rpy_layer = RollPitchYaw_T(rmax=0, rmin=0, pmax=0, pmin=0, ymax=np.pi*2, ymin=0)
+        rpy_sampler = UniformSampler_T(randomization_space=3, seed=42)
+        req_ori = UserRequest_T(p_type = Orientation_T(), sampler=rpy_sampler, layer=rpy_layer, axes=["x", "y", "z", "w"])
+        # DEM clipper
+        image_layer = Image_T(output_space=1)
+        image_clipper = ImageClipper_T(randomization_space=1, resolution=(H, W), mpp_resolution=self.terrain_settings["resolution"], data=self.dem)
+        req_pos_z = UserRequest_T(p_type = Position_T(), sampler=image_clipper, layer=image_layer, axes=["z"])
+        # Scale range and distribution
+        #uni = UniformSampler_T(randomization_space=1)
+        #line = Line_T(xmin=1.0, xmax=1.0)
+        #req_scale = UserRequest_T(p_type = Scale_T(), sampler=uni, layer=line, axes=["xyz"])
+        # Builds an executation graph to apply the requests.
+        requests = [req_pos_xy, req_pos_z, req_ori]#, req_scale]
+        self.mixer_camera = RequestMixer(requests)
 
     def getLuxAssets(self, prim: "Usd.Prim") -> None:
         """
@@ -179,11 +313,7 @@ class LabController:
 
         lights = []
         for prim in Usd.PrimRange(prim):
-            if prim.IsA(UsdLux.SphereLight):
-                lights.append(prim)
-            if prim.IsA(UsdLux.CylinderLight):   	
-                lights.append(prim)
-            if prim.IsA(UsdLux.DiskLight):   	
+            if prim.IsA(UsdLux.DistantLight):
                 lights.append(prim)
         return lights
     
@@ -220,25 +350,30 @@ class LabController:
     def collectInteractiveAssets(self) -> None:
         """
         Collects the interactive assets from the stage and assigns them to class variables."""
+        self._earth_prim = self.stage.GetPrimAtPath(EARTH_PATH)
+        self._earth_xform = UsdGeom.Xformable(self._earth_prim)
 
         # Projector
         self._projector_prim = self.stage.GetPrimAtPath(PROJECTOR_PATH)
-        self._projector_xform = UsdGeom.Xformable(self._projector_prim)
-        self._projector_lux = self.getLuxAssets(self._projector_prim)
+        self._projector_lux = self.getLuxAssets(self._projector_prim)[0]
+        self._projector_xform = UsdGeom.Xformable(self._projector_lux)
+        print(self._projector_lux)
+        print(self._projector_xform)
+        setDefaultOps(self._projector_xform, [0,0,0],[0,0,0,1],[1,1,1])
         #self._projector_flare = self.stage.GetPrimAtPath(PROJECTOR_SHADER_PATH)
 
 # ==============================================================================
 # Sun control
 # ==============================================================================
-    def setSunPose(self, pose:Tuple[List[float],List[float]]) -> None:
+    def setSunPose(self, attitude) -> None:
         """
         Sets the pose of the sun.
         
         Args:
             pose (Tuple[List[float],List[float]]): The pose of the projector. The first element is the position, the second is the quaternion."""
         
-        position = pose[0]
-        quat = pose[1]
+        position = attitude[0]
+        quat = attitude[1]
         rotation = Gf.Rotation(Gf.Vec3d(quat[0],quat[1],quat[2]), quat[3])
         position = Gf.Vec3d(position[0], position[1], position[2])
         transform = getTransform(rotation,position)
@@ -261,7 +396,31 @@ class LabController:
             color (List[float]): The color of the projector (RGB)."""
         
         color = Gf.Vec3d(color[0], color[1], color[2])
-        self.setAttributeBatch(self._projector_lux, "color", color) 
+        self.setAttributeBatch(self._projector_lux, "color", color)
+
+    def randomizeSun(self):
+        theta = self.rng.uniform(0,360)
+        phi = self.rng.uniform(20,90)
+
+        R = SSTR.from_euler('xyz',(phi,0,theta),degrees=True)
+        quat = R.as_quat()
+        setDefaultOps(self._projector_xform, [0,0,0],quat,[1,1,1])
+
+    def randomizeEarth(self):
+        r = 34800
+        theta = self.rng.uniform(0,360)
+        phi = self.rng.uniform(15,55)
+        x = np.cos(theta)*r
+        y = np.sin(theta)*r
+        z = np.cos(phi)*r
+
+        theta = self.rng.uniform(0.360)
+
+        R = SSTR.from_euler('xyz',(0,0,theta),degrees=True)
+        quat = R.as_quat()
+
+        setDefaultOps(self._earth_xform, [x,y,z],quat,[1,1,1])
+
 
 # ==============================================================================
 # Terrain control
@@ -278,8 +437,13 @@ class LabController:
         else:
             self.T.loadTerrainId(flag)
         self.loadDEM()
-        self.createSampler()
+        self.createRockSampler()
+        self.createLargeRockSampler()
+        self.createSmallRockSampler()
+        self.createCameraSampler()
+        self.randomizeCamera()
         self.randomizeRocks(500)
+        print("OK")
 
     def enableRocks(self, flag: bool) -> None:
         """
@@ -303,14 +467,44 @@ class LabController:
         num = int(num)
         if num == 0:
             num += 1
-        attributes = self.mixer.executeGraph(num)
-        position = attributes["xformOp:translation"]
-        scale = attributes["xformOp:scale"]
-        orientation = attributes["xformOp:orientation"]
+        attributes = self.mixer_rocks.executeGraph(num)
+        parents = self.mixer_rocks.getParents()
+        print(len(parents))
+        attributes_large = self.mixer_rocks_large.executeGraph(parents=parents)
+        attributes_small = self.mixer_rocks_small.executeGraph(parents=parents)
+        position_large = attributes_large["xformOp:translation"]
+        scale_large = attributes_large["xformOp:scale"]
+        orientation_large = attributes_large["xformOp:orientation"]
+        position_small = attributes_small["xformOp:translation"]
+        scale_small = attributes_small["xformOp:scale"]
+        orientation_small = attributes_small["xformOp:orientation"]
+        position = np.concatenate([attributes["xformOp:translation"],position_small],axis=0)
+        scale = np.concatenate([attributes["xformOp:scale"],scale_small],axis=0)
+        orientation = np.concatenate([attributes["xformOp:orientation"],orientation_small],axis=0)
         setInstancerParameters(self.stage, self.scene_name+"/Rocks/instancer", pos=position, scale=scale, quat=orientation)
+        try:
+            self._rock_instancer2.destroy()
+        except:
+            pass
+        self._rock_instancer2.setInstanceParameter(position_large, orientation_large, scale_large, "rock")
+        self._rock_instancer2.update()
+        #setInstancerParameters(self.stage, self.scene_name+"/Rocks/instancer2", pos=position_large, scale=scale_large, quat=orientation_large)
 
     def placeRocks(self, file_path) -> None:
         pass
+
+    def randomizeCamera(self):
+        """
+        Randomizes the placement of the Camera."""
+        
+        attributes = self.mixer_camera.executeGraph(1)
+        position = attributes["xformOp:translation"]
+        #scale = attributes["xformOp:scale"]
+        orientation = attributes["xformOp:orientation"]
+        setDefaultOps(UsdGeom.Xformable(self._camera_prim), position[0], (1,0,0,0), (1,1,1))
+        #print(position)
+        #self._camera_prim.GetAttribute("xformOp:translation").Set(Gf.Vec3d(*position[0]))
+
 
 # ==============================================================================
 # Render control

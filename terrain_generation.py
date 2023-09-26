@@ -364,7 +364,7 @@ class BaseTerrainGenerator:
         self._rng = np.random.default_rng(seed)
         self._z_scale = z_scale
 
-    def generateRandomTerrain(self, is_lab=False) -> np.ndarray:
+    def generateRandomTerrain(self, is_lab=False, is_yard=False) -> np.ndarray:
         """
         Generates a random terrain DEM. With some of its borders at 0 height
         to align with the catawalks in the lab.
@@ -376,6 +376,9 @@ class BaseTerrainGenerator:
         if is_lab:
             lr_noise = np.zeros((4,4))
             lr_noise[:-1,1:] = self._rng.uniform(self._min_elevation, self._max_elevation, [3,3])
+        elif is_yard:
+            lr_noise = np.zeros((7,7))
+            lr_noise[1:-1,1:-1] = self._rng.uniform(self._min_elevation, self._max_elevation, [5,5])
         else:
             lr_noise = self._rng.uniform(self._min_elevation, self._max_elevation, [4,4])
         hr_noise = cv2.resize(lr_noise, (self._y_size, self._x_size), interpolation=cv2.INTER_CUBIC)
@@ -385,9 +388,9 @@ class BaseTerrainGenerator:
         hr_noise = cv2.resize(lr_noise, (self._y_size, self._x_size), interpolation=cv2.INTER_CUBIC)
         self._DEM += hr_noise
         # Normalize the DEM between 0 and 1 and scale it to the desired elevation range.
-        self._DEM = (self._DEM - self._DEM.min()) / (self._DEM.max() - self._DEM.min())
+        #self._DEM = (self._DEM - self._DEM.min()) / (self._DEM.max() - self._DEM.min())
         # Scale the DEM to the desired elevation range.
-        self._DEM = self._DEM * (self._max_elevation - self._min_elevation) - self._min_elevation
+        #self._DEM = self._DEM * (self._max_elevation - self._min_elevation) + self._min_elevation
         return self._DEM * self._z_scale
 
 class GenerateProceduralMoonYard:
@@ -406,6 +409,7 @@ class GenerateProceduralMoonYard:
                        densities:List[float] = [0.025,0.05,0.5],
                        radius:List[Tuple[float,float]] = [(1.5,2.5),(0.75,1.5),(0.25,0.5)],
                        is_lab:bool = False,
+                       is_yard:bool = False,
                        seed:int = 42):
         """
         Args:
@@ -427,6 +431,7 @@ class GenerateProceduralMoonYard:
         self.D = Distribute(x_size=x_size, y_size=y_size, densities=densities, radius=radius, num_repeat=num_repeat, seed=seed)
         self.G = CraterGenerator(crater_profiles_path, resolution=resolution, pad_size=pad, seed=seed)
         self.is_lab = is_lab
+        self.is_yard = is_yard
 
     def randomize(self) -> np.ndarray:
         """
@@ -435,7 +440,7 @@ class GenerateProceduralMoonYard:
         Returns:
             np.ndarray: random terrain DEM with craters"""
 
-        DEM = self.T.generateRandomTerrain(is_lab=self.is_lab)
+        DEM = self.T.generateRandomTerrain(is_lab=self.is_lab, is_yard=self.is_yard)
         coords, radius = self.D.run()
         DEM, mask = self.G.generateCraters(DEM, coords, radius)
         return DEM, mask

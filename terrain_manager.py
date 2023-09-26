@@ -1,5 +1,6 @@
 from typing import List, Tuple
 import numpy as np
+import warnings
 import os
 
 from semantics.schema.editor import PrimSemanticData
@@ -33,7 +34,10 @@ class TerrainManager:
                        radius: List[Tuple[float,float]] = [(1.5,2.5),(0.75,1.5),(0.25,0.5)],
                        root_path="/root",
                        texture_path="/root/Looks/texture",
-                       seed: int = 42) -> None:
+                       seed: int = 42,
+                       is_lab = False,
+                       is_yard = False,
+                       **kwargs) -> None:
         """
         Args:
             crater_spline_profiles (str): path to the crater spline profiles.
@@ -68,7 +72,9 @@ class TerrainManager:
                                              num_repeat=num_repeat,
                                              densities=densities,
                                              radius=radius,
-                                             seed=seed)
+                                             seed=seed,
+                                             is_lab=is_lab,
+                                             is_yard=is_yard)
 
         self._stage = omni.usd.get_context().get_stage()
         self._texture_path = texture_path
@@ -121,8 +127,7 @@ class TerrainManager:
         Raises:
             AssertionError: if dems_path is not a directory.
             AssertionError: if dems_path contains files other than folders.
-            AssertionError: if a folder does not contain DEM.npy.
-            AssertionError: if a folder does not contain mask.npy."""
+            AssertionError: if a folder does not contain DEM.npy."""
 
         assert os.path.isdir(self._dems_path), "dems_path must be a directory."
 
@@ -131,7 +136,9 @@ class TerrainManager:
             dem_path = os.path.join(self._dems_path, folder, "dem.npy")
             mask_path = os.path.join(self._dems_path, folder, "mask.npy")
             assert os.path.isfile(dem_path), "dem.npy not found in folder."
-            assert os.path.isfile(mask_path), "mask.npy not found in folder."
+            if not os.path.isfile(mask_path):
+                warnings.warn("Mask not found.")
+                mask_path = None
             self._dems[folder] = [dem_path, mask_path]
 
     def loadDEMAndMask(self, name:str) -> None:
@@ -143,18 +150,17 @@ class TerrainManager:
 
         Raises:
             AssertionError: if the name is not found in the dictionary.
-            AssertionError: if the DEM.npy is not found in the folder.
-            AssertionError: if the mask.npy is not found in the folder.
-        """
+            AssertionError: if the DEM.npy is not found in the folder."""
 
         assert name in self._dems, "name not found in dictionary."
         dem_path = self._dems[name][0]
         mask_path = self._dems[name][1]
         assert os.path.isfile(dem_path), "DEM.npy not found in folder."
-        assert os.path.isfile(mask_path), "mask.npy not found in folder."
         DEM = np.load(dem_path)
-        mask = np.load(mask_path)
-
+        if mask_path is None:
+            mask = np.ones_like(DEM, dtype=bool)
+        else:
+            mask = np.load(mask_path)
     
         self._DEM = np.zeros((self._sim_length, self._sim_width), dtype=np.float32)
         self._mask = np.zeros((self._sim_length, self._sim_width), dtype=np.float32)
@@ -196,24 +202,24 @@ class TerrainManager:
                 vertices.append(pos)
                 if x > 0 and y > 0: # Two triangles per pixel.
                     # First triangle.
-                    self._indices.append(self.gridIndex(x-1, y-1, self._sim_width))
-                    self._indices.append(self.gridIndex(x, y, self._sim_width))
                     self._indices.append(self.gridIndex(x, y-1, self._sim_width))
-                    # Second triangle.
-                    self._indices.append(self.gridIndex(x-1, y-1, self._sim_width))
-                    self._indices.append(self.gridIndex(x-1, y, self._sim_width))
                     self._indices.append(self.gridIndex(x, y, self._sim_width))
+                    self._indices.append(self.gridIndex(x-1, y-1, self._sim_width))
+                    # Second triangle.
+                    self._indices.append(self.gridIndex(x, y, self._sim_width))
+                    self._indices.append(self.gridIndex(x-1, y, self._sim_width))
+                    self._indices.append(self.gridIndex(x-1, y-1, self._sim_width))
                 
                 # Generates UVs coordinates for the terrain mesh.
                 if x > 0 and y > 0: # Two triangles per pixel.
                     # First triangle.
-                    uvs.append((x-1, y-1))
-                    uvs.append((x, y))
                     uvs.append((x, y-1))
-                    # Second triangle.
-                    uvs.append((x-1, y-1))
-                    uvs.append((x-1, y))
                     uvs.append((x, y))
+                    uvs.append((x-1, y-1))
+                    # Second triangle.
+                    uvs.append((x, y))
+                    uvs.append((x-1, y))
+                    uvs.append((x-1, y-1))
 
         self._sim_grid = np.zeros(self._sim_width * self._sim_length, dtype=np.float32)
         self._sim_verts = np.array(vertices, dtype=np.float32)
