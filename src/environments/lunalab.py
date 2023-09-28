@@ -16,7 +16,7 @@ from pxr import UsdGeom, Sdf, UsdLux, Gf, UsdShade, Usd
 from semantics.schema.editor import PrimSemanticData
 
 from WorldBuilders.pxr_utils import setTransform, getTransform, createInstancerAndCache, setInstancerParameters
-from terrain_manager import TerrainManager
+from src.terrain_management.terrain_manager import TerrainManager
 from WorldBuilders.Mixer import *
 
 # ==============================================================================
