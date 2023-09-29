@@ -4,6 +4,5 @@ from WorldBuilders.Types import Sampler_T, Layer_T
 
 @dataclasses.dataclass
 class RockGenerationConf:
-    collection: list = dataclasses.field(default_factory=list)
-    sampler: Sampler_T = Sampler_T()
-    layer: Layer_T = Layer_T()
+    instancers_path: str = dataclasses.field(default_factory=str)
+    rocks_settings: dict = dataclasses.field(default_factory=dict)
