@@ -1,3 +1,11 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 from scipy.interpolate import CubicSpline
 from matplotlib import pyplot as plt
 from scipy.ndimage import rotate
@@ -7,18 +15,14 @@ import datetime
 import pickle
 import cv2
 
+from src.configurations.procedural_terrain_confs import CraterGeneratorConf, CraterDistributionConf, BaseTerrainGeneratorConf, MoonYardConf
+
 class CraterGenerator:
     """
     Generates craters DEM from a set of spline profiles and randomizes their 2D appearance"""
 
-    def __init__(self, profiles_path,
-                       seed:int = 42,
-                       min_xy_ratio:float = 0.85,
-                       max_xy_ratio:float = 1,
-                       resolution:float = 0.01,
-                       pad_size:int = 500,
-                       random_rotation:bool = True,
-                       z_scale:float = 1) -> None:
+    def __init__(self, cfg: CraterGeneratorConf,
+                       ) -> None:
         """
         Args:
             profiles_path (str): path to the pickle file containing the spline profiles.
@@ -30,15 +34,15 @@ class CraterGenerator:
             random_rotation (bool, optional): whether to randomly rotate the craters. Defaults to True.
             z_scale (float, optional): scale of the craters. Defaults to 1."""
 
-        self._profiles_path = profiles_path
-        self._resolution = resolution
-        self._min_xy_ratio = min_xy_ratio
-        self._max_xy_ratio = max_xy_ratio
-        self._z_scale = z_scale
-        self._random_rotation = random_rotation
-        self._pad_size = pad_size
+        self._profiles_path = cfg.profiles_path
+        self._resolution = cfg.resolution
+        self._min_xy_ratio = cfg.min_xy_ratio
+        self._max_xy_ratio = cfg.max_xy_ratio
+        self._z_scale = cfg.z_scale
+        self._random_rotation = cfg.random_rotation
+        self._pad_size = cfg.pad_size
         self._profiles = None
-        self._rng = np.random.default_rng(seed)
+        self._rng = np.random.default_rng(cfg.seed)
 
         self.loadProfiles()
 
@@ -212,12 +216,8 @@ class Distribute:
     """
     Distributes craters on a DEM using a Poisson process with hardcore rejection."""
 
-    def __init__(self, x_size:float = 10,
-                       y_size:float = 10,
-                       densities:List[float] = [0.25,1.5,5],
-                       radius:List[Tuple[float]] = [(1.5,2.5),(0.75,1.5),(0.25,0.5)],
-                       num_repeat:int = 0,
-                       seed:int = 42) -> None:
+    def __init__(self, cfg: CraterDistributionConf,
+                       ) -> None:
         """
         Args:
             x_size (float, optional): size of the DEM in the x direction (in meters). Defaults to 10.
@@ -227,13 +227,13 @@ class Distribute:
             num_repeat (int, optional): number of times to repeat the hardcore rejection. Defaults to 0.
             seed (int, optional): random seed. Defaults to 42."""
         
-        self._x_max = x_size
-        self._y_max = y_size
-        self._densities = densities
-        self._radius = radius
+        self._x_max = cfg.x_size
+        self._y_max = cfg.y_size
+        self._densities = cfg.densities
+        self._radius = cfg.radius
         self._area = self._x_max*self._y_max
-        self._num_repeat = num_repeat
-        self._rng = np.random.default_rng(seed)
+        self._num_repeat = cfg.num_repeat
+        self._rng = np.random.default_rng(cfg.seed)
 
     def sampleFromPoisson(self, l:float, r_minmax:Tuple[float]) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -339,13 +339,8 @@ class BaseTerrainGenerator:
     """
     Generates a random terrain DEM."""
 
-    def __init__(self, x_size:float = 10,
-                       y_size:float = 10,
-                       resolution:float = 0.01,
-                       max_elevation:float = 0.5,
-                       min_elevation:float = -0.25,
-                       seed:int = 42,
-                       z_scale:float = 50):
+    def __init__(self, cfg: BaseTerrainGeneratorConf,
+                       ) -> None:
         """
         Args:
             x_size (float, optional): size of the DEM in the x direction (in meters). Defaults to 10.
@@ -356,13 +351,13 @@ class BaseTerrainGenerator:
             seed (int, optional): random seed. Defaults to 42.
             z_scale (float, optional): scale of the DEM. Defaults to 50."""
 
-        self._min_elevation = min_elevation
-        self._max_elevation = max_elevation
-        self._x_size = int(x_size / resolution)
-        self._y_size = int(y_size / resolution)
+        self._min_elevation = cfg.min_elevation
+        self._max_elevation = cfg.max_elevation
+        self._x_size = int(cfg.x_size / cfg.resolution)
+        self._y_size = int(cfg.y_size / cfg.resolution)
         self._DEM = np.zeros((self._x_size, self._y_size),dtype=np.float32)
-        self._rng = np.random.default_rng(seed)
-        self._z_scale = z_scale
+        self._rng = np.random.default_rng(cfg.seed)
+        self._z_scale = cfg.z_scale
 
     def generateRandomTerrain(self, is_lab: bool =False, is_yard: bool = False) -> np.ndarray:
         """
@@ -401,20 +396,8 @@ class GenerateProceduralMoonYard:
     """
     Generates a random terrain DEM with craters."""
 
-    def __init__(self, crater_profiles_path,
-                       x_size:float = 10,
-                       y_size:float = 6.5,
-                       resolution:float = 0.01,
-                       max_elevation:float = 0.25,
-                       min_elevation:float = -0.025,
-                       z_scale:float = 1,
-                       pad:int = 500,
-                       num_repeat:float = 0,
-                       densities:List[float] = [0.025,0.05,0.5],
-                       radius:List[Tuple[float,float]] = [(1.5,2.5),(0.75,1.5),(0.25,0.5)],
-                       is_lab:bool = False,
-                       is_yard:bool = False,
-                       seed:int = 42):
+    def __init__(self, moon_yard: MoonYardConf,
+                       ) -> None:
         """
         Args:
             crater_profiles_path (str): path to the pickle file containing the spline profiles.
@@ -432,11 +415,11 @@ class GenerateProceduralMoonYard:
             is_yard (bool, optional): whether the DEM is in a yard or not. Defaults to False.
             seed (int, optional): random seed. Defaults to 42."""
 
-        self.T = BaseTerrainGenerator(x_size=x_size, y_size=y_size, resolution=resolution, max_elevation=max_elevation, min_elevation=min_elevation, z_scale=z_scale, seed=seed)
-        self.D = Distribute(x_size=x_size, y_size=y_size, densities=densities, radius=radius, num_repeat=num_repeat, seed=seed)
-        self.G = CraterGenerator(crater_profiles_path, resolution=resolution, pad_size=pad, seed=seed)
-        self.is_lab = is_lab
-        self.is_yard = is_yard
+        self.T = BaseTerrainGenerator(moon_yard.base_terrain_generator)
+        self.D = Distribute(moon_yard.crater_distribution)
+        self.G = CraterGenerator(moon_yard.crater_generator)
+        self.is_lab = moon_yard.is_lab
+        self.is_yard = moon_yard.is_yard
 
     def randomize(self) -> np.ndarray:
         """

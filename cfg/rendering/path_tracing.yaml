@@ -1,7 +1,8 @@
 renderer:
   renderer: "PathTracing"
-  headless: Flase
-  max_bounces: 32
+  headless: False
+  samples_per_pixel_per_frame: 32
+  max_bounces: 6
   max_specular_transmission_bounces: 6
   max_volume_bounces: 4
   subdiv_refinement_level: 0

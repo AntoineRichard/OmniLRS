@@ -5,23 +5,14 @@ import time
 import sys
 import os
 
-# Isaac sim SDK imports
-from omni.isaac.kit import SimulationApp
-# Start the simulation
-simulation_app = SimulationApp({"headless": False})
-# Once the sim is started load isaac libs (including ROS)
-import omni
-from omni.isaac.core.utils.extensions import enable_extension
 from omni.isaac.core import World
 from pxr import Gf
+import omni
+
 # Custom libs
 from src.environments.lunalab import LabController
 from src.robots.robot import RobotManager
 
-# Enables ROS2
-enable_extension("omni.isaac.ros2_bridge")
-enable_extension("omni.kit.viewport.actions")
-simulation_app.update()
 # Loads ROS2 dependent libraries
 from std_msgs.msg import Bool, Float32, ColorRGBA, Int8, Int32, String, Empty
 from rclpy.executors import SingleThreadedExecutor as Executor
@@ -33,9 +24,10 @@ class ROS_LabManager(Node):
     """
     ROS2 node that manages the lab environment"""
 
-    def __init__(self) -> None:
+    def __init__(self, environment_cfg, flares_cfg) -> None:
         super().__init__("Lab_controller_node")
-        self.LC = LabController()
+        print(environment_cfg)
+        self.LC = LabController(**environment_cfg, flares_settings=flares_cfg)
         self.LC.load()
         self.trigger_reset = False
 
@@ -437,13 +429,14 @@ class SimulationManager:
     - Running the simulation
     - Cleaning the simulation"""
 
-    def __init__(self) -> None:
+    def __init__(self, cfg, simulation_app) -> None:
+        self.simulation_app = simulation_app
         self.timeline = omni.timeline.get_timeline_interface()
         self.world = World(stage_units_in_meters=1.0)
         self.physics_ctx = self.world.get_physics_context()
         self.physics_ctx.set_solver_type("PGS")
         # Lab manager thread
-        self.ROSLabManager = ROS_LabManager()
+        self.ROSLabManager = ROS_LabManager(cfg["environment"], cfg["rendering"]["lens_flares"])
         exec1 = Executor()
         exec1.add_node(self.ROSLabManager)
         self.exec1_thread = Thread(target=exec1.spin, daemon=True, args=())
@@ -461,7 +454,7 @@ class SimulationManager:
         Runs the simulation."""
 
         self.timeline.play()
-        while simulation_app.is_running():
+        while self.simulation_app.is_running():
             self.world.step(render=True)
             if self.world.is_playing():
                 # Apply modifications to the lab only once the simulation step is finished
@@ -476,7 +469,10 @@ class SimulationManager:
                 self.ROSRobotManager.applyModifications()
 
         self.timeline.stop()
-        simulation_app.close()
+
+    def run():
+        SM = SimulationManager()
+        SM.run_simulation()
 
 
 if __name__ == "__main__":

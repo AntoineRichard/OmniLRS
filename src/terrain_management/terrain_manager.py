@@ -1,3 +1,11 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 from typing import List, Tuple
 import numpy as np
 import warnings
@@ -8,7 +16,9 @@ from pxr import UsdGeom, Sdf
 import omni
 
 from src.terrain_management.terrain_generation import GenerateProceduralMoonYard
+from src.configurations.procedural_terrain_confs import TerrainManagerConf
 from WorldBuilders import pxr_utils
+from assets import get_assets_path
 
 
 class TerrainManager:
@@ -17,81 +27,31 @@ class TerrainManager:
     It is responsible for generating the terrain, and updating the terrain.
     It can also use pre-existing terrain data to update the terrain mesh."""
 
-    def __init__(self, crater_spline_profiles: str = "crater_spline_profiles.pkl",
-                       dems_path: str = "Terrains",
-                       sim_length: float = 10.0,
-                       sim_width: float = 6.5,
-                       resolution: float = 0.01,
-                       mesh_pos: tuple = (0.0, 0.0, 0.0),
-                       mesh_rot: tuple = (0.0, 0.0, 0.0, 1.0),
-                       mesh_scale: tuple = (1.0, 1.0, 1.0),
-                       max_elevation: float = 0.25,
-                       min_elevation: float = -0.025,
-                       z_scale: float = 1,
-                       pad: int = 500,
-                       num_repeat: float = 0,
-                       densities: List[float] = [0.025,0.05,0.5],
-                       radius: List[Tuple[float,float]] = [(1.5,2.5),(0.75,1.5),(0.25,0.5)],
-                       root_path="/root",
-                       texture_path="/root/Looks/texture",
-                       seed: int = 42,
-                       is_lab = False,
-                       is_yard = False,
+    def __init__(self, cfg: TerrainManagerConf,
                        **kwargs) -> None:
         """
         Args:
-            crater_spline_profiles (str): path to the crater spline profiles.
-            dems_path (str): path to the folders containing the DEMs and masks.
-            sim_length (float): length of the simulation grid (in meters).
-            sim_width (float): width of the simulation grid (in meters).
-            resolution (float): resolution of the simulation grid (in meters per pixel).
-            mesh_pos (tuple): position of the terrain mesh.
-            mesh_rot (tuple): rotation of the terrain mesh.
-            mesh_scale (tuple): scale of the terrain mesh.
-            max_elevation (float): maximum elevation of the DEM (in meters).
-            min_elevation (float): minimum elevation of the DEM (in meters).
-            z_scale (float): scale of the DEM.
-            pad (int): size of the padding to add to the DEM.
-            num_repeat (int): number of times to repeat the hardcore rejection.
-            densities (list): densities of the craters (in units per square meters).
-            radius (list): radii of the craters (in meters).
-            root_path (str): path to the root of the terrain mesh.
-            texture_path (str): path to the texture of the terrain mesh.
-            seed (float): random seed."""
+            cfg (TerrainManagerConf): the configuration of the terrain manager.
+            **kwargs: additional arguments."""
         
-        self._crater_spline_profiles = crater_spline_profiles
-        self._dems_path = dems_path
-        self._G = GenerateProceduralMoonYard(self._crater_spline_profiles,
-                                             x_size=sim_length,
-                                             y_size=sim_width,
-                                             resolution=resolution,
-                                             max_elevation=max_elevation,
-                                             min_elevation=min_elevation,
-                                             z_scale=z_scale,
-                                             pad=pad,
-                                             num_repeat=num_repeat,
-                                             densities=densities,
-                                             radius=radius,
-                                             seed=seed,
-                                             is_lab=is_lab,
-                                             is_yard=is_yard)
+        self._dems_path = os.path.join(get_assets_path(), cfg.dems_path)
+        self._G = GenerateProceduralMoonYard(cfg.moon_yard)
 
         self._stage = omni.usd.get_context().get_stage()
-        self._texture_path = texture_path
-        print(texture_path)
-        self._root_path = root_path
+        self._texture_path = cfg.texture_path
+        self._root_path = cfg.root_path
 
         self._dems = {}
         self._DEM = None
         self._mask = None
         self._material = None
 
-        self._sim_width = int(sim_width / resolution)
-        self._sim_length = int(sim_length / resolution)
-        self._grid_size = resolution
-        self._mesh_pos = mesh_pos
-        self._mesh_rot = mesh_rot
-        self._mesh_scale = mesh_scale
+        self._sim_width = int(cfg.sim_width / cfg.resolution)
+        self._sim_length = int(cfg.sim_length / cfg.resolution)
+        self._grid_size = cfg.resolution
+        self._mesh_pos = cfg.mesh_position
+        self._mesh_rot = cfg.mesh_orientation
+        self._mesh_scale = cfg.mesh_scale
 
         self._indices = []
         self._sim_uvs = []

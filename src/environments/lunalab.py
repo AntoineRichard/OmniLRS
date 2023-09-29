@@ -1,83 +1,50 @@
-from typing import List, Tuple, Union
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
+from typing import List, Tuple, Union, Dict
 import omni.kit.actions.core
 import numpy as np
+import dataclasses
 import omni
 import carb
 import cv2
 import os
 
 from omni.isaac.core.utils.stage import open_stage, add_reference_to_stage
-from omni.isaac.core.utils.extensions import enable_extension
-from omni.isaac.core.materials import PreviewSurface
-
 from pxr import UsdGeom, Sdf, UsdLux, Gf, UsdShade, Usd
 
-
-from semantics.schema.editor import PrimSemanticData
-
-from WorldBuilders.pxr_utils import createInstancerAndCache, setInstancerParameters, setDefaultOps, addDefaultOps
+from src.configurations.procedural_terrain_confs import TerrainManagerConf
 from src.terrain_management.terrain_manager import TerrainManager
+from src.configurations.rendering_confs import FlaresConf
+from src.environments.rock_manager import RockManager
+from WorldBuilders.pxr_utils import setDefaultOps
 from assets import get_assets_path
-from WorldBuilders.Mixer import *
 
-# ==============================================================================
-#                               LAB GLOBAL VARIABLES
-# ==============================================================================
-
-WORKINGDIR = get_assets_path()
-
-# USD path of the lab interactive elements
-PROJECTOR_PATH = "/Lunalab/Projector"
-PROJECTOR_SHADER_PATH = "/World/Looks/Light_12000K/Shader"
-ROOM_LIGHTS_PATH = "/Lunalab/CeilingLights"
-CURTAINS_PATH = {"extended":"/Lunalab/Lab/CurtainExtended", "folded":"/Lunalab/Lab/CurtainFolded"}
-
-# Default lab size
-LAB_X_MIN = 0.5
-LAB_X_MAX = 6
-LAB_Y_MIN = 0.5
-LAB_Y_MAX = 9.5
-
-# Default terrain resolution
-MPP = 0.01
-# Default rock foot print
-ROCK_FOOT_PRINT = 0.6
-
-# Default lens flare parameters
-FLARE = {"Scale":0.43,
-         "Blades":3,
-         "ApertureRotation":0.0,
-         "SensorDiagonal":22.0,
-         "SensorAspectRatio":2.81,
-         "Fstop":0.3,
-         "FocalLength":1.0}
-
-terrain_settings = {"crater_spline_profiles": WORKINGDIR+"/Terrains/crater_spline_profiles.pkl",
-                    "dems_path": WORKINGDIR+"/Terrains/Lunalab",
-                    "sim_length": 10.0,
-                    "sim_width": 6.5,
-                    "resolution": 0.01,
-                    "mesh_pos": (0.0, 0.0, 0.0),
-                    "mesh_rot": (0.0, 0.0, 0.0, 1.0),
-                    "mesh_scale": (1.0, 1.0, 1.0),
-                    "max_elevation": 0.25,
-                    "min_elevation": -0.025,
-                    "z_scale": 1,
-                    "pad":500,
-                    "num_repeat":0,
-                    "densities": [0.025,0.05,0.5],
-                    "radius": [(1.5,2.5),(0.75,1.5),(0.25,0.5)],
-                    "root_path": "/Lunalab",
-                    "texture_path": "/Lunalab/Looks/Basalt",
-                    "seed": 42}
-
-# ==============================================================================
+@dataclasses.dataclass
+class LunalabLabConf:
+    lab_length: float = 10.0
+    lab_width: float = 6.5
+    resolution: float = 0.01
+    projector_path: str = "/Lunalab/Projector"  
+    projector_shader_path: str = "/Lunalab/Looks/Light_12000K/Shader"
+    room_lights_path: str = "/Lunalab/CeilingLights"
+    curtains_path: dict = dataclasses.field(default_factory=dict)
 
 class LabController:
     """
     This class is used to control the lab interactive elements."""
 
-    def __init__(self, terrain_settings: dict = terrain_settings) -> None:
+    def __init__(self, stage_settings: LunalabLabConf,
+                       rocks_settings: Dict,
+                       flares_settings: FlaresConf,
+                       terrain_manager: TerrainManagerConf,
+                       **kwargs,
+                       ) -> None:
         """
         Initializes the lab controller. This class is used to control the lab interactive elements.
         Including:
@@ -91,7 +58,10 @@ class LabController:
             terrain_settings (dict): The settings for the terrain manager."""
         
         self.stage = omni.usd.get_context().get_stage()
-        self.T = TerrainManager(**terrain_settings)
+        self.stage_settings = stage_settings
+        self.flare_settings = flares_settings
+        self.T = TerrainManager(terrain_manager)
+        self.RM = RockManager(**rocks_settings)
         self.active_dem = None
         self.active_mask = None
         self.dem = None
@@ -104,64 +74,14 @@ class LabController:
         Creates the instancer for the rocks, and generates the terrain."""
 
         scene_name = "/Lunalab"
-        scene_path = WORKINGDIR+"/USD_Assets/environments/Lunalab.usd"
+        scene_path = get_assets_path()+"/USD_Assets/environments/Lunalab.usd"
         # Loads the Lunalab
         add_reference_to_stage(scene_path, scene_name)
         # Fetches the interactive elements
         self.collectInteractiveAssets()
-        # Generates the instancer for the rocks
-        self.createRockInstancer()
         # Loads the DEM and the mask
         self.switchTerrain(0)
-    
-    def createRockInstancer(self) -> None:
-        """
-        Creates the instancer for the rocks."""
-
-        # Creates a list of pathes of all the assets to be loaded
-        root = WORKINGDIR+"/USD_Assets/rocks/lunalab_rocks"
-        assets = os.listdir(root)
-        assets = [[os.path.join(root, asset, i) for i in os.listdir(os.path.join(root,asset)) if i.split('.')[-1]=="usd"] for asset in assets]
-        assets = [item for sublist in assets for item in sublist]
-        # Creates the instancer
-        self._rocks_prim = self.stage.DefinePrim("/Lunalab/Rocks", "Xform")
-        self._rock_instancer = createInstancerAndCache(self.stage, "/Lunalab/Rocks/instancer", assets)
-        self._rocks_instancer_prim = self.stage.GetPrimAtPath("/Lunalab/Rocks/instancer")
-        #self._rocks_prim.GetAttribute("visibility").Set("invisible")
-
-    def createSampler(self) -> None:
-        """
-        Creates the sampler for the rocks."""
-
-        H,W = self.dem.shape
-        # Erodes the spawning masks such that the rocks do not spawn on forbidden regions.
-        kernel_radius = 4
-        kernel = np.zeros((9, 9), np.uint8)                                                                                      
-        kernel = cv2.circle(kernel,(4,4),kernel_radius,1,-1)
-        num_iterations = int((ROCK_FOOT_PRINT / 0.01) / kernel_radius)
-        if num_iterations:
-            self.mask = cv2.erode(self.mask, kernel, iterations=num_iterations)
-
-        # Generates the requests to be sent to the procedural rock placement.
-        # Positiion based on the mask
-        xy_mask = Image_T(data=self.mask, mpp_resolution=MPP, output_space=2)
-        xy_sampler = HardCoreUniformSampler_T(min=(LAB_X_MIN, LAB_Y_MIN), max=(LAB_X_MAX, LAB_Y_MAX), randomization_space=2, seed=42, core_radius=ROCK_FOOT_PRINT, num_repeat=2)
-        req_pos_xy = UserRequest_T(p_type = Position_T(), sampler=xy_sampler, layer=xy_mask, axes=["x","y"])
-        # Random yaw
-        rpy_layer = RollPitchYaw_T(rmax=0, rmin=0, pmax=0, pmin=0, ymax=np.pi*2, ymin=0)
-        rpy_sampler = UniformSampler_T(randomization_space=3, seed=42)
-        req_ori = UserRequest_T(p_type = Orientation_T(), sampler=rpy_sampler, layer=rpy_layer, axes=["x", "y", "z", "w"])
-        # DEM clipper
-        image_layer = Image_T(output_space=1)
-        image_clipper = ImageClipper_T(randomization_space=1, resolution=(H, W), mpp_resolution=MPP, data=self.dem)
-        req_pos_z = UserRequest_T(p_type = Position_T(), sampler=image_clipper, layer=image_layer, axes=["z"])
-        # Scale range and distribution
-        uni = UniformSampler_T(randomization_space=1)
-        line = Line_T(xmin=1.0, xmax=1.0)
-        req_scale = UserRequest_T(p_type = Scale_T(), sampler=uni, layer=line, axes=["xyz"])
-        # Builds an executation graph to apply the requests.
-        requests = [req_pos_xy, req_pos_z, req_ori, req_scale]
-        self.mixer = RequestMixer(requests)
+        self.RM.build(self.active_dem, self.active_mask)
 
     def getLuxAssets(self, prim: "Usd.Prim") -> None:
         """
@@ -218,18 +138,18 @@ class LabController:
         Collects the interactive assets from the stage and assigns them to class variables."""
 
         # Projector
-        self._projector_prim = self.stage.GetPrimAtPath(PROJECTOR_PATH)
+        self._projector_prim = self.stage.GetPrimAtPath(self.stage_settings.projector_path)
         self._projector_xform = UsdGeom.Xformable(self._projector_prim)
         self._projector_lux = self.getLuxAssets(self._projector_prim)
-        self._projector_flare = self.stage.GetPrimAtPath(PROJECTOR_SHADER_PATH)
+        self._projector_flare = self.stage.GetPrimAtPath(self.stage_settings.projector_shader_path)
         # Room Lights
-        self._room_lights_prim = self.stage.GetPrimAtPath(ROOM_LIGHTS_PATH)
+        self._room_lights_prim = self.stage.GetPrimAtPath(self.stage_settings.room_lights_path)
         self._room_lights_xform = UsdGeom.Xformable(self._room_lights_prim)
         self._room_lights_lux = self.getLuxAssets(self._room_lights_prim)
         # Curtains
         self._curtain_prims = {}
-        for key in CURTAINS_PATH.keys():
-            self._curtain_prims[key] = self.stage.GetPrimAtPath(CURTAINS_PATH[key])
+        for key in self.stage_settings.curtains_path.keys():
+            self._curtain_prims[key] = self.stage.GetPrimAtPath(self.stage_settings.curtains_path[key])
 
 # ==============================================================================
 # Projector control
@@ -247,8 +167,6 @@ class LabController:
         position = [position[0], position[1], position[2]]
 
         setDefaultOps(self._projector_xform, position, rotation,[1,1,1]) 
-        #transform = getTransform(rotation,position)
-        #setTransform(self._projector_xform, transform)
 
     def setProjectorIntensity(self, intensity: float) -> None:
         """
@@ -377,8 +295,8 @@ class LabController:
         else:
             self.T.loadTerrainId(flag)
         self.loadDEM()
-        self.createSampler()
-        self.randomizeRocks(10)
+        self.RM.updateImageData(self.dem, self.mask)
+        self.RM.randomizeInstancers(10)
 
     def enableRocks(self, flag: bool) -> None:
         """
@@ -386,11 +304,8 @@ class LabController:
         
         Args:
             flag (bool): True to turn the rocks on, False to turn them off."""
-        
-        if flag:
-            self._rocks_prim.GetAttribute("visibility").Set("visible")
-        else:
-            self._rocks_prim.GetAttribute("visibility").Set("invisible")
+
+        self.RM.setVisible(flag) 
 
     def randomizeRocks(self, num:int=8) -> None:
         """
@@ -402,14 +317,7 @@ class LabController:
         num = int(num)
         if num == 0:
             num += 1
-        attributes = self.mixer.executeGraph(num)
-        position = attributes["xformOp:translation"]
-        scale = attributes["xformOp:scale"]
-        orientation = attributes["xformOp:orientation"]
-        setInstancerParameters(self.stage, "/Lunalab/Rocks/instancer", pos=position, scale=scale, quat=orientation)
-
-    def placeRocks(self, file_path) -> None:
-        pass
+        self.RM.randomizeInstancers(num)
 
 # ==============================================================================
 # Render control
@@ -446,13 +354,13 @@ class LabController:
         settings = carb.settings.get_settings()
         if data:
             settings.set("/rtx/post/lensFlares/enabled", True)
-            self.setFlareScale(FLARE["Scale"])
-            self.setFlareNumBlades(FLARE["Blades"])
-            self.setFlareApertureRotation(FLARE["ApertureRotation"])
-            self.setFlareSensorAspectRatio(FLARE["SensorAspectRatio"])
-            self.setFlareSensorDiagonal(FLARE["SensorDiagonal"])
-            self.setFlareFstop(FLARE["Fstop"])
-            self.setFlareFocalLength(FLARE["FocalLength"])
+            self.setFlareScale(self.flare_settings.scale)
+            self.setFlareNumBlades(self.flare_settings.blades)
+            self.setFlareApertureRotation(self.flare_settings.aperture_rotation)
+            self.setFlareSensorAspectRatio(self.flare_settings.sensor_aspect_ratio)
+            self.setFlareSensorDiagonal(self.flare_settings.sensor_diagonal)
+            self.setFlareFstop(self.flare_settings.fstop)
+            self.setFlareFocalLength(self.flare_settings.focal_length)
         else:
             settings.set("/rtx/post/lensFlares/enabled", False)
 

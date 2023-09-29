@@ -81,7 +81,7 @@ rocks_settings:
 terrain_manager:
   moon_yard:
     crater_generator:
-      profile_path: assets/Terrains/crater_spline_profiles.pkl
+      profiles_path: assets/Terrains/crater_spline_profiles.pkl
       min_xy_ratio: 0.85
       max_xy_ratio: 1.0
       resolution: ${....stage_settings.resolution}
@@ -98,7 +98,7 @@ terrain_manager:
       num_repeat: 0
       seed: ${....seed}
 
-    base_terrain_generation:
+    base_terrain_generator:
       x_size: ${....stage_settings.lab_length}
       y_size: ${....stage_settings.lab_width}
       resolution: ${....stage_settings.resolution}
@@ -114,8 +114,8 @@ terrain_manager:
   texture_path: /Lunalab/Looks/Basalt
   dems_path: Terrains/Lunalab
   mesh_position: [0, 0, 0]
-  mesh_rotation: [1, 0, 0, 0]
+  mesh_orientation: [1, 0, 0, 0]
   mesh_scale: [1, 1, 1]
-  sim_lenght: ${..stage_settings.lab_length}
+  sim_length: ${..stage_settings.lab_length}
   sim_width: ${..stage_settings.lab_width}
   resolution: ${..stage_settings.resolution}
