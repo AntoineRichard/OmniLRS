@@ -28,8 +28,10 @@ from omni.isaac.core.utils.extensions import enable_extension
 from omni.isaac.core import World
 from pxr import Gf
 # Custom libs
-from lunaryard_capture import LabController
+from src.environments.lunaryard_capture import LabController
 from src.labeling.auto_label import AutonomousLabeling
+from assets import get_assets_path
+WORKINGDIR = get_assets_path()
 
 simulation_app.update()
 
@@ -39,8 +41,8 @@ LAB_Y_MIN = 0.5
 LAB_Y_MAX = 39.5
 MPP = 0.04
 
-terrain_settings = {"crater_spline_profiles": "crater_spline_profiles.pkl",
-                    "dems_path": "Terrains/Lunaryard",
+terrain_settings = {"crater_spline_profiles": WORKINGDIR+"/Terrains/crater_spline_profiles.pkl",
+                    "dems_path": WORKINGDIR+"/Terrains/Lunaryard",
                     "sim_length": LAB_Y_MAX - LAB_Y_MIN + 1,
                     "sim_width": LAB_X_MAX - LAB_X_MIN + 1,
                     "lab_x_min": LAB_X_MIN,

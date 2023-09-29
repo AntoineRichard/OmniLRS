@@ -16,12 +16,12 @@ from WorldBuilders.pxr_utils import addDefaultOps, setDefaultOps
 from src.terrain_management.terrain_manager import TerrainManager
 from WorldBuilders.Mixer import *
 from src.labeling.instancer import StandaloneInstancer
-
+from assets import get_assets_path
 # ==============================================================================
 #                               LAB GLOBAL VARIABLES
 # ==============================================================================
 
-WORKINGDIR = os.path.dirname(__file__)
+WORKINGDIR = get_assets_path()
 
 # USD path of the lab interactive elements
 PROJECTOR_PATH = "/Lunaryard/Sun"
@@ -47,8 +47,8 @@ FLARE = {"Scale":0.43,
          "Fstop":0.3,
          "FocalLength":1.0}
 
-terrain_settings = {"crater_spline_profiles": "crater_spline_profiles.pkl",
-                    "dems_path": "Terrains/Lunaryard",
+terrain_settings = {"crater_spline_profiles": WORKINGDIR+"/Terrains/crater_spline_profiles.pkl",
+                    "dems_path": WORKINGDIR+"/Terrains/Lunaryard",
                     "sim_length": LAB_Y_MAX - LAB_Y_MIN + 1,
                     "sim_width": LAB_X_MAX - LAB_X_MIN + 1,
                     "lab_x_min": LAB_X_MIN,
@@ -108,7 +108,7 @@ class LabController:
         Loads the lab interactive elements in the stage.
         Creates the instancer for the rocks, and generates the terrain."""
 
-        scene_path = WORKINGDIR+"/Lunaryard.usd"
+        scene_path = WORKINGDIR+"/assets/USD_Assets/environments/Lunaryard.usd"
         # Loads the Lunalab
         add_reference_to_stage(scene_path, self.scene_name)
         # Fetches the interactive elements
@@ -126,7 +126,7 @@ class LabController:
         Creates the instancer for the rocks."""
 
         # Creates a list of pathes of all the assets to be loaded
-        root = WORKINGDIR+"/Assets/Rocks/Apollo_rocks"
+        root = WORKINGDIR+"/USD_Assets/rocks/apollo_rocks"
         assets = os.listdir(root)
         assets = [[os.path.join(root, asset, i) for i in os.listdir(os.path.join(root,asset)) if i.split('.')[-1]=="usd"] for asset in assets]
         assets = [item for sublist in assets for item in sublist]
