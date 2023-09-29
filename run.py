@@ -4,6 +4,10 @@ from src.configurations import configFactory
 from typing import Dict
 import hydra
 
+def resolve_tuple(*args):
+    return tuple(args)
+
+OmegaConf.register_new_resolver('as_tuple', resolve_tuple)
 
 def omegaconfToDict(d: DictConfig) -> Dict:
     """Converts an omegaconf DictConfig to a python Dict, respecting variable interpolation.
@@ -62,7 +66,7 @@ def run(cfg: DictConfig):
     from src.environments_wrappers.ros2.lunalab_ros2 import SimulationManager
 
     SM = SimulationManager(cfg, simulation_app)
-    SM.run()
+    SM.run_simulation()
     simulation_app.close()
 
 if __name__ == '__main__':
