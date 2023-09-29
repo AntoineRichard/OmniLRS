@@ -19,27 +19,19 @@ from omni.isaac.core.utils.stage import open_stage, add_reference_to_stage
 from pxr import UsdGeom, Sdf, UsdLux, Gf, UsdShade, Usd
 
 from src.configurations.procedural_terrain_confs import TerrainManagerConf
+from src.configurations.environments import LunalabLabConf
 from src.terrain_management.terrain_manager import TerrainManager
 from src.configurations.rendering_confs import FlaresConf
 from src.environments.rock_manager import RockManager
 from WorldBuilders.pxr_utils import setDefaultOps
 from assets import get_assets_path
 
-@dataclasses.dataclass
-class LunalabLabConf:
-    lab_length: float = 10.0
-    lab_width: float = 6.5
-    resolution: float = 0.01
-    projector_path: str = "/Lunalab/Projector"  
-    projector_shader_path: str = "/Lunalab/Looks/Light_12000K/Shader"
-    room_lights_path: str = "/Lunalab/CeilingLights"
-    curtains_path: dict = dataclasses.field(default_factory=dict)
 
 class LabController:
     """
     This class is used to control the lab interactive elements."""
 
-    def __init__(self, stage_settings: LunalabLabConf,
+    def __init__(self, lunalab_settings: LunalabLabConf,
                        rocks_settings: Dict,
                        flares_settings: FlaresConf,
                        terrain_manager: TerrainManagerConf,
@@ -58,12 +50,11 @@ class LabController:
             terrain_settings (dict): The settings for the terrain manager."""
         
         self.stage = omni.usd.get_context().get_stage()
-        self.stage_settings = stage_settings
+        self.stage_settings = lunalab_settings
         self.flare_settings = flares_settings
         self.T = TerrainManager(terrain_manager)
+        print(rocks_settings)
         self.RM = RockManager(**rocks_settings)
-        self.active_dem = None
-        self.active_mask = None
         self.dem = None
         self.mask = None
         self.mixer = None
@@ -79,9 +70,9 @@ class LabController:
         add_reference_to_stage(scene_path, scene_name)
         # Fetches the interactive elements
         self.collectInteractiveAssets()
+        self.RM.build(self.dem, self.mask)
         # Loads the DEM and the mask
         self.switchTerrain(0)
-        self.RM.build(self.active_dem, self.active_mask)
 
     def getLuxAssets(self, prim: "Usd.Prim") -> None:
         """

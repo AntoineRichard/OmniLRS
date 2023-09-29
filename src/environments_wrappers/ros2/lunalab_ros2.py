@@ -470,11 +470,6 @@ class SimulationManager:
 
         self.timeline.stop()
 
-    def run():
-        SM = SimulationManager()
-        SM.run_simulation()
-
-
 if __name__ == "__main__":
     rclpy.init()
     SM = SimulationManager()
