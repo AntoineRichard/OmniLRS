@@ -7,7 +7,7 @@ from semantics.schema.editor import PrimSemanticData
 from pxr import UsdGeom, Sdf
 import omni
 
-from terrain_generation import GenerateProceduralMoonYard
+from src.terrain_management.terrain_generation import GenerateProceduralMoonYard
 from WorldBuilders import pxr_utils
 
 

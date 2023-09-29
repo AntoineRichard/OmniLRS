@@ -11,7 +11,7 @@ from omni.isaac.core.utils.stage import add_reference_to_stage
 from pxr import UsdGeom, UsdLux, Gf, Usd
 
 from WorldBuilders.pxr_utils import setTransform, getTransform, createInstancerAndCache, setInstancerParameters
-from terrain_manager import TerrainManager
+from src.terrain_management.terrain_manager import TerrainManager
 from WorldBuilders.Mixer import *
 
 # ==============================================================================

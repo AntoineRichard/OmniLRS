@@ -13,9 +13,9 @@ from pxr import UsdGeom, UsdLux, Gf, Usd
 
 from WorldBuilders.pxr_utils import setTransform, getTransform, createInstancerAndCache, setInstancerParameters, createInstancerFromCache
 from WorldBuilders.pxr_utils import addDefaultOps, setDefaultOps
-from terrain_manager import TerrainManager
+from src.terrain_management.terrain_manager import TerrainManager
 from WorldBuilders.Mixer import *
-from Instancer import StandaloneInstancer
+from src.labeling.instancer import StandaloneInstancer
 
 # ==============================================================================
 #                               LAB GLOBAL VARIABLES

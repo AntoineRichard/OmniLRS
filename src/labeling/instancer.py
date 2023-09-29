@@ -16,6 +16,7 @@ class StandaloneInstancer:
     StandaloneInstancer class. It is used to create an instancer that allows to spawn multiple instances of the same assets.
     We defined our own instancer instead of using a Usd.Geom.PointInstancer as the latter does not support semantic information properly.
     It may be fixed in the next release of Omniverse?"""
+
     def __init__(self, instancer_path:str, asset_list:list, seed:int = 0):
         """
         Args:

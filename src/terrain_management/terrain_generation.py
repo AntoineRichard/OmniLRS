@@ -18,17 +18,17 @@ class CraterGenerator:
                        resolution:float = 0.01,
                        pad_size:int = 500,
                        random_rotation:bool = True,
-                       z_scale:float = 1):
+                       z_scale:float = 1) -> None:
         """
         Args:
             profiles_path (str): path to the pickle file containing the spline profiles.
-            seed (int): random seed.
-            min_xy_ratio (float): minimum xy ratio of the crater.
-            max_xy_ratio (float): maximum xy ratio of the crater.
-            resolution (float): resolution of the DEM (in meters per pixel).
-            pad_size (int): size of the padding to add to the DEM.
-            random_rotation (bool): whether to randomly rotate the craters.
-            z_scale (float): scale of the craters."""
+            seed (int, optional): random seed. Defaults to 42.
+            min_xy_ratio (float, optional): minimum xy ratio of the crater. Defaults to 0.85.
+            max_xy_ratio (float, optional): maximum xy ratio of the crater. Defaults to 1.
+            resolution (float, optional): resolution of the DEM (in meters per pixel). Defaults to 0.01.
+            pad_size (int, optional): size of the padding to add to the DEM. Defaults to 500.
+            random_rotation (bool, optional): whether to randomly rotate the craters. Defaults to True.
+            z_scale (float, optional): scale of the craters. Defaults to 1."""
 
         self._profiles_path = profiles_path
         self._resolution = resolution
@@ -54,10 +54,10 @@ class CraterGenerator:
         Saturates a gaussian function to its maximum between mu1 and mu2 with a standard deviation of std.
 
         Args:
-            x: input array.
-            mu1: gaussian mu lower bound.
-            mu2: gaussian mu upper bound.
-            std: standard deviation.
+            x (np.ndarray): input array.
+            mu1 (float): gaussian mu lower bound.
+            mu2 (float): gaussian mu upper bound.
+            std (float): standard deviation.
         
         Returns:
             np.ndarray: saturated gaussian."""
@@ -79,7 +79,7 @@ class CraterGenerator:
             n (int): size of the matrix
         
         Returns:
-            list: distance matrix, size of the matrix."""
+            tuple: distance matrix, size of the matrix."""
 
         # Makes sure the matrix size is odd
         n = n + ((n % 2) == 0)
@@ -217,15 +217,15 @@ class Distribute:
                        densities:List[float] = [0.25,1.5,5],
                        radius:List[Tuple[float]] = [(1.5,2.5),(0.75,1.5),(0.25,0.5)],
                        num_repeat:int = 0,
-                       seed:int = 42):
+                       seed:int = 42) -> None:
         """
         Args:
-            x_size (float): size of the DEM in the x direction (in meters).
-            y_size (float): size of the DEM in the y direction (in meters).
-            densities (float): densities of the craters (in units per square meters).
-            radius (list): min and max radii of the craters (in meters).
-            num_repeat (int): number of times to repeat the hardcore rejection.
-            seed (int): random seed."""
+            x_size (float, optional): size of the DEM in the x direction (in meters). Defaults to 10.
+            y_size (float, optional): size of the DEM in the y direction (in meters). Defaults to 10.
+            densities (float, optional): densities of the craters (in units per square meters). Defaults to [0.25,1.5,5].
+            radius (list, optional): min and max radii of the craters (in meters). Defaults to [(1.5,2.5),(0.75,1.5),(0.25,0.5)].
+            num_repeat (int, optional): number of times to repeat the hardcore rejection. Defaults to 0.
+            seed (int, optional): random seed. Defaults to 42."""
         
         self._x_max = x_size
         self._y_max = y_size
@@ -348,13 +348,13 @@ class BaseTerrainGenerator:
                        z_scale:float = 50):
         """
         Args:
-            x_size (float): size of the DEM in the x direction (in meters).
-            y_size (float): size of the DEM in the y direction (in meters).
-            resolution (float): resolution of the DEM (in meters per pixel).
-            max_elevation (float): maximum elevation of the DEM (in meters).
-            min_elevation (float): minimum elevation of the DEM (in meters).
-            seed (int): random seed.
-            z_scale (float): scale of the DEM."""
+            x_size (float, optional): size of the DEM in the x direction (in meters). Defaults to 10.
+            y_size (float, optional): size of the DEM in the y direction (in meters). Defaults to 10.
+            resolution (float, optional): resolution of the DEM (in meters per pixel). Defaults to 0.01.
+            max_elevation (float, optional): maximum elevation of the DEM (in meters). Defaults to 0.5.
+            min_elevation (float, optional): minimum elevation of the DEM (in meters). Defaults to -0.25.
+            seed (int, optional): random seed. Defaults to 42.
+            z_scale (float, optional): scale of the DEM. Defaults to 50."""
 
         self._min_elevation = min_elevation
         self._max_elevation = max_elevation
@@ -364,11 +364,15 @@ class BaseTerrainGenerator:
         self._rng = np.random.default_rng(seed)
         self._z_scale = z_scale
 
-    def generateRandomTerrain(self, is_lab=False, is_yard=False) -> np.ndarray:
+    def generateRandomTerrain(self, is_lab: bool =False, is_yard: bool = False) -> np.ndarray:
         """
         Generates a random terrain DEM. With some of its borders at 0 height
         to align with the catawalks in the lab.
-        
+
+        Args:
+            is_lab (bool): whether the DEM is in a lab or not.
+            is_yard (bool): whether the DEM is in a yard or not.
+
         Returns:
             DEM (np.ndarray): random terrain DEM."""
 
@@ -413,19 +417,20 @@ class GenerateProceduralMoonYard:
                        seed:int = 42):
         """
         Args:
-            crater_profiles_path (str): path to the pickle file containing the crater profiles.
-            x_size (float): size of the DEM in the x direction (in meters).
-            y_size (float): size of the DEM in the y direction (in meters).
-            resolution (float): resolution of the DEM (in meters per pixel).
-            max_elevation (float): maximum elevation of the DEM (in meters).
-            min_elevation (float): minimum elevation of the DEM (in meters).
-            z_scale (float): scale of the DEM.
-            pad (int): size of the padding to add to the DEM.
-            num_repeat (int): number of times to repeat the hardcore rejection.
-            densities (list): densities of the craters (in units per square meters).
-            radius (list): radii of the craters (in meters).
-            is_lab (bool): whether the DEM is in the lab or not.
-            seed (float): random seed."""
+            crater_profiles_path (str): path to the pickle file containing the spline profiles.
+            x_size (float, optional): size of the DEM in the x direction (in meters). Defaults to 10.
+            y_size (float, optional): size of the DEM in the y direction (in meters). Defaults to 6.5.
+            resolution (float, optional): resolution of the DEM (in meters per pixel). Defaults to 0.01.
+            max_elevation (float, optional): maximum elevation of the DEM (in meters). Defaults to 0.25.
+            min_elevation (float, optional): minimum elevation of the DEM (in meters). Defaults to -0.025.
+            z_scale (float, optional): scale of the DEM. Defaults to 1.
+            pad (int, optional): size of the padding to add to the DEM. Defaults to 500.
+            num_repeat (float, optional): number of times to repeat the hardcore rejection. Defaults to 0.
+            densities (float, optional): densities of the craters (in units per square meters). Defaults to [0.025,0.05,0.5].
+            radius (list, optional): min and max radii of the craters (in meters). Defaults to [(1.5,2.5),(0.75,1.5),(0.25,0.5)].
+            is_lab (bool, optional): whether the DEM is in a lab or not. Defaults to False.
+            is_yard (bool, optional): whether the DEM is in a yard or not. Defaults to False.
+            seed (int, optional): random seed. Defaults to 42."""
 
         self.T = BaseTerrainGenerator(x_size=x_size, y_size=y_size, resolution=resolution, max_elevation=max_elevation, min_elevation=min_elevation, z_scale=z_scale, seed=seed)
         self.D = Distribute(x_size=x_size, y_size=y_size, densities=densities, radius=radius, num_repeat=num_repeat, seed=seed)
