@@ -1,17 +1,10 @@
-""""
-  file: robot.py
-  authors: antoine.richard@uni.lu
-           kamohara.junnosuke.t6@dc.tohoku.ac.jp
-  version: 0.1
-  date: 2023-09-04
-  
-  copyright: University of Luxembourg | SnT | SpaceR 2023--2023
-             Tohoku University | SRL 2023--2023
-  brief: Robot manager file.
-  details: This file implements a set of methods to manage robots inside Nvidia's Isaac Sim simulator.
-           It allows to spawn, reset, teleport robots. It also allows to automatically add namespaces to topics,
-           to enable multi-robot operation.
-"""
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
 
 from typing import Dict, List
 import numpy as np
