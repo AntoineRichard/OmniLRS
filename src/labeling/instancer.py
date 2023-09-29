@@ -1,3 +1,11 @@
+__author__ = "Antoine Richard, Junnosuke Kahamora"
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 import numpy as np
 import omni
 import os 
@@ -11,7 +19,7 @@ def castVec3d(data:np.ndarray):
 def castRot(data:np.ndarray):
     return Gf.Quatd(data[3], data[0], data[1], data[2])
 
-class StandaloneInstancer:
+class CustomInstancer:
     """
     StandaloneInstancer class. It is used to create an instancer that allows to spawn multiple instances of the same assets.
     We defined our own instancer instead of using a Usd.Geom.PointInstancer as the latter does not support semantic information properly.

@@ -1,3 +1,11 @@
+__author__ = "Antoine Richard, Junnosuke Kahamora"
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 from typing import List, Tuple, Dict, Union
 import omni.kit.actions.core
 import random, string
@@ -8,12 +16,6 @@ import os
 # import omni.replicator.core as rep
 from src.labeling.rep_utils import writerFactory
 import omni.replicator.core as rep
-
-#SYNTHETIC_WRITER = {"rgb": writeRgbData, 
-#                    "semantic_segmentation": writeSemanticData,
-#                    "instance_segmentation": writeInstanceSegmentationData}
-
-DATA_HASH = ''.join(random.sample(string.ascii_letters + string.digits, 16))
 
 class AutonomousLabeling:
     """
@@ -66,6 +68,9 @@ class AutonomousLabeling:
         self.element_per_folder = element_per_folder
         cfg = self.formatWriterConfig()
         self.synthetic_writers = {name: writerFactory(name, **cfg) for name in annotator_list}
+        self.loggers = {"rgb": self.enableRGBData,
+                        "instance_segmentation": self.enableInstanceData,
+                        "semantic_segmentation": self.enableSemanticData}
 
         self.stage = omni.usd.get_context().get_stage()
         self.meta_prim = self.stage.GetPrimAtPath(prim_path)
@@ -101,9 +106,8 @@ class AutonomousLabeling:
 
         self.findCameraForAnnotation(self.camera_name)
         self.setCamera(self.camera_path, self.camera_resolution)
-        self.enableRGBData()
-        self.enableInstanceData() 
-        self.enableSemanticData()
+        for annotator in self.annotator_list:
+            self.loggers[annotator]()
     
     def setCamera(self, camera_path: str, res=(640, 480)) -> None:
         """
