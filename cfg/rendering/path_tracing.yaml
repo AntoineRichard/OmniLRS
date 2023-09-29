@@ -1,0 +1,16 @@
+renderer:
+  renderer: "PathTracing"
+  headless: Flase
+  max_bounces: 32
+  max_specular_transmission_bounces: 6
+  max_volume_bounces: 4
+  subdiv_refinement_level: 0
+
+lens_flares:
+  scale: 0.43
+  blades: 3
+  aperture_rotation: 0.0
+  sensor_diagonal: 22.0
+  sensor_aspect_ratio: 2.81
+  fstop: 0.3
+  focal_length: 1.0

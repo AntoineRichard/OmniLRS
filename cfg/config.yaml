@@ -1,0 +1,10 @@
+mode: ROS2
+
+defaults:
+  - environment: lunalab
+  - rendering: path_tracing
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
