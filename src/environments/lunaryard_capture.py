@@ -108,7 +108,7 @@ class LabController:
         Loads the lab interactive elements in the stage.
         Creates the instancer for the rocks, and generates the terrain."""
 
-        scene_path = WORKINGDIR+"/assets/USD_Assets/environments/Lunaryard.usd"
+        scene_path = WORKINGDIR+"/USD_Assets/environments/Lunaryard.usd"
         # Loads the Lunalab
         add_reference_to_stage(scene_path, self.scene_name)
         # Fetches the interactive elements
@@ -118,8 +118,6 @@ class LabController:
         self.createCamera()
         # Loads the DEM and the mask
         self.switchTerrain(-1)
-        # Setups the auto labeling
-        self.autoLabel()
     
     def createRockInstancer(self) -> None:
         """
@@ -300,22 +298,6 @@ class LabController:
         # Builds an executation graph to apply the requests.
         requests = [req_pos_xy, req_pos_z, req_ori]#, req_scale]
         self.mixer_camera = RequestMixer(requests)
-
-    def getLuxAssets(self, prim: "Usd.Prim") -> None:
-        """
-        Returns the UsdLux prims under a given prim.
-        
-        Args:
-            prim (Usd.Prim): The prim to be searched.
-            
-        Returns:
-            list: A list of UsdLux prims."""
-
-        lights = []
-        for prim in Usd.PrimRange(prim):
-            if prim.IsA(UsdLux.DistantLight):
-                lights.append(prim)
-        return lights
     
     def setAttributeBatch(self, prims: List["Usd.Prim"], attr:str, val:Union[float,int]) -> None:
         """
@@ -336,17 +318,6 @@ class LabController:
         self.dem = self.T.getDEM()
         self.mask = self.T.getMask()
 
-    def autoLabel(self) -> None:
-        """
-        Automatically labels the rocks."""
-
-        #for prim in Usd.PrimRange(self.stage.GetPrimAtPath("/Lunalab/Rocks/instancer/cache")):
-            #if str(prim.GetPath()).split("/")[-1].split("_")[0] == "instance":
-            #    prim_sd = PrimSemanticData(prim)
-            #    prim_sd.add_entry("class", "rock")
-        pass
-
-
     def collectInteractiveAssets(self) -> None:
         """
         Collects the interactive assets from the stage and assigns them to class variables."""
@@ -354,8 +325,7 @@ class LabController:
         self._earth_xform = UsdGeom.Xformable(self._earth_prim)
 
         # Projector
-        self._projector_prim = self.stage.GetPrimAtPath(PROJECTOR_PATH)
-        self._projector_lux = self.getLuxAssets(self._projector_prim)[0]
+        self._projector_lux = self.stage.GetPrimAtPath(PROJECTOR_PATH)
         self._projector_xform = UsdGeom.Xformable(self._projector_lux)
         print(self._projector_lux)
         print(self._projector_xform)
@@ -499,11 +469,8 @@ class LabController:
         
         attributes = self.mixer_camera.executeGraph(1)
         position = attributes["xformOp:translation"]
-        #scale = attributes["xformOp:scale"]
         orientation = attributes["xformOp:orientation"]
         setDefaultOps(UsdGeom.Xformable(self._camera_prim), position[0], (1,0,0,0), (1,1,1))
-        #print(position)
-        #self._camera_prim.GetAttribute("xformOp:translation").Set(Gf.Vec3d(*position[0]))
 
 
 # ==============================================================================
