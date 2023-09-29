@@ -17,13 +17,14 @@ from semantics.schema.editor import PrimSemanticData
 
 from WorldBuilders.pxr_utils import setTransform, getTransform, createInstancerAndCache, setInstancerParameters
 from src.terrain_management.terrain_manager import TerrainManager
+from assets import get_assets_path
 from WorldBuilders.Mixer import *
 
 # ==============================================================================
 #                               LAB GLOBAL VARIABLES
 # ==============================================================================
 
-WORKINGDIR = os.path.dirname(__file__)
+WORKINGDIR = get_assets_path()
 
 # USD path of the lab interactive elements
 PROJECTOR_PATH = "/Lunalab/Projector"
@@ -51,8 +52,8 @@ FLARE = {"Scale":0.43,
          "Fstop":0.3,
          "FocalLength":1.0}
 
-terrain_settings = {"crater_spline_profiles": "crater_spline_profiles.pkl",
-                    "dems_path": "Terrains/Lunalab",
+terrain_settings = {"crater_spline_profiles": WORKINGDIR+"/Terrains/crater_spline_profiles.pkl",
+                    "dems_path": WORKINGDIR+"/Terrains/Lunalab",
                     "sim_length": 10.0,
                     "sim_width": 6.5,
                     "resolution": 0.01,
@@ -103,7 +104,7 @@ class LabController:
         Creates the instancer for the rocks, and generates the terrain."""
 
         scene_name = "/Lunalab"
-        scene_path = WORKINGDIR+"/Lunalab.usd"
+        scene_path = WORKINGDIR+"/USD_Assets/environments/Lunalab.usd"
         # Loads the Lunalab
         add_reference_to_stage(scene_path, scene_name)
         # Fetches the interactive elements
@@ -118,7 +119,7 @@ class LabController:
         Creates the instancer for the rocks."""
 
         # Creates a list of pathes of all the assets to be loaded
-        root = WORKINGDIR+"/Assets/Rocks"
+        root = WORKINGDIR+"/USD_Assets/rocks/lunalab_rocks"
         assets = os.listdir(root)
         assets = [[os.path.join(root, asset, i) for i in os.listdir(os.path.join(root,asset)) if i.split('.')[-1]=="usd"] for asset in assets]
         assets = [item for sublist in assets for item in sublist]
