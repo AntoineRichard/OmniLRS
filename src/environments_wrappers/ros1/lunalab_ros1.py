@@ -9,7 +9,7 @@ from omni.isaac.core.utils.extensions import enable_extension
 from omni.isaac.core.objects import VisualCuboid
 import numpy as np
 
-from lunalab import LabController
+from src.environments.lunalab import LabController
 from robot import RobotManager
 from pxr import Gf
 # Enables this ROS1 extension

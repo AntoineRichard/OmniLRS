@@ -15,7 +15,7 @@ from omni.isaac.core.utils.extensions import enable_extension
 from omni.isaac.core import World
 from pxr import Gf
 # Custom libs
-from lunalab import LabController
+from src.environments.lunalab import LabController
 from robot import RobotManager
 
 # Enables ROS2
