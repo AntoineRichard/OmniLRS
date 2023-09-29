@@ -15,7 +15,7 @@ from pxr import UsdGeom, Sdf, UsdLux, Gf, UsdShade, Usd
 
 from semantics.schema.editor import PrimSemanticData
 
-from WorldBuilders.pxr_utils import setTransform, getTransform, createInstancerAndCache, setInstancerParameters
+from WorldBuilders.pxr_utils import createInstancerAndCache, setInstancerParameters, setDefaultOps, addDefaultOps
 from src.terrain_management.terrain_manager import TerrainManager
 from assets import get_assets_path
 from WorldBuilders.Mixer import *
@@ -243,10 +243,12 @@ class LabController:
         
         position = pose[0]
         quat = pose[1]
-        rotation = Gf.Rotation(Gf.Vec3d(quat[0],quat[1],quat[2]), quat[3])
-        position = Gf.Vec3d(position[0], position[1], position[2])
-        transform = getTransform(rotation,position)
-        setTransform(self._projector_xform, transform)
+        rotation = [quat[0],quat[1],quat[2], quat[3]]
+        position = [position[0], position[1], position[2]]
+
+        setDefaultOps(self._projector_xform, position, rotation,[1,1,1]) 
+        #transform = getTransform(rotation,position)
+        #setTransform(self._projector_xform, transform)
 
     def setProjectorIntensity(self, intensity: float) -> None:
         """

@@ -9,7 +9,7 @@ from WorldBuilders.pxr_utils import createObject, createXform
 def castVec3d(data:np.ndarray):
     return Gf.Vec3d(data[0], data[1], data[2])
 def castRot(data:np.ndarray):
-    return Gf.Quatf(data[3], data[0], data[1], data[2])
+    return Gf.Quatd(data[3], data[0], data[1], data[2])
 
 class StandaloneInstancer:
     """

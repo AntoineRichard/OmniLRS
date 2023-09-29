@@ -23,7 +23,7 @@ from omni.isaac.core.utils.stage import add_reference_to_stage
 from omni.isaac.core.utils.transformations import get_relative_transform, pose_from_tf_matrix
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.dynamic_control import _dynamic_control
-from WorldBuilders.pxr_utils import createXform, createObject, setTransform, getTransform
+from WorldBuilders.pxr_utils import createXform, createObject, setDefaultOps
 from pxr import Gf, UsdGeom, Usd
 
 

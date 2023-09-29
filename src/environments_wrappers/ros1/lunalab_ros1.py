@@ -10,7 +10,7 @@ from omni.isaac.core.objects import VisualCuboid
 import numpy as np
 
 from src.environments.lunalab import LabController
-from robot import RobotManager
+from src.robots.robot import RobotManager
 from pxr import Gf
 # Enables this ROS1 extension
 enable_extension("omni.isaac.ros_bridge")

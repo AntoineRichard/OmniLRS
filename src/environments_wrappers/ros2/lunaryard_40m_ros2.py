@@ -16,7 +16,7 @@ from omni.isaac.core import World
 from pxr import Gf
 # Custom libs
 from src.environments.lunaryard import LabController
-from robot import RobotManager
+from src.robots.robot import RobotManager
 
 # Enables ROS2
 enable_extension("omni.isaac.ros2_bridge")
