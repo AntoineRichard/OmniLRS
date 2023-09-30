@@ -1,3 +1,11 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 # System imports
 from threading import Thread
 import numpy as np
@@ -5,23 +13,14 @@ import time
 import sys
 import os
 
-# Isaac sim SDK imports
-from omni.isaac.kit import SimulationApp
-# Start the simulation
-simulation_app = SimulationApp({"headless": False})
-# Once the sim is started load isaac libs (including ROS)
-import omni
-from omni.isaac.core.utils.extensions import enable_extension
 from omni.isaac.core import World
 from pxr import Gf
+import omni
+
 # Custom libs
-from src.environments.lunaryard import LabController
+from src.environments.lunaryard import LunaryardController
 from src.robots.robot import RobotManager
 
-# Enables ROS2
-enable_extension("omni.isaac.ros2_bridge")
-enable_extension("omni.kit.viewport.actions")
-simulation_app.update()
 # Loads ROS2 dependent libraries
 from std_msgs.msg import Bool, Float32, ColorRGBA, Int8, Int32, String, Empty
 from rclpy.executors import SingleThreadedExecutor as Executor
@@ -29,44 +28,14 @@ from geometry_msgs.msg import Pose, PoseStamped
 from rclpy.node import Node
 import rclpy
 
-LAB_X_MIN = 0.5
-LAB_X_MAX = 19.5
-LAB_Y_MIN = 0.5
-LAB_Y_MAX = 19.5
-MPP = 0.02
-
-terrain_settings = {"crater_spline_profiles": "crater_spline_profiles.pkl",
-                    "dems_path": "Terrains/Lunaryard",
-                    "sim_length": LAB_Y_MAX - LAB_Y_MIN + 1,
-                    "sim_width": LAB_X_MAX - LAB_X_MIN + 1,
-                    "lab_x_min": LAB_X_MIN,
-                    "lab_x_max": LAB_X_MAX,
-                    "lab_y_min": LAB_Y_MIN,
-                    "lab_y_max": LAB_Y_MAX,
-                    "resolution": MPP,
-                    "mesh_pos": (0.0, 0.0, 0.0),
-                    "mesh_rot": (0.0, 0.0, 0.0, 1.0),
-                    "mesh_scale": (1.0, 1.0, 1.0),
-                    "max_elevation": 0.5,
-                    "min_elevation": -0.5,
-                    "z_scale": 1,
-                    "pad":500,
-                    "num_repeat":0,
-                    "densities": [0.025, 0.05, 0.5],
-                    "radius": [(1.5,2.5), (0.75,1.5), (0.25,0.5)],
-                    "root_path": "/Lunaryard",
-                    "texture_path": "/Lunaryard/Looks/Basalt",
-                    "seed": 42,
-                    "is_yard": True,
-                    "is_lab": False}
-
-class ROS_LabManager(Node):
+class ROS_LunaryardManager(Node):
     """
     ROS2 node that manages the lab environment"""
 
-    def __init__(self) -> None:
+    def __init__(self, environment_cfg, flares_cfg) -> None:
         super().__init__("Lab_controller_node")
-        self.LC = LabController(terrain_settings=terrain_settings)
+        print(environment_cfg)
+        self.LC = LunaryardController(**environment_cfg, flares_settings=flares_cfg)
         self.LC.load()
         self.trigger_reset = False
 
@@ -379,13 +348,14 @@ class SimulationManager:
     - Running the simulation
     - Cleaning the simulation"""
 
-    def __init__(self) -> None:
+    def __init__(self, cfg, simulation_app) -> None:
+        self.simulation_app = simulation_app
         self.timeline = omni.timeline.get_timeline_interface()
         self.world = World(stage_units_in_meters=1.0)
         self.physics_ctx = self.world.get_physics_context()
         self.physics_ctx.set_solver_type("PGS")
         # Lab manager thread
-        self.ROSLabManager = ROS_LabManager()
+        self.ROSLabManager = ROS_LabManager(cfg["environment"], cfg["rendering"]["flares"])
         exec1 = Executor()
         exec1.add_node(self.ROSLabManager)
         self.exec1_thread = Thread(target=exec1.spin, daemon=True, args=())
@@ -403,7 +373,7 @@ class SimulationManager:
         Runs the simulation."""
 
         self.timeline.play()
-        while simulation_app.is_running():
+        while self.simulation_app.is_running():
             self.world.step(render=True)
             if self.world.is_playing():
                 # Apply modifications to the lab only once the simulation step is finished
@@ -418,8 +388,6 @@ class SimulationManager:
                 self.ROSRobotManager.applyModifications()
 
         self.timeline.stop()
-        simulation_app.close()
-
 
 if __name__ == "__main__":
     rclpy.init()
