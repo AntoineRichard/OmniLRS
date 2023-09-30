@@ -168,7 +168,6 @@ class RockManager:
 
         self.image = image
         for name, settings in self.settings.items():
-            print(settings)
             self.mixers[name] = generateMixer(settings["requests"], image, mask)
     
     def createInstancers(self):
@@ -201,7 +200,6 @@ class RockManager:
         
         for name, instancer in self.instancers.items():
             output = self.mixers[name].executeGraph(num)
-            print(output)
             output = {self.mappings[key]: value for key, value in output.items()}
             instancer.setInstanceParameter(**output)
 
