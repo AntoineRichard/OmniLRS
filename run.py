@@ -8,6 +8,7 @@ __status__ = "development"
 
 from omegaconf import DictConfig, OmegaConf
 from src.configurations import configFactory
+from src.environments_wrappers import startSim
 
 from typing import Dict
 import hydra
@@ -49,30 +50,6 @@ def instantiateConfigs(cfg: dict) -> dict:
         else:
             ret[k] = v
     return ret
-
-
-def startSim(cfg: dict):
-    from omni.isaac.kit import SimulationApp
-    # Start the simulation
-    simulation_app = SimulationApp(cfg["rendering"]["renderer"].__dict__)
-    if cfg["mode"] == "ROS2":
-        from src.environments_wrappers.ros2 import enable_ros2
-        enable_ros2(simulation_app)
-        import rclpy
-        rclpy.init()
-        from src.environments_wrappers.ros2.simulation_manager_ros2 import ROS2_SimulationManager
-        SM = ROS2_SimulationManager(cfg, simulation_app)
-    if cfg["mode"] == "ROS1":
-        from src.environments_wrappers.ros1 import enable_ros1
-        enable_ros1(simulation_app)
-        import rospy
-        rospy.init_node("omni_isaac_ros1")
-        from src.environments_wrappers.ros1.simulation_manager_ros1 import ROS1_SimulationManager
-        SM = ROS1_SimulationManager(cfg, simulation_app)
-    
-    return SM, simulation_app
-
-
 
 @hydra.main(config_name="config", config_path="cfg")
 def run(cfg: DictConfig):
