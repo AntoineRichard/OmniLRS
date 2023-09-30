@@ -1,8 +1,7 @@
-mode: ROS2
-
 defaults:
   - environment: lunalab
   - rendering: path_tracing
+  - mode: ROS2
 
 hydra:
   output_subdir: null
