@@ -19,19 +19,19 @@ from omni.isaac.core.utils.stage import open_stage, add_reference_to_stage
 from pxr import UsdGeom, Sdf, UsdLux, Gf, UsdShade, Usd
 
 from src.configurations.procedural_terrain_confs import TerrainManagerConf
-from src.configurations.environments import LunalabLabConf
 from src.terrain_management.terrain_manager import TerrainManager
+from src.configurations.environments import LunalabConf
 from src.configurations.rendering_confs import FlaresConf
 from src.environments.rock_manager import RockManager
 from WorldBuilders.pxr_utils import setDefaultOps
 from assets import get_assets_path
 
 
-class LabController:
+class LunalabController:
     """
     This class is used to control the lab interactive elements."""
 
-    def __init__(self, lunalab_settings: LunalabLabConf,
+    def __init__(self, lunalab_settings: LunalabConf,
                        rocks_settings: Dict,
                        flares_settings: FlaresConf,
                        terrain_manager: TerrainManagerConf,
@@ -47,27 +47,29 @@ class LabController:
             - Rocks random placements.
             
         Args:
-            terrain_settings (dict): The settings for the terrain manager."""
+            lunalab_settings (LunalabLabConf): The settings of the lab.
+            rocks_settings (Dict): The settings of the rocks.
+            flares_settings (FlaresConf): The settings of the flares.
+            terrain_manager (TerrainManagerConf): The settings of the terrain manager.
+            **kwargs: Arbitrary keyword arguments."""
         
         self.stage = omni.usd.get_context().get_stage()
         self.stage_settings = lunalab_settings
         self.flare_settings = flares_settings
         self.T = TerrainManager(terrain_manager)
-        print(rocks_settings)
         self.RM = RockManager(**rocks_settings)
         self.dem = None
         self.mask = None
-        self.mixer = None
+        self.scene_name = "/Lunalab"
 
     def load(self) -> None:
         """
         Loads the lab interactive elements in the stage.
         Creates the instancer for the rocks, and generates the terrain."""
 
-        scene_name = "/Lunalab"
         scene_path = get_assets_path()+"/USD_Assets/environments/Lunalab.usd"
         # Loads the Lunalab
-        add_reference_to_stage(scene_path, scene_name)
+        add_reference_to_stage(scene_path, self.scene_name)
         # Fetches the interactive elements
         self.collectInteractiveAssets()
         self.RM.build(self.dem, self.mask)
