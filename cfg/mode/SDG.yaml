@@ -1,4 +1,4 @@
-name: synthetic_data_genetation
+name: SDG
 generation_settings:
   camera_name: camera_annotations
   camera_resolution: ${as_tuple:640,480}
@@ -12,8 +12,8 @@ generation_settings:
   seed: 42
 
 camera_settings:
+  camera_path: "Camera/camera_annotations"
   focal_length: 1.93
-  focus_distance: 10
   horizontal_aperture: 2.4
   vertical_aperture: 1.8
   fstop: 0.0
