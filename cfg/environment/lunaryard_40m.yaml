@@ -2,9 +2,9 @@ name: Lunaryard
 seed: 42  
 # Stage settings, only edit if you know what you are doing.
 lunaryard_settings:
-  lab_length: 20.0
-  lab_width: 20.0
-  resolution: 0.025
+  lab_length: 40.0
+  lab_width: 40.0
+  resolution: 0.04
   projector_path: /Lunaryard/Sun
 
 # Rocks sampling parameters.
@@ -32,7 +32,7 @@ rocks_settings:
             core_radius: 0.5
             num_repeat: 2
             min: ${as_tuple:0.5,0.5}
-            max: ${as_tuple:19.5,19.5}
+            max: ${as_tuple:39.5,39.5}
 
         req_pos_z:
           attribute: Position
