@@ -185,8 +185,6 @@ class TerrainManager:
         self._sim_verts = np.array(vertices, dtype=np.float32)
         self._sim_uvs = np.array(uvs, dtype=np.float32)
         self._sim_uvs = self._sim_uvs * self._grid_size
-        print(self._sim_uvs.max())
-        print(self._sim_uvs.shape)
 
     def renderMesh(self, points:np.ndarray, indices:np.ndarray, uvs:np.ndarray, colors=None, update_topology:bool=False) -> None:
             """
@@ -249,7 +247,6 @@ class TerrainManager:
         Randomizes the terrain."""
 
         self._DEM, self._mask = self._G.randomize()
-        print(self._DEM.shape)
         self.update()
 
     def loadTerrainByName(self, name: str) -> None:
