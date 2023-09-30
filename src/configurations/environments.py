@@ -39,7 +39,8 @@ class LunaryardConf:
     lab_length: float = 20.0
     lab_width: float = 20.0
     resolution: float = 0.025
-    projector_path: str = "/Lunaryard/Sun"  
+    projector_path: str = "/Lunaryard/Sun"
+    earth_path: str = "/Lunaryard/Earth"  
 
     def __post_init__(self):
         assert type(self.lab_length) == float, "The lab length must be a float."
