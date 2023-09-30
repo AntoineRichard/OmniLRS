@@ -1,0 +1,71 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
+from src.environments_wrappers.sdg.lunaryard_sdg import SDG_Lunaryard
+from src.environments_wrappers.sdg.lunalab_sdg import SDG_Lunalab
+from src.configurations.auto_labeling_confs import AutoLabelingConf, CameraConf
+from src.labeling.auto_label import AutonomousLabeling
+
+from omni.isaac.core import World
+from typing import Union
+import omni
+
+class SyntheticDataGeneration_LabManagerFactory:
+    def __init__(self):
+        self._lab_managers = {}
+
+    def register(self, name, lab_manager):
+        self._lab_managers[name] = lab_manager
+
+    def __call__(self, cfg):
+        return self._lab_managers[cfg["environment"]["name"]](**cfg["environment"],
+                                                              flares_settings = cfg["rendering"]["lens_flares"],
+                                                              camera_settings = cfg["mode"]["camera_settings"])
+
+SDG_LMF = SyntheticDataGeneration_LabManagerFactory() 
+SDF_LMF.register("Lunalab", SDG_Lunalab)
+SDG_LMF.register("Lunaryard", SDG_Lunaryard)
+
+class SDG_SimulationManager:
+    """"
+    Manages the simulation. This class is responsible for:
+    - Initializing the simulation
+    - Running the simulation
+    - Cleaning the simulation"""
+
+    def __init__(self, cfg, simulation_app) -> None:
+        self.simulation_app = simulation_app
+        self.timeline = omni.timeline.get_timeline_interface()
+        self.world = World(stage_units_in_meters=1.0)
+        self.physics_ctx = self.world.get_physics_context()
+        self.physics_ctx.set_solver_type("PGS")
+        # Lab manager thread
+        self.world.reset()
+        self.LC = SDG_LMF(cfg)
+        self.LC.load()
+        print("After lab is loaded")
+        for i in range(100):
+            self.world.step(render=True)
+        print("After world reset")
+        self.AL = AutonomousLabeling("/Lunaryard/Camera")
+        self.AL.load()
+        
+    def run_simulation(self) -> None:
+        """
+        Runs the simulation."""
+        
+        self.timeline.play()
+        while self.simulation_app.is_running():
+            self.world.step(render=True)
+            if self.world.is_playing():
+                try:
+                    self.AL.record()
+                except:
+                    pass
+                self.LC.randomize()
+        self.timeline.stop()
