@@ -62,6 +62,13 @@ def startSim(cfg: dict):
         rclpy.init()
         from src.environments_wrappers.ros2.simulation_manager_ros2 import ROS2_SimulationManager
         SM = ROS2_SimulationManager(cfg, simulation_app)
+    if cfg["mode"] == "ROS1":
+        from src.environments_wrappers.ros1 import enable_ros1
+        enable_ros1(simulation_app)
+        import rospy
+        rospy.init_node("omni_isaac_ros1")
+        from src.environments_wrappers.ros1.simulation_manager_ros1 import ROS1_SimulationManager
+        SM = ROS1_SimulationManager(cfg, simulation_app)
     
     return SM, simulation_app
 
