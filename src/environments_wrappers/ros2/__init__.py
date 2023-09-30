@@ -6,7 +6,7 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
-def enable_ros2(simulation_app) -> None:
+def enable_ros2(simulation_app, **kwargs) -> None:
     """
     Enables ROS2 in the simulation.
     

@@ -34,7 +34,6 @@ class ROS_LunaryardManager(Node):
 
     def __init__(self, environment_cfg, flares_cfg) -> None:
         super().__init__("Lab_controller_node")
-        print(environment_cfg)
         self.LC = LunaryardController(**environment_cfg, flares_settings=flares_cfg)
         self.LC.load()
         self.trigger_reset = False
