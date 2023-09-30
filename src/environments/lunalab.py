@@ -31,10 +31,10 @@ class LunalabController:
     """
     This class is used to control the lab interactive elements."""
 
-    def __init__(self, lunalab_settings: LunalabConf,
-                       rocks_settings: Dict,
-                       flares_settings: FlaresConf,
-                       terrain_manager: TerrainManagerConf,
+    def __init__(self, lunalab_settings: LunalabConf = None,
+                       rocks_settings: Dict = None,
+                       flares_settings: FlaresConf = None,
+                       terrain_manager: TerrainManagerConf = None,
                        **kwargs,
                        ) -> None:
         """
