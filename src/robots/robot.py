@@ -6,7 +6,7 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import numpy as np
 import os
 
@@ -26,17 +26,15 @@ class RobotManager:
     It allows to spawn, reset, teleport robots. It also allows to automatically add namespaces to topics,
     and tfs to enable multi-robot operation."""
 
-    def __init__(self, spawning_poses:List[Dict[str,List[float]]], uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots") -> None:
+    def __init__(self, uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots") -> None:
         """
         Args:
-            spawning_poses (list): List of dictionaries with coordinates containing the spawning poses of the robots.
             uses_nucleus (bool, optional): Whether the robots are loaded from the nucleus or not. Defaults to False.
             is_ROS2 (bool, optional): Whether the robots are ROS2 enabled or not. Defaults to False.
             max_robots (int, optional): Maximum number of robots that can be spawned. Defaults to 5.
             robots_root (str, optional): The root path of the robots. Defaults to "/Robots"."""
         
         self.stage = omni.usd.get_context().get_stage()
-        self.spawning_poses = spawning_poses
         self.uses_nucleus = uses_nucleus
         self.is_ROS2 = is_ROS2
         self.max_robots = max_robots
@@ -44,9 +42,13 @@ class RobotManager:
         createXform(self.stage, self.robots_root)
         self.robots = {}
         self.num_robots = 0
-        assert(len(spawning_poses) >= max_robots)
 
-    def addRobot(self, usd_path:str, robot_name:str, domain_id:int) -> None:
+    def addRobot(self, usd_path:str = None,
+                       robot_name:str = None,
+                       domain_id:int = None,
+                       p: Tuple[float, float, float] = [0,0,0],
+                       q:Tuple[float, float, float, float] = [0,0,0,1],
+                       ) -> None:
         """
         Add a robot to the scene.
         
@@ -61,7 +63,7 @@ class RobotManager:
             pass
         else:
             self.robots[robot_name] = Robot(usd_path, robot_name, is_on_nucleus=self.uses_nucleus, is_ROS2=self.is_ROS2, domain_id=domain_id, robots_root=self.robots_root)
-            self.robots[robot_name].load(self.spawning_poses[self.num_robots]["position"], self.spawning_poses[self.num_robots]["orientation"])
+            self.robots[robot_name].load(p, q)
             self.num_robots += 1
 
     def resetRobots(self) -> None:
@@ -153,7 +155,6 @@ class Robot:
         if self.is_on_nucleus:
             nucleus = get_assets_root_path()
             self.usd_path = os.path.join(nucleus,self.usd_path)
-        print(self.robot_path)
         createObject(self.robot_path, self.stage, self.usd_path, is_instance=False, position=position, rotation=orientation)
         self.editGraphs()
     
