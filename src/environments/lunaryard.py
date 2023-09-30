@@ -31,10 +31,10 @@ class LunaryardController:
     """
     This class is used to control the lab interactive elements."""
 
-    def __init__(self, lunaryard_settings: LunaryardConf,
-                       rocks_settings: Dict,
-                       flares_settings: FlaresConf,
-                       terrain_manager: TerrainManagerConf,
+    def __init__(self, lunaryard_settings: LunaryardConf = None,
+                       rocks_settings: Dict = None,
+                       flares_settings: FlaresConf = None,
+                       terrain_manager: TerrainManagerConf = None,
                        **kwargs) -> None:
         """
         Initializes the lab controller. This class is used to control the lab interactive elements.
@@ -121,6 +121,10 @@ class LunaryardController:
         self._projector_prim = self.stage.GetPrimAtPath(self.stage_settings.projector_path)
         self._projector_xform = UsdGeom.Xformable(self._projector_prim)
         self._projector_lux = self.getLuxAssets(self._projector_prim)
+
+        # Earth
+        self._earth_prim = self.stage.GetPrimAtPath(self.stage_settings.earth_path)
+        self._earth_xform = UsdGeom.Xformable(self._earth_prim)
 
 # ==============================================================================
 # Sun control

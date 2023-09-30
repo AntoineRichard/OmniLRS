@@ -6,6 +6,7 @@ lunaryard_settings:
   lab_width: 20.0
   resolution: 0.025
   projector_path: /Lunaryard/Sun
+  earth_path: /Lunaryard/Earth
 
 # Rocks sampling parameters.
 rocks_settings:
