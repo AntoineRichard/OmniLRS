@@ -1,0 +1,21 @@
+name: synthetic_data_genetation
+generation_settings:
+  camera_name: camera_annotations
+  camera_resolution: ${as_tuple:640,480}
+  data_dir: data
+  annotation_list: ["rgb", "semantic", "instance"]
+  image_format: png
+  annotation_format: png
+  element_per_folder: 1000
+  add_noise_to_rgb: False
+  sigma: 5.0
+  seed: 42
+
+camera_settings:
+  focal_length: 1.93
+  focus_distance: 10
+  horizontal_aperture: 2.4
+  vertical_aperture: 1.8
+  fstop: 0.0
+  focus_distance: 10.0
+  clipping_range: ${as_tuple:0.01, 1000000.0}
