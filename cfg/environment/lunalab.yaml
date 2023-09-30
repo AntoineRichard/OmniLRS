@@ -22,7 +22,7 @@ rocks_settings:
       use_point_instancer: True # If True, the rocks will be instanced using the PointInstancer.
 
       requests: # A list of request used to distribute the rocks.
-        req_pos_xy: # The name does not matter.
+        req_pos_xy: 
           attribute: Position
           axes: ["x", "y"]
           layer:
