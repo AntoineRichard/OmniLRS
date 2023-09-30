@@ -1,3 +1,11 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 from omegaconf import DictConfig, OmegaConf
 from src.configurations import configFactory
 
@@ -52,8 +60,10 @@ def startSim(cfg: dict):
         enable_ros2(simulation_app)
         import rclpy
         rclpy.init()
+        from src.environments_wrappers.ros2.simulation_manager_ros2 import ROS2_SimulationManager
+        SM = ROS2_SimulationManager(cfg, simulation_app)
     
-    return simulation_app
+    return SM, simulation_app
 
 
 
@@ -61,11 +71,8 @@ def startSim(cfg: dict):
 def run(cfg: DictConfig):
     cfg = omegaconfToDict(cfg)
     cfg = instantiateConfigs(cfg)
-    simulation_app = startSim(cfg)
+    SM, simulation_app = startSim(cfg)
 
-    from src.environments_wrappers.ros2.lunalab_ros2 import SimulationManager
-
-    SM = SimulationManager(cfg, simulation_app)
     SM.run_simulation()
     simulation_app.close()
 
