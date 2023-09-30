@@ -8,6 +8,7 @@ __status__ = "development"
 
 # Custom libs
 from src.environments.lunalab import LunalabController
+from src.configurations.rendering_confs import FlaresConf
 
 # Loads ROS2 dependent libraries
 from std_msgs.msg import Bool, Float32, ColorRGBA, Int8, Int32, String, Empty
@@ -20,7 +21,18 @@ class ROS_LunalabManager(Node):
     """
     ROS2 node that manages the lab environment"""
 
-    def __init__(self, environment_cfg, flares_cfg) -> None:
+    def __init__(self, environment_cfg: dict = None,
+                       flares_cfg: FlaresConf = None,
+                       **kwargs,
+                       ) -> None:
+        """
+        Initializes the lab manager.
+        
+        Args:
+            environment_cfg (dict): Environment configuration.
+            flares_cfg (dict): Flares configuration.
+            **kwargs: Additional arguments."""
+
         super().__init__("Lab_controller_node")
         self.LC = LunalabController(**environment_cfg, flares_settings=flares_cfg)
         self.LC.load()

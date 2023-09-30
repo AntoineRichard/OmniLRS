@@ -11,7 +11,8 @@ def enable_ros2(simulation_app, **kwargs) -> None:
     Enables ROS2 in the simulation.
     
     Args:
-        simulation_app (SimulationApp): SimulationApp instance."""
+        simulation_app (SimulationApp): SimulationApp instance.
+        **kwargs: Additional keyword arguments."""
 
     from omni.isaac.core.utils.extensions import enable_extension
     enable_extension("omni.isaac.ros2_bridge")

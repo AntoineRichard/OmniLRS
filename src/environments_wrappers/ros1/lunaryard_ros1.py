@@ -8,6 +8,7 @@ __status__ = "development"
 
 # Custom libs
 from src.environments.lunaryard import LunaryardController
+from src.configurations.rendering_confs import FlaresConf
 from src.robots.robot import RobotManager
 
 # Loads ROS1 dependent libraries
@@ -19,7 +20,18 @@ class ROS_LunaryardManager:
     """
     ROS1 node that manages the Lunalab and robots."""
 
-    def __init__(self, environment_cfg, flares_cfg) -> None:
+    def __init__(self, environment_cfg: dict = None,
+                       flares_cfg: FlaresConf = None,
+                       **kwargs,
+                       ) -> None:
+        """
+        Initializes the ROS1 node.
+        
+        Args:
+            environment_cfg (dict): Environment configuration dictionary.
+            flares_cfg (dict): Lens flares configuration dictionary.
+            **kwargs: Additional keyword arguments."""
+
         self.LC = LunaryardController(**environment_cfg, flares_settings=flares_cfg)
         self.RM = RobotManager(uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots")
         self.LC.load()

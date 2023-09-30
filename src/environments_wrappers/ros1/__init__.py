@@ -12,7 +12,8 @@ def enable_ros1(simulation_app, **kwargs) -> None:
     Enables ROS1 in the simulation.
     
     Args:
-        simulation_app (SimulationApp): SimulationApp instance."""
+        simulation_app (SimulationApp): SimulationApp instance.
+        **kwargs: Additional keyword arguments."""
     
     # Enables this ROS1 extension
     from omni.isaac.core.utils.extensions import enable_extension
