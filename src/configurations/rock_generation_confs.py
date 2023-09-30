@@ -12,7 +12,13 @@ import dataclasses
 class RockGenerationConf:
     instancers_path: str = dataclasses.field(default_factory=str)
     rocks_settings: dict = dataclasses.field(default_factory=dict)
+
+@dataclasses.dataclass
+class RequestGroupConf:
     seed: int = dataclasses.field(default_factory=int)
+    collections: list = dataclasses.field(default_factory=list)
+    use_point_instancer: bool = dataclasses.field(default_factory=bool)
+    requests: list = dataclasses.field(default_factory=list)
 
 @dataclasses.dataclass
 class RequestConf:
