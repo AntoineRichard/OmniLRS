@@ -76,7 +76,7 @@ class SDG_Lunaryard(LunaryardController):
         # Offsets the camera position from the ground by 20cm (0.2m)
         # Rotates the camera such that it looks forward
         addDefaultOps(UsdGeom.Xformable(self._camera.GetPrim()))
-        setDefaultOps(UsdGeom.Xformable(self._camera.GetPrim()), (0.0,0.0,0.2),(0.5,-0.5,0.5,-0.5),(1.0,1.0,1.0))
+        setDefaultOps(UsdGeom.Xformable(self._camera.GetPrim()), (0.0,0.0,0.2),(0.5,-0.5,-0.5,0.5),(1.0,1.0,1.0))
         addDefaultOps(UsdGeom.Xformable(self._camera_prim))
         setDefaultOps(UsdGeom.Xformable(self._camera_prim), (0.0,0.0,0.0),(0,0,0,1),(1.0,1.0,1.0))
 
