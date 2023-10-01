@@ -10,6 +10,7 @@ import dataclasses
 
 @dataclasses.dataclass
 class FlaresConf:
+    enable: bool = dataclasses.field(default_factory=bool)
     scale: float = dataclasses.field(default_factory=float)
     blades: int = dataclasses.field(default_factory=int)
     aperture_rotation: float = dataclasses.field(default_factory=float)
@@ -19,6 +20,7 @@ class FlaresConf:
     focal_length: float = dataclasses.field(default_factory=float)
 
     def __post_init__(self):
+        assert type(self.enable) is bool, "enalbe must be a boolean"
         assert type(self.scale) is float, "scale must be a float"
         assert type(self.blades) is int, "blades must be an integer"
         assert type(self.aperture_rotation) is float, "aperture_rotation must be a float"

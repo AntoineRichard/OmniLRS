@@ -75,6 +75,7 @@ class LunalabController:
         self.RM.build(self.dem, self.mask)
         # Loads the DEM and the mask
         self.switchTerrain(0)
+        self.enableLensFlare(self.flare_settings.enable)
 
     def getLuxAssets(self, prim: "Usd.Prim") -> None:
         """
