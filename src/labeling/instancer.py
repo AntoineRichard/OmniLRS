@@ -25,7 +25,7 @@ class CustomInstancer:
     We defined our own instancer instead of using a Usd.Geom.PointInstancer as the latter does not support semantic information properly.
     It may be fixed in the next release of Omniverse?"""
 
-    def __init__(self, instancer_path:str, asset_list:list, seed:int = 0):
+    def __init__(self, instancer_path:str, asset_list:list, semantic_class:str = None, seed:int = 0):
         """
         Args:
             instancer_path (str): The path of the instancer.
@@ -40,10 +40,11 @@ class CustomInstancer:
         self.flag = False
         self.makeCache()
         self.instance_paths = []
+        self.semantic_class = semantic_class
         self.rng = np.random.default_rng(seed=seed)
 
     def setInstanceParameter(self, position:np.ndarray, orientation:np.ndarray, 
-                             scale:np.ndarray, semantic_class:str=None) -> None:
+                             scale:np.ndarray) -> None:
         """
         Set the instancer's parameters. It sets the position, orientation, scale, and semantic class of the instances.
         
@@ -59,7 +60,7 @@ class CustomInstancer:
         self.orientation = orientation
         self.scale = scale
         self.ids = self.rng.integers(0, len(self.prototypes), self.num)
-        self.semantic_classes = [semantic_class] * self.num
+        self.semantic_classes = [self.semantic_class] * self.num
         self.update()
 
     def makeCache(self) -> None:

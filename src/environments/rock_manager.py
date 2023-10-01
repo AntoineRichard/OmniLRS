@@ -266,9 +266,11 @@ class RockManager:
 
             self.stage.DefinePrim(os.path.join(self.instancers_path,name), "Xform")
             if settings["use_point_instancer"]:
+                print("OG")
                 self.instancers[name] = OGInstancer(os.path.join(self.instancers_path, name, "instancer"), rock_assets, seed=settings["seed"])
             else:
-                self.instancers[name] = CustomInstancer(os.path.join(self.instancers_path, name, "instancer"), rock_assets, seed=settings["seed"])
+                print("Custom")
+                self.instancers[name] = CustomInstancer(os.path.join(self.instancers_path, name, "instancer"), rock_assets, semantic_class=settings["class"], seed=settings["seed"])
 
     def randomizeInstancers(self, num):
         """
