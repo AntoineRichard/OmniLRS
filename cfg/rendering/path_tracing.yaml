@@ -8,6 +8,7 @@ renderer:
   subdiv_refinement_level: 0
 
 lens_flares:
+  enable: True
   scale: 0.43
   blades: 3
   aperture_rotation: 0.0
