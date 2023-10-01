@@ -6,18 +6,18 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, ListConfig
 from src.configurations import configFactory
 from src.environments_wrappers import startSim
 
-from typing import Dict
+from typing import Dict, List
 import hydra
 
 def resolve_tuple(*args):
     return tuple(args)
 
 OmegaConf.register_new_resolver('as_tuple', resolve_tuple)
-
+            
 def omegaconfToDict(d: DictConfig) -> Dict:
     """Converts an omegaconf DictConfig to a python Dict, respecting variable interpolation.
     
@@ -27,12 +27,20 @@ def omegaconfToDict(d: DictConfig) -> Dict:
     Returns:
         Dict: Python dict."""
 
-    ret = {}
-    for k, v in d.items():
-        if isinstance(v, DictConfig):
-            ret[k] = omegaconfToDict(v)
-        else:
-            ret[k] = v
+    if isinstance(d, DictConfig):
+        ret = {}
+        for k, v in d.items():
+            if isinstance(v, DictConfig):
+                ret[k] = omegaconfToDict(v)
+            elif isinstance(v, ListConfig):
+                ret[k] = [omegaconfToDict(i) for i in v]
+            else:
+                ret[k] = v
+    elif isinstance(d, ListConfig):
+        ret = [omegaconfToDict(i) for i in d]
+    else:
+        ret = d
+
     return ret
 
 def instantiateConfigs(cfg: dict) -> dict:
