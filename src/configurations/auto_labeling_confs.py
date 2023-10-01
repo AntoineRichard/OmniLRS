@@ -13,6 +13,7 @@ from typing import Any
 class AutoLabelingConf:
     """
     Args:
+        num_images (int): The number of images to generate.
         prim_path (str): Path to the prim file.
         camera_name (str): Name of the camera.
         camera_resolution (tuple): Resolution of the camera.
@@ -26,7 +27,7 @@ class AutoLabelingConf:
         sigma (float): Sigma of the noise.
         seed (int): Seed for the random number generator.
         """
-
+    num_images: int = dataclasses.field(default=int)
     prim_path: str = dataclasses.field(default_factory=str)
     camera_name: str = dataclasses.field(default_factory=str)
     camera_resolution: tuple = dataclasses.field(default_factory=tuple)
@@ -40,6 +41,8 @@ class AutoLabelingConf:
     seed: int = dataclasses.field(default_factory=int)
 
     def __post_init__(self):
+        print(type(self.annotator_list))
+        assert type(self.num_images) is int, "num images must be an integer"
         assert type(self.prim_path) is str, "prim_path must be a string"
         assert type(self.camera_name) is str, "camera_name must be a string"
         assert type(self.camera_resolution) is tuple, "camera_resolution must be a tuple"
@@ -52,9 +55,13 @@ class AutoLabelingConf:
         assert type(self.element_per_folder) is int, "element_per_folder must be an integer"
         assert type(self.add_noise_to_rgb) is bool, "add_noise_to_rgb must be a boolean"
 
+        assert self.num_images > 0, "num_images must be larger than 0"
         assert len(self.camera_resolution) == 2, "camera_resolution must be a tuple of length 2"
         assert self.element_per_folder > 0, "element_per_folder must be greater than 0"
         assert self.sigma > 0, "sigma must be greater than 0"
+        assert self.image_format in ["png","jpeg","jpg","tiff","tif"], "image_format must be png, jpg, jpeg, tiff or tif"
+        assert self.annot_format in ["json","csv","yaml"], "annot_format must be json, csv, or yaml"
+        assert self.data_dir != "", "data_dir cannot be empty"
 
 @dataclasses.dataclass
 class CameraConf:

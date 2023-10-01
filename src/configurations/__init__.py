@@ -54,4 +54,4 @@ configFactory.registerConfig("lunalab_settings", LunalabConf)
 configFactory.registerConfig("lunaryard_settings", LunaryardConf)
 # Auto Labeling Configs
 configFactory.registerConfig("camera_settings", CameraConf)
-configFactory.registerConfig("auto_labeling", AutoLabelingConf)
+configFactory.registerConfig("generation_settings", AutoLabelingConf)
