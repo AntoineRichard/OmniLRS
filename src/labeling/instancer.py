@@ -39,6 +39,7 @@ class CustomInstancer:
         self.prototypes = asset_list
         self.flag = False
         self.makeCache()
+        self.instance_paths = []
         self.rng = np.random.default_rng(seed=seed)
 
     def setInstanceParameter(self, position:np.ndarray, orientation:np.ndarray, 
@@ -52,12 +53,14 @@ class CustomInstancer:
             scale (np.ndarray): The scale of the instances.
             semantic_class (str, optional): The semantic class of the instances. Defaults to None."""
 
+        self.destroy()
         self.num = position.shape[0]
         self.position = position
         self.orientation = orientation
         self.scale = scale
         self.ids = self.rng.integers(0, len(self.prototypes), self.num)
         self.semantic_classes = [semantic_class] * self.num
+        self.update()
 
     def makeCache(self) -> None:
         """
