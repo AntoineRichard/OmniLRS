@@ -8,7 +8,7 @@ __status__ = "development"
 
 from WorldBuilders.Types import *
 from WorldBuilders.Mixer import RequestMixer
-from typing import Any
+from typing import Any, Union, List, Dict
 from WorldBuilders.pxr_utils import createInstancerAndCache, setInstancerParameters
 from src.labeling.instancer import CustomInstancer
 from assets import get_assets_path
@@ -139,11 +139,87 @@ class RockManager:
         self.settings = {}
         self.mixers = {}
 
+
         self.instancers_path = instancers_path
         self.mappings = {"xformOp:translation": "position", "xformOp:orientation": "orientation", "xformOp:scale": "scale"}
 
         for name, settings in rocks_settings.items():
             self.settings[name] = settings
+        
+        # This is probalby over-engineered (like every good things in life)
+        # Creates a dependency graph to know which node depends on which.
+        # It also collects the root nodes, the ones that don't depend on any.
+        # As well as all the nodes.
+        self.dependency_graph = {}
+        self.root_nodes = []
+        self.nodes = []
+        self.buildDependencyGraph()
+        self.children_nodes = [i for l in self.dependency_graph.values() for i in l]
+        # From there we compute the order in which the nodes need to be executed.
+        self.execution_order = []
+        self.buildExecutionOrder()
+
+    def buildDependencyGraph(self) -> None:
+        """
+        Reads the configuration files and figures out which node (a node is a single bundle of requests) depends on which.
+        It collects the root nodes, the ones that do not depend on any others.
+        As well as builds a list of all the existing nodes."""
+
+        for name, settings in self.settings.items():
+            self.nodes.append(name)
+            if "parent" in settings.keys():
+                if not settings["parent"] is None:
+                    assert settings["parent"] in self.settings.keys(), "the name of the parent must match the name of an existing process."
+                    self.settings[settings["parent"]]["is_parent"] = True
+                    if settings["parent"] in self.dependency_graph.keys():
+                        self.dependency_graph[settings["parent"]].append(name)
+                    else:
+                        self.settings[settings["parent"]]["children"] = [name]
+            else:
+                self.root_nodes.append(name)
+                if not name in self.dependency_graph.keys():
+                    self.dependency_graph[name] = []
+
+    def findPath(self, start: str, end: str, path: List[str] = []) -> Union[None, List[str]]:
+        """
+        Finds if the starting node, and ending nodes are connected.
+        If so, returns the path between them, if not returns None.
+        
+        Args:
+            start (str): The starting node.
+            end (str): The ending node.
+            path (List[str]): The list of nodes. 
+            
+        Returns:
+            Union[None, List[str]]"""
+
+        path = path + [start]
+        if start == end:
+            return path
+        if not start in self.dependency_graph.keys():
+            return None
+        for node in self.dependency_graph[start]:
+            if node not in path:
+                newpath = self.findPath(node, end, path)
+                if newpath: return newpath
+        return None
+
+    def buildExecutionOrder(self):
+        """
+        Figures out in which order the nodes should be ran such that the depencies are satisfied."""
+
+        paths = []
+        # Makes a list of all the paths between the root nodes and all the other nodes.
+        # It should be noted the cycles should not exist but we are not checking for them.
+        # Also, a node should not have more than 1 parent.
+        # It's up to the user to specify something correct.
+        for root_node in self.root_nodes:
+            for node in self.nodes:
+                paths.append(self.findPath(root_node, node))
+        # Removes the Nans when the paths are not possible
+        paths = [path for path in paths if path]
+        # Sorts the paths by length, and keeps the last element.
+        self.execution_order = [i[-1] for i in sorted(paths, key=lambda i: len(i))]
 
     def build(self, image: np.ndarray, mask: np.ndarray) -> None:
         """
@@ -197,11 +273,20 @@ class RockManager:
     def randomizeInstancers(self, num):
         """
         Runs the mixers, collects the randomized parameters, and sets them to the instancers."""
-        
-        for name, instancer in self.instancers.items():
-            output = self.mixers[name].executeGraph(num)
+
+        parents = {}
+        for name in self.execution_order:
+            if name in self.children_nodes:
+                output = self.mixers[name].executeGraph(parents=parents[self.settings[name]["parent"]])
+            else:
+                output = self.mixers[name].executeGraph(num)
+            # Check if it the node is the parent of any other node.
+            if (name in self.dependency_graph.keys()) and (len(self.dependency_graph[name]) > 0):
+                # If so collects parent data from the mixer.
+                parents[name] = self.mixers[name].getParents()
+            # Updates the instancer.
             output = {self.mappings[key]: value for key, value in output.items()}
-            instancer.setInstanceParameter(**output)
+            self.instancers[name].setInstanceParameter(**output)
 
     def setVisible(self, flag: bool,
                          ) -> None:
