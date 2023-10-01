@@ -76,10 +76,10 @@ class SDG_Lunalab(LunalabController):
         # Offsets the camera position from the ground by 20cm (0.2m)
         # Rotates the camera such that it looks forward
         addDefaultOps(UsdGeom.Xformable(self._camera.GetPrim()))
-        setDefaultOps(UsdGeom.Xformable(self._camera.GetPrim()), (0.0,0.0,-0.2),(-0.5,-0.5,0.5,0.5),(1.0,1.0,1.0))
+        setDefaultOps(UsdGeom.Xformable(self._camera.GetPrim()), (0.0,0.0,0.2),(0.5,-0.5,0.5,-0.5),(1.0,1.0,1.0))
         # Also sets the ops for the camera prim. The quaternions are probably wrong but it works, so it's ok?
         addDefaultOps(UsdGeom.Xformable(self._camera_prim))
-        setDefaultOps(UsdGeom.Xformable(self._camera_prim), (0.0,0.0,0.0),(1,0,0,0),(1.0,1.0,1.0))
+        setDefaultOps(UsdGeom.Xformable(self._camera_prim), (0.0,0.0,0.0),(0,0,0,1),(1.0,1.0,1.0))
 
     def createCameraSampler(self) -> None:
         """
@@ -90,8 +90,8 @@ class SDG_Lunalab(LunalabController):
         # Generates the requests to be sent to the procedural camera placement.
         # Positiion based on the mask
         xy_mask = Image_T(data=self.mask, mpp_resolution=self.terrain_settings.resolution, output_space=2)
-        xy_sampler = UniformSampler_T(min=(0, self.terrain_settings.sim_length),
-                                      max=(0, self.terrain_settings.sim_width),
+        xy_sampler = UniformSampler_T(min=(0.75, self.terrain_settings.sim_length-0.75),
+                                      max=(0.75, self.terrain_settings.sim_width-0.75),
                                       randomization_space=2, seed=42)
         req_pos_xy = UserRequest_T(p_type = Position_T(), sampler=xy_sampler, layer=xy_mask, axes=["x","y"])
         # Random yaw
@@ -106,12 +106,15 @@ class SDG_Lunalab(LunalabController):
         self.mixer_camera = RequestMixer(requests)
 
     def randomizeProjector(self):
-        theta = self.rng.uniform(0,360)
-        phi = self.rng.uniform(20,90)
+        x = self.rng.uniform(0.5, self.terrain_settings.sim_width-0.5)
+        z = self.rng.uniform(0.3, 1.5)
+        y = 0
+        theta = self.rng.uniform(0,20) - 10
+        phi = self.rng.uniform(0,20) - 10
 
         R = SSTR.from_euler('xyz',(phi,0,theta),degrees=True)
         quat = R.as_quat()
-        setDefaultOps(self._projector_xform, [0,0,0],quat,[1,1,1])
+        setDefaultOps(self._projector_xform, [x,y,z], quat, [1,1,1])
 
     def randomizeCamera(self):
         """
@@ -120,7 +123,7 @@ class SDG_Lunalab(LunalabController):
         attributes = self.mixer_camera.executeGraph(1)
         position = attributes["xformOp:translation"]
         orientation = attributes["xformOp:orientation"]
-        setDefaultOps(UsdGeom.Xformable(self._camera_prim), position[0], (1,0,0,0), (1,1,1))
+        setDefaultOps(UsdGeom.Xformable(self._camera_prim), position[0], orientation[0], (1,1,1))
 
     def switchTerrain(self, flag:int) -> None:
         super().switchTerrain(flag)

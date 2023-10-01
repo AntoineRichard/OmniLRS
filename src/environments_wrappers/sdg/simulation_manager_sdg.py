@@ -28,7 +28,7 @@ class SyntheticDataGeneration_LabManagerFactory:
                                                               camera_settings = cfg["mode"]["camera_settings"])
 
 SDG_LMF = SyntheticDataGeneration_LabManagerFactory() 
-SDF_LMF.register("Lunalab", SDG_Lunalab)
+SDG_LMF.register("Lunalab", SDG_Lunalab)
 SDG_LMF.register("Lunaryard", SDG_Lunaryard)
 
 class SDG_SimulationManager:
@@ -52,7 +52,7 @@ class SDG_SimulationManager:
         for i in range(100):
             self.world.step(render=True)
         print("After world reset")
-        self.AL = AutonomousLabeling("/Lunaryard/Camera")
+        self.AL = AutonomousLabeling(self.LC.scene_name+"/Camera")
         self.AL.load()
         
     def run_simulation(self) -> None:

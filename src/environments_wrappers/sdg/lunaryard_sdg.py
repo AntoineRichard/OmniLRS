@@ -76,10 +76,9 @@ class SDG_Lunaryard(LunaryardController):
         # Offsets the camera position from the ground by 20cm (0.2m)
         # Rotates the camera such that it looks forward
         addDefaultOps(UsdGeom.Xformable(self._camera.GetPrim()))
-        setDefaultOps(UsdGeom.Xformable(self._camera.GetPrim()), (0.0,0.0,-0.2),(-0.5,-0.5,0.5,0.5),(1.0,1.0,1.0))
-        # Also sets the ops for the camera prim. The quaternions are probably wrong but it works, so it's ok?
+        setDefaultOps(UsdGeom.Xformable(self._camera.GetPrim()), (0.0,0.0,0.2),(0.5,-0.5,0.5,-0.5),(1.0,1.0,1.0))
         addDefaultOps(UsdGeom.Xformable(self._camera_prim))
-        setDefaultOps(UsdGeom.Xformable(self._camera_prim), (0.0,0.0,0.0),(1,0,0,0),(1.0,1.0,1.0))
+        setDefaultOps(UsdGeom.Xformable(self._camera_prim), (0.0,0.0,0.0),(0,0,0,1),(1.0,1.0,1.0))
 
     def createCameraSampler(self) -> None:
         """
@@ -135,7 +134,7 @@ class SDG_Lunaryard(LunaryardController):
         attributes = self.mixer_camera.executeGraph(1)
         position = attributes["xformOp:translation"]
         orientation = attributes["xformOp:orientation"]
-        setDefaultOps(UsdGeom.Xformable(self._camera_prim), position[0], (1,0,0,0), (1,1,1))
+        setDefaultOps(UsdGeom.Xformable(self._camera_prim), position[0], orientation[0], (1,1,1))
 
     def switchTerrain(self, flag:int) -> None:
         super().switchTerrain(flag)
