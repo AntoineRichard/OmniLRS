@@ -40,6 +40,7 @@ class SDG_SimulationManager:
 
     def __init__(self, cfg, simulation_app) -> None:
         self.simulation_app = simulation_app
+        self.generation_settings = cfg["mode"]["generation_settings"]
         self.timeline = omni.timeline.get_timeline_interface()
         self.world = World(stage_units_in_meters=1.0)
         self.physics_ctx = self.world.get_physics_context()
@@ -52,19 +53,22 @@ class SDG_SimulationManager:
         for i in range(100):
             self.world.step(render=True)
         print("After world reset")
-        self.AL = AutonomousLabeling(self.LC.scene_name+"/Camera")
+        self.generation_settings.prim_path = self.LC.scene_name +"/"+ self.generation_settings.prim_path
+        self.AL = AutonomousLabeling(self.generation_settings)
         self.AL.load()
+        self.count = 0
         
     def run_simulation(self) -> None:
         """
         Runs the simulation."""
-        
+
         self.timeline.play()
-        while self.simulation_app.is_running():
+        while self.simulation_app.is_running() and (self.count < self.generation_settings.num_images):
             self.world.step(render=True)
             if self.world.is_playing():
                 try:
                     self.AL.record()
+                    self.count += 1
                 except:
                     pass
                 self.LC.randomize()

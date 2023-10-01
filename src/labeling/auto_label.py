@@ -15,23 +15,15 @@ import os
 
 # import omni.replicator.core as rep
 from src.labeling.rep_utils import writerFactory
+from src.configurations.auto_labeling_confs import AutoLabelingConf
 import omni.replicator.core as rep
 
 class AutonomousLabeling:
     """
     AutonomousLabeling class. It is used to generate synthetic data from a USD scene."""
 
-    def __init__(self, prim_path: str,
-                       camera_name: str = "camera_annotations",
-                       camera_resolution: Tuple[int,int] = (640, 480),
-                       data_dir: str = "data",
-                       annotator_list: List[str] = ["rgb", "instance_segmentation", "semantic_segmentation"],
-                       image_format: str = "png",
-                       annot_format: str = "json",
-                       element_per_folder: int = 1000,
-                       add_noise_to_rgb: bool = False,
-                       sigma: float = 5.0,
-                       seed: int = 42,
+    def __init__(self, cfg: AutoLabelingConf,
+                       **kwargs,
                        ) -> None:
         """
         Initialize the AutonomousLabeling class.
@@ -51,29 +43,30 @@ class AutonomousLabeling:
             seed (int, optional): The seed used to generate the random numbers. Defaults to 42."""
 
         # Camera parameters
-        self.camera_name = camera_name
-        self.camera_resolution = camera_resolution
+        print(cfg.prim_path)
+        self.camera_name = cfg.camera_name
+        self.camera_resolution = cfg.camera_resolution
 
         # Data storage parameters
         self.data_hash = ''.join(random.sample(string.ascii_letters + string.digits, 16))
-        self.data_dir = os.path.join(data_dir, self.data_hash)
+        self.data_dir = os.path.join(cfg.data_dir, self.data_hash)
 
         # Synthetic data parameters
-        self.annotator_list = annotator_list
-        self.add_noise_to_rgb = add_noise_to_rgb
-        self.sigma = sigma
-        self.seed = seed
-        self.image_format = image_format
-        self.annot_format = annot_format
-        self.element_per_folder = element_per_folder
-        cfg = self.formatWriterConfig()
-        self.synthetic_writers = {name: writerFactory(name, **cfg) for name in annotator_list}
+        self.annotator_list = cfg.annotator_list
+        self.add_noise_to_rgb = cfg.add_noise_to_rgb
+        self.sigma = cfg.sigma
+        self.seed = cfg.seed
+        self.image_format = cfg.image_format
+        self.annot_format = cfg.annot_format
+        self.element_per_folder = cfg.element_per_folder
+        writer_cfg = self.formatWriterConfig()
+        self.synthetic_writers = {name: writerFactory(name, **writer_cfg) for name in cfg.annotator_list}
         self.loggers = {"rgb": self.enableRGBData,
                         "instance_segmentation": self.enableInstanceData,
                         "semantic_segmentation": self.enableSemanticData}
 
         self.stage = omni.usd.get_context().get_stage()
-        self.meta_prim = self.stage.GetPrimAtPath(prim_path)
+        self.meta_prim = self.stage.GetPrimAtPath(cfg.prim_path)
         self.annotator = {}
         self.synth_counter = 0
 
