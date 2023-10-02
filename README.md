@@ -35,6 +35,10 @@ Harware:
  - An Nvidia GPU with more that 8Gb of VRAM.
  - An Nvidia GPU from the 2000 series (Turing) and up.
 
+Assets:
+ - Download the assets from: https://drive.google.com/file/d/1NpgMdD__DaU_mogeA7D-GqObMkGJ5-fN/view?usp=sharing
+ - Unzip the assets inside the git repository.
+
 ### Running the sim:
 
 To run the simulation we use a configuration manager called Hydra.
