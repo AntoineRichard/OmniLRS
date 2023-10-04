@@ -127,7 +127,6 @@ class TerrainManager:
         self._DEM[:DEM.shape[0],:DEM.shape[1]] = DEM[:self._sim_length, :self._sim_width]
         self._mask[:mask.shape[0],:mask.shape[1]] = mask[:self._sim_length, :self._sim_width]
 
-
     @staticmethod
     def gridIndex(x: int, y: int, stride: int) -> int:
         """
