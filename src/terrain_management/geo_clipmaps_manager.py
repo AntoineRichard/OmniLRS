@@ -10,6 +10,7 @@ from geo_clipmaps import GeoClipmapSpecs, GeoClipmap
 from WorldBuilders import pxr_utils
 from pxr import UsdGeom, Sdf
 import numpy as np
+import warp as wp
 import omni
 
 
@@ -36,11 +37,13 @@ class GeoClipmapManager:
         self._mesh_path = self._root_path+"/Terrain/terrain_mesh"
 
         self.createXforms()
+        self.update_topology = True
 
     def updateGeoClipmap(self, position: np.ndarray) -> None:
         self._geo_clipmap.getElevation(position)
-        pxr_utils.deletePrim(self._stage, self._mesh_path)
-        self.renderMesh(self._geo_clipmap.points, self._geo_clipmap.indices, self._geo_clipmap.uvs, update_topology=True)
+        with wp.ScopedTimer("mesh update"):
+            self.renderMesh(self._geo_clipmap.points, self._geo_clipmap.indices, self._geo_clipmap.uvs, update_topology=self.update_topology)
+        self.update_topology = False
 
     def createXforms(self):
         pxr_utils.createXform(self._stage, self._root_path, add_default_op=True)

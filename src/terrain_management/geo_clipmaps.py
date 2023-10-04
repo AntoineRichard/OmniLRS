@@ -6,6 +6,9 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
+# This code is based on: https://github.com/morgan3d/misc/tree/master/terrain
+# Original author: Morgan McGuire, http://cs.williams.edu/~morgan
+
 from copy import copy
 import warp as wp
 import dataclasses
@@ -13,7 +16,7 @@ import numpy as np
 import hashlib
 import os
 
-@wp.kernel
+@wp.func
 def _linear_interpolation(x: wp.array(dtype=float),
                           y: wp.array(dtype=float),
                           q11: wp.array(dtype=float),
@@ -24,11 +27,58 @@ def _linear_interpolation(x: wp.array(dtype=float),
     tid = wp.tid()
     out[tid] = ((1.-x[tid])*q11[tid] + x[tid]*q21[tid])*(1.-y[tid])+((1.-x[tid])*q12[tid] + x[tid]*q22[tid])*y[tid]
 
+@wp.func
+def _sample(dem:wp.array(dtype=float), x:int, y:int, size:wp.vec2) -> float:
+    d = dem[y+x*int(size[1])]
+    return d
+        
+@wp.kernel
+def fetch_from_dem(x: wp.array(dtype=float),
+              y: wp.array(dtype=float),
+              x_tmp: wp.array(dtype=float),
+              y_tmp: wp.array(dtype=float),
+              q11: wp.array(dtype=float),
+              q12: wp.array(dtype=float),
+              q21: wp.array(dtype=float),
+              q22: wp.array(dtype=float),
+              position: wp.vec2,
+              texel_per_pixel: float,
+              meters_per_texel: float,
+              dem_size: wp.vec2,
+              dem_data: wp.array(dtype=float),
+              x_out: wp.array(dtype=int),
+              y_out: wp.array(dtype=int),
+              z_out: wp.array(dtype=float)):
+
+    # Align grid with DEM
+    tid = wp.tid()
+    x_tmp[tid] = (x[tid] / (meters_per_texel / texel_per_pixel)) + position[0]
+    y_tmp[tid] = (y[tid] / (meters_per_texel / texel_per_pixel)) + position[1]
+
+    # Snap to DEM
+    wp.atomic_min(x_tmp, tid, dem_size[0]-1.0)
+    wp.atomic_max(x_tmp, tid, 0.0)
+    wp.atomic_min(y_tmp, tid, dem_size[1]-1.0)
+    wp.atomic_max(y_tmp, tid, 0.0)
+
+    # Get the lower corner
+    x_out[tid] = int(x_tmp[tid])
+    y_out[tid] = int(y_tmp[tid])
+
+    x_tmp[tid] = x_tmp[tid] - wp.trunc(x_tmp[tid])
+    y_tmp[tid] = y_tmp[tid] - wp.trunc(y_tmp[tid])
+
+    q11[tid] = _sample(dem_data, x_out[tid], y_out[tid], dem_size)
+    q12[tid] = _sample(dem_data, x_out[tid], y_out[tid]+1, dem_size)
+    q21[tid] = _sample(dem_data, x_out[tid]+1, y_out[tid], dem_size)
+    q22[tid] = _sample(dem_data, x_out[tid]+1, y_out[tid]+1, dem_size)
+
+    _linear_interpolation(x_tmp,y_tmp,q11,q12,q21,q22,z_out)
 
 @dataclasses.dataclass
 class GeoClipmapSpecs:
-    numMeshLODLevels: int = 9
-    meshBaseLODExtentHeightfieldTexels: int = 32
+    numMeshLODLevels: int = 5
+    meshBaseLODExtentHeightfieldTexels: int = 256
     meshBackBonePath: str = "terrain_mesh_backbone.npz"
     demPath: str = "dem.npy"
     meters_per_pixel: float = 1.0
@@ -49,10 +99,10 @@ class GeoClipmap:
         self.indices = []
 
         self.specs_hash = self.compute_hash(self.specs)
-        print(self.specs_hash)
 
         self.initMesh()
         self.loadDEM()
+        self.instantiateWarpBuffers()
         self.initial_position=[0,0]
 
     def gridIndex(self, x, y, stride):
@@ -194,41 +244,83 @@ class GeoClipmap:
         self.dem = np.load(self.specs.demPath)*self.specs.z_scale
         self.dem_size = self.dem.shape
 
+    def instantiateWarpBuffers(self):
+        # Casting
+        self.wp_x = wp.array(self.points[:,0], dtype=float)
+        self.wp_y = wp.array(self.points[:,2], dtype=float)
+        self.wp_x_tmp = wp.array(self.points[:,0], dtype=float)
+        self.wp_y_tmp = wp.array(self.points[:,2], dtype=float)
+        self.wp_q11 = wp.zeros(self.wp_x.shape[0], dtype=float)
+        self.wp_q12 = wp.zeros(self.wp_x.shape[0], dtype=float)
+        self.wp_q21 = wp.zeros(self.wp_x.shape[0], dtype=float)
+        self.wp_q22 = wp.zeros(self.wp_x.shape[0], dtype=float)
+        self.wp_dem_size = wp.vec2(self.dem_size[0], self.dem_size[1])
+        self.wp_dem_data = wp.array(self.dem.flatten(), dtype=float)
+        self.wp_texel_per_pixel = self.specs.meters_per_pixel / self.specs.meters_per_texel
+        self.wp_meters_per_texel = self.specs.meters_per_texel
+        self.wp_x_out = wp.zeros(self.wp_x.shape[0], dtype=int)
+        self.wp_y_out = wp.zeros(self.wp_x.shape[0], dtype=int)
+        self.wp_z = wp.zeros(self.wp_x.shape[0], dtype=float)
+
     def getElevation(self, position):
-        texel_per_pixel = self.specs.meters_per_pixel / self.specs.meters_per_texel
+        #texel_per_pixel = self.specs.meters_per_pixel / self.specs.meters_per_texel
         position_in_pixel = position * (1.0 / self.specs.meters_per_pixel)
-        x = (self.points[:,0] / (self.specs.meters_per_texel / texel_per_pixel)) + position_in_pixel[0]
-        y = (self.points[:,2] / (self.specs.meters_per_texel / texel_per_pixel)) + position_in_pixel[2]
+        position = wp.vec2(position_in_pixel[0], position_in_pixel[2])
+        with wp.ScopedTimer("update elevation", active=True):
+            wp.launch(kernel=fetch_from_dem,
+                      dim=self.points.shape[0],
+                      inputs=[self.wp_x,
+                              self.wp_y,
+                              self.wp_x_tmp,
+                              self.wp_y_tmp,
+                              self.wp_q11,
+                              self.wp_q12,
+                              self.wp_q21,
+                              self.wp_q22,
+                              position,
+                              self.wp_texel_per_pixel,
+                              self.wp_meters_per_texel,
+                              self.wp_dem_size,
+                              self.wp_dem_data,
+                              self.wp_x_out,
+                              self.wp_y_out,
+                              self.wp_z])
+            
+        with wp.ScopedTimer("send elevation to numpy", active=True):
+            self.points[:,1] = self.wp_z.numpy()
+            
+        #x = (self.points[:,0] / (self.specs.meters_per_texel / self.wp_texel_per_pixel)) + position_in_pixel[0]
+        #y = (self.points[:,2] / (self.specs.meters_per_texel / self.wp_texel_per_pixel)) + position_in_pixel[2]
 
-        x = np.minimum(x, self.dem.shape[0]-1)
-        y = np.minimum(y, self.dem.shape[1]-1)
-        x = np.maximum(x, 0)
-        y = np.maximum(y, 0)
+        #x = np.minimum(x, self.dem.shape[0]-1)
+        #y = np.minimum(y, self.dem.shape[1]-1)
+        #x = np.maximum(x, 0)
+        #y = np.maximum(y, 0)
 
-        x1 = np.trunc(x).astype(int)
-        y1 = np.trunc(y).astype(int)
-        x2 = np.minimum(x1 + 1, self.dem_size[0]-1)
-        y2 = np.minimum(y1 + 1, self.dem_size[1]-1)
-        dx = x - x1
-        dy = y - y1
+        #x1 = np.trunc(x).astype(int)
+        #y1 = np.trunc(y).astype(int)
 
-        q11 = self.dem[x1,y1]
-        q12 = self.dem[x1,y2]
-        q21 = self.dem[x2,y1]
-        q22 = self.dem[x2,y2]
+        #x2 = np.minimum(x1 + 1, self.dem_size[0]-1)
+        #y2 = np.minimum(y1 + 1, self.dem_size[1]-1)
+        #dx = x - x1
+        #dy = y - y1
 
-        z = wp.zeros(x.shape[0], dtype=float)
+        #q11 = self.dem[x1,y1]
+        #q12 = self.dem[x1,y2]
+        #q21 = self.dem[x2,y1]
+        #q22 = self.dem[x2,y2]
 
-        wp.launch(kernel=_linear_interpolation,
-            dim=x.shape[0],
-            inputs=[wp.array(dx, dtype=float),
-                    wp.array(dy, dtype=float),
-                    wp.array(q11, dtype=float),
-                    wp.array(q12, dtype=float),
-                    wp.array(q21, dtype=float),
-                    wp.array(q22, dtype=float),
-                    z])
-        self.points[:,1] = z.numpy()
+        #z = wp.zeros(x.shape[0], dtype=float)
+        #with wp.ScopedTimer("linear_interpolation", active=True):
+        #    wp.launch(kernel=_linear_interpolation,
+        #        dim=x.shape[0],
+        #        inputs=[wp.array(dx, dtype=float),
+        #                wp.array(dy, dtype=float),
+        #                wp.array(q11, dtype=float),
+        #                wp.array(q12, dtype=float),
+        #                wp.array(q21, dtype=float),
+        #                wp.array(q22, dtype=float),
+        #                z])
 
 
 if __name__ == "__main__":
@@ -238,7 +330,9 @@ if __name__ == "__main__":
     wp.init()
     specs = GeoClipmapSpecs()
     clipmap = GeoClipmap(specs)
-    clipmap.getElevation(np.array([8192*1,0,8192*1]))
+    with wp.ScopedTimer("render", active=True):
+        clipmap.getElevation(np.array([8192*1,0,8192*1]))
+    
     print(clipmap.points.shape)
     print(clipmap.indices.shape)
     print(clipmap.uvs.shape)
