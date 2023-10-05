@@ -46,6 +46,7 @@ Assets:
 
 
 <details><summary><b>Running the sim</b></summary>
+ 
 ### Configuration Manager
 
 To run the simulation we use a configuration manager called Hydra.
