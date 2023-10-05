@@ -4,7 +4,8 @@ In this repository, you will find the tools developped jointly by the Space Robo
 and the Space Robotics Lab from Tohoku University in Japan (SRL).
 
 > Please note that this is only a partial release. The entirety of the code will be released at a later date.
-> We will also provide docker as well as Foxglove interfaces to ease the interaction with the simulation
+> We will also provide docker as well as Foxglove interfaces to ease the interaction with the simulation.
+> Should you run into any bug, or would like to have a new feature, feel free to open an issue.
 
 With this initial release we provide our small scale environments:
  - The lunalab 
