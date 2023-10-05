@@ -3,7 +3,7 @@
 In this repository, you will find the tools developped jointly by the Space Robotics group from the University of Luxembourg (SpaceR),
 and the Space Robotics Lab from Tohoku University in Japan (SRL).
 
-> Please note that this is only a partial release. The entirety of the code and assets will be released at a later date.
+> Please note that this is only a partial release. The entirety of the code and assets/robots will be released at a later date.
 > We will also provide docker as well as Foxglove interfaces to ease the interaction with the simulation.
 > Should you run into any bug, or would like to have a new feature, feel free to open an issue.
 
