@@ -333,7 +333,7 @@ class ROS_LunalabManager:
         data = float(data.data)
         self.modifications.append([self.LC.setFlareApertureRotation, [data]])
 
-    def spawnRobot(self, data:String) -> None:
+    def spawnRobot(self, data:PoseStamped) -> None:
         """
         Spawns a robot.
         
@@ -341,10 +341,11 @@ class ROS_LunalabManager:
             data (String): Name and path of the robot to spawn.
                            Must be in the format: robot_name:usd_path"""
 
-        assert len(data.data.split(":")) == 2, "The data should be in the format: robot_name:usd_path"
-        robot_name = data.data.split(":")[0]
-        usd_path = data.data.split(":")[1]
-        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, 0]])
+        assert len(data.header.frame_id.split(":")) == 2, "The data should be in the format: robot_name:usd_path"
+        robot_name, usd_path = data.header.frame_id.split(":")
+        p = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
+        q = [data.pose.orientation.w, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.x]
+        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q]])
 
     def teleportRobot(self, data:PoseStamped) -> None:
         """

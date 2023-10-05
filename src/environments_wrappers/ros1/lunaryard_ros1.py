@@ -259,11 +259,10 @@ class ROS_LunaryardManager:
                            Must be in the format: robot_name:usd_path"""
 
         assert len(data.header.frame_id.split(":")) == 2, "The data should be in the format: robot_name:usd_path"
-        robot_name = data.data.split(":")[0]
-        usd_path = data.data.split(":")[1]
+        robot_name, usd_path = data.header.frame_id.split(":")
         p = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
-        q = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
-        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, self.domain_id, p, q]])
+        q = [data.pose.orientation.w, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.x]
+        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q]])
 
     def teleportRobot(self, data:PoseStamped) -> None:
         """
