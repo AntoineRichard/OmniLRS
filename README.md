@@ -47,8 +47,6 @@ Assets:
 
 <details><summary><b>Running the sim</b></summary>
  
-<b>Configuration Manager</b>\
-
 To run the simulation we use a configuration manager called Hydra.
 Inside the `cfg` folder, you will find three folders:
  - `mode`
@@ -76,8 +74,6 @@ For instance:
 ```bash
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunaryard_20m mode=ROS2 rendering=ray_traced rendering.lens_flares.enable=False
 ```
-
-<b>More sample commands</b>\
 
 We provide bellow a couple premade command line that can be useful, the full description of the configuration files is given here:
 Lunalab, ROS1
