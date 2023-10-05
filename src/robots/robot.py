@@ -8,6 +8,7 @@ __status__ = "development"
 
 from typing import Dict, List, Tuple
 import numpy as np
+import warnings
 import os
 
 import omni
@@ -45,9 +46,9 @@ class RobotManager:
 
     def addRobot(self, usd_path:str = None,
                        robot_name:str = None,
-                       domain_id:int = None,
                        p: Tuple[float, float, float] = [0,0,0],
                        q:Tuple[float, float, float, float] = [0,0,0,1],
+                       domain_id:int = None,
                        ) -> None:
         """
         Add a robot to the scene.
@@ -62,9 +63,12 @@ class RobotManager:
         if self.num_robots >= self.max_robots:
             pass
         else:
-            self.robots[robot_name] = Robot(usd_path, robot_name, is_on_nucleus=self.uses_nucleus, is_ROS2=self.is_ROS2, domain_id=domain_id, robots_root=self.robots_root)
-            self.robots[robot_name].load(p, q)
-            self.num_robots += 1
+            if robot_name in self.robots.keys():
+                warnings.warn("Robot already exists. Ignoring request.")
+            else:
+                self.robots[robot_name] = Robot(usd_path, robot_name, is_on_nucleus=self.uses_nucleus, is_ROS2=self.is_ROS2, domain_id=domain_id, robots_root=self.robots_root)
+                self.robots[robot_name].load(p, q)
+                self.num_robots += 1
 
     def resetRobots(self) -> None:
         """
@@ -82,6 +86,8 @@ class RobotManager:
 
         if robot_name in self.robots.keys():
             self.robots[robot_name].reset()
+        else:
+            warnings.warn("Robot does not exist. Ignoring request.")
 
     def teleportRobot(self, robot_name:str, position:np.ndarray, orienation:np.ndarray) -> None:
         """
@@ -89,8 +95,10 @@ class RobotManager:
         
         Args:
             robot_name (str): The name of the robot."""
-
-        self.robots[robot_name].teleport(position, orienation)
+        if robot_name in self.robots.keys():
+            self.robots[robot_name].teleport(position, orienation)
+        else:
+            warnings.warn("Robot does not exist. Ignoring request.")
 
 class Robot:
     """
@@ -155,7 +163,7 @@ class Robot:
         if self.is_on_nucleus:
             nucleus = get_assets_root_path()
             self.usd_path = os.path.join(nucleus,self.usd_path)
-        createObject(self.robot_path, self.stage, self.usd_path, is_instance=False, position=position, rotation=orientation)
+        createObject(self.robot_path, self.stage, self.usd_path, is_instance=False, position=Gf.Vec3d(*position), rotation=Gf.Quatd(*orientation))
         self.editGraphs()
     
     def getPose(self) -> List[float]:
@@ -197,6 +205,7 @@ class Robot:
         """
         Reset the robot to its original position and orientation."""
 
-        w = self.reset_orientation.GetReal()
-        xyz = self.reset_orientation.GetImaginary()
-        self.teleport([self.reset_position[0], self.reset_position[1], self.reset_position[2]], [xyz[0],xyz[1],xyz[2],w])
+        #w = self.reset_orientation.GetReal()
+        #xyz = self.reset_orientation.GetImaginary()
+        self.teleport([self.reset_position[0], self.reset_position[1], self.reset_position[2]],
+                       [self.reset_orientation[1],self.reset_orientation[2],self.reset_orientation[3],self.reset_orientation[0]])
