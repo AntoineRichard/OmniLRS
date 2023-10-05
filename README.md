@@ -37,7 +37,7 @@ Harware:
 
 Assets:
  - Download the assets from: https://drive.google.com/file/d/1NpgMdD__DaU_mogeA7D-GqObMkGJ5-fN/view?usp=sharing
- - Unzip the assets inside the git repository.
+ - Unzip the assets inside the git repository. (The directory should be as shown in [Directory Structure](#section-1)
 
 ### Running the sim:
 
@@ -85,4 +85,26 @@ Lunalab, ROS2 (humble)
 Lunalab, SDG
 ```bash
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab4SDG mode=SDG rendering=path_traced rendering.renderer.headless=True
+```
+
+## Directory Structure
+```bash
+.
+├── assets
+├── cfg
+│   ├── environment
+│   ├── mode
+│   └── rendering
+├── src
+│   ├── configurations
+│   ├── environments
+│   ├── environments_wrappers
+│   │   ├── ros1
+│   │   ├── ros2
+│   │   └── sdg
+│   ├── labeling
+│   ├── robots
+│   ├── ros
+│   └── terrain_management
+└── WorldBuilders
 ```
