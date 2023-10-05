@@ -28,6 +28,7 @@ Finally, we provide simple configurations for different renderers:
 
 ## Getting started:
 
+
 ### Requirements:
 
 Sofware:
@@ -43,7 +44,9 @@ Assets:
  - Download the assets from: https://drive.google.com/file/d/1NpgMdD__DaU_mogeA7D-GqObMkGJ5-fN/view?usp=sharing
  - Unzip the assets inside the git repository. (The directory should be as shown in [Directory Structure](#directory-structure)
 
-### Running the sim:
+
+<details><summary><b>Running the sim</b></summary>
+### Configuration Manager
 
 To run the simulation we use a configuration manager called Hydra.
 Inside the `cfg` folder, you will find three folders:
@@ -72,6 +75,8 @@ For instance:
 ```bash
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunaryard_20m mode=ROS2 rendering=ray_traced rendering.lens_flares.enable=False
 ```
+
+### More sample commands
 
 We provide bellow a couple premade command line that can be useful, the full description of the configuration files is given here:
 Lunalab, ROS1
