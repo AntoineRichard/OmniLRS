@@ -31,12 +31,12 @@ Finally, we provide simple configurations for different renderers:
 
 ### Requirements:
 
-Sofware:
+Software:
  - Ubuntu 20.04 or 22.04
  - ROS1 or ROS2 (if you want to use their respective modes). Note that using SDG only does not require having either installed.
  - IsaacSim-2022.2.1
 
-Harware:
+Hardware:
  - An Nvidia GPU with more than 8Gb of VRAM.
  - An Nvidia GPU from the 2000 series (Turing) and up.
 
@@ -47,7 +47,7 @@ Assets:
 
 <details><summary><b>Running the sim</b></summary>
  
-### Configuration Manager
+<b>Configuration Manager</b>\
 
 To run the simulation we use a configuration manager called Hydra.
 Inside the `cfg` folder, you will find three folders:
@@ -77,7 +77,7 @@ For instance:
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunaryard_20m mode=ROS2 rendering=ray_traced rendering.lens_flares.enable=False
 ```
 
-### More sample commands
+<b>More sample commands</b>\
 
 We provide bellow a couple premade command line that can be useful, the full description of the configuration files is given here:
 Lunalab, ROS1
@@ -97,6 +97,7 @@ Lunalab, SDG
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab4SDG mode=SDG rendering=path_traced rendering.renderer.headless=True
 ```
 </details>
+
 ## Citation
 Please use the following citation if you use `OmniLRS` in your work.
 ```bibtex
