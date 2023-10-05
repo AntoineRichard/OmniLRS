@@ -91,6 +91,17 @@ Lunalab, SDG
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab4SDG mode=SDG rendering=path_traced rendering.renderer.headless=True
 ```
 
+## Citation
+Please use the following citation if you use `OmniLRS` in your work.
+```bibtex
+@article{richard2023omnilrs,
+  title={OmniLRS: A Photorealistic Simulator for Lunar Robotics},
+  author={Richard, Antoine and Kamohara, Junnosuke and Uno, Kentaro and Santra, Shreya and van der Meer, Dave and Olivares-Mendez, Miguel and Yoshida, Kazuya},
+  journal={arXiv preprint arXiv:2309.08997},
+  year={2023}
+}
+```
+
 ## Directory Structure
 ```bash
 .
