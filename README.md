@@ -32,7 +32,7 @@ Sofware:
  - IsaacSim-2022.2.1
 
 Harware:
- - An Nvidia GPU with more that 8Gb of VRAM.
+ - An Nvidia GPU with more than 8Gb of VRAM.
  - An Nvidia GPU from the 2000 series (Turing) and up.
 
 Assets:
@@ -74,10 +74,13 @@ Lunalab, ROS1
 ```bash
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS1 rendering=ray_traced
 ```
-Lunalab, ROS2
+Lunalab, ROS2 (foxy)
 ```bash
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_traced
-
+```
+Lunalab, ROS2 (humble)
+```bash
+~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_traced mode.bridge_name=humble
 ```
 Lunalab, SDG
 ```bash
