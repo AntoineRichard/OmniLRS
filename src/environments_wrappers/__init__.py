@@ -16,7 +16,7 @@ def startSim(cfg: dict):
     if cfg["mode"]["name"] == "ROS2":
         # ROS2 startup routine
         from src.environments_wrappers.ros2 import enable_ros2
-        enable_ros2(simulation_app)
+        enable_ros2(simulation_app, bridge_name=cfg["mode"]["bridge_name"])
         import rclpy
         rclpy.init()
         # Call to the environment factory to load the correct environment.
