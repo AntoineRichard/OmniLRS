@@ -87,6 +87,8 @@ class LunaryardController:
 
         lights = []
         for prim in Usd.PrimRange(prim):
+            if prim.IsA(UsdLux.DistantLight):
+                lights.append(prim)
             if prim.IsA(UsdLux.SphereLight):
                 lights.append(prim)
             if prim.IsA(UsdLux.CylinderLight):   	
@@ -141,8 +143,9 @@ class LunaryardController:
         quat = pose[1]
         rotation = [quat[0],quat[1],quat[2], quat[3]]
         position = [position[0], position[1], position[2]]
+        print(self._projector_lux)
 
-        setDefaultOps(self._projector_xform, position, rotation)
+        setDefaultOps(self._projector_xform, position, rotation, scale=(1,1,1))
 
     def setSunIntensity(self, intensity: float) -> None:
         """
