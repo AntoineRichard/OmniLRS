@@ -95,7 +95,7 @@ Lunalab, SDG
 ```bash
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab4SDG mode=SDG rendering=path_traced rendering.renderer.headless=True
 ```
-
+</details>
 ## Citation
 Please use the following citation if you use `OmniLRS` in your work.
 ```bibtex
