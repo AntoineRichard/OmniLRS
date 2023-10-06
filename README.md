@@ -43,6 +43,14 @@ Assets:
  - Download the assets from: https://drive.google.com/file/d/1NpgMdD__DaU_mogeA7D-GqObMkGJ5-fN/view?usp=sharing
  - Unzip the assets inside the git repository. (The directory should be as shown in [Directory Structure](#directory-structure)
 
+Installation:
+```bash
+git clone --recurse-submodules https://github.com/AntoineRichard/OmniLRS.git
+git submodule init
+git submodule update
+~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh opencv-python omegaconf hydra-core
+```
+
 </details>
 
 <details><summary><b>Running the sim</b></summary>
