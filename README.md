@@ -57,41 +57,40 @@ In each of these folders, there are different configuration files, that parametr
 
 For instance, to run the lunalab environment with ROS2, and ray-traced lighting one can use the following command:
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh -m pip install hydra-core omegaconf protobuf
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_traced
+~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_tracing
 ```
 Similarly, to run the lunaryard environment with ROS2, one can use the following command:
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunaryard_20m mode=ROS2 rendering=ray_traced
+~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunaryard_20m mode=ROS2 rendering=ray_tracing
 ```
 
-The rendering mode can be changed by using `rendering=path_traced` instead of `rendering=ray_traced`.
-Changing form `ray_traced` to path `path_traced` tells Hydra to use `cfg/rendering/path_traced.yaml` instead of `cfg/rendering/ray_traced.yaml`.
+The rendering mode can be changed by using `rendering=path_tracing` instead of `rendering=ray_tracing`.
+Changing form `ray_tracing` to path `path_tracing` tells Hydra to use `cfg/rendering/path_tracing.yaml` instead of `cfg/rendering/ray_tracing.yaml`.
 Hence, if you wanted to change some of these parameters, you could create your own yaml file inside `cfg/rendering`
 and let Hydra fetch it.
 
 If you just want to modify a parameter for a given run, say disabling the lens-flare effects, then you can also edit parameters directly from the command line:
 For instance:
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunaryard_20m mode=ROS2 rendering=ray_traced rendering.lens_flares.enable=False
+~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunaryard_20m mode=ROS2 rendering=ray_tracing rendering.lens_flares.enable=False
 ```
 
 We provide bellow a couple premade command line that can be useful, the full description of the configuration files is given here:
 Lunalab, ROS1
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS1 rendering=ray_traced
+~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS1 rendering=ray_tracing
 ```
 Lunalab, ROS2 (foxy)
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_traced
+~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_tracing
 ```
 Lunalab, ROS2 (humble)
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_traced mode.bridge_name=humble
+~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_tracing mode.bridge_name=humble
 ```
 Lunalab, SDG
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab4SDG mode=SDG rendering=path_traced rendering.renderer.headless=True
+~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab4SDG mode=SDG rendering=path_tracing rendering.renderer.headless=True
 ```
 </details>
 
