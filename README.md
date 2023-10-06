@@ -57,6 +57,7 @@ In each of these folders, there are different configuration files, that parametr
 
 For instance, to run the lunalab environment with ROS2, and ray-traced lighting one can use the following command:
 ```bash
+~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh -m pip install hydra-core omegaconf protobuf
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_traced
 ```
 Similarly, to run the lunaryard environment with ROS2, one can use the following command:
