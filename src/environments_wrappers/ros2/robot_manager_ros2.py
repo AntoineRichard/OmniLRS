@@ -20,7 +20,7 @@ class ROS_RobotManager(Node):
 
     def __init__(self) -> None:
         super().__init__("Robot_spawn_manager_node")
-        self.RM = RobotManager(is_ROS2=True, max_robots=len(spawning_pose_list), robots_root="/Robots")
+        self.RM = RobotManager(is_ROS2=True, robots_root="/Robots")
 
         self.create_subscription(PoseStamped, "/Lunalab/Robots/Spawn", self.spawnRobot, 1)
         self.create_subscription(PoseStamped, "/Lunalab/Robots/Teleport", self.teleportRobot, 1)
