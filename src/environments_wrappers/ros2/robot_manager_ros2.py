@@ -23,34 +23,7 @@ class ROS_RobotManager(Node):
 
     def __init__(self) -> None:
         super().__init__("Robot_spawn_manager_node")
-        spawning_pose_list = [
-            {
-                "position": Gf.Vec3d(1.5, -0.5, 0.25),
-                "orientation": Gf.Quatd(0.707, Gf.Vec3d(0, 0, 0.707)),
-            },
-            {
-                "position": Gf.Vec3d(2.5, -0.5, 0.25),
-                "orientation": Gf.Quatd(0.707, Gf.Vec3d(0, 0, 0.707)),
-            },
-            {
-                "position": Gf.Vec3d(3.5, -0.5, 0.25),
-                "orientation": Gf.Quatd(0.707, Gf.Vec3d(0, 0, 0.707)),
-            },
-            {
-                "position": Gf.Vec3d(4.5, -0.5, 0.25),
-                "orientation": Gf.Quatd(0.707, Gf.Vec3d(0, 0, 0.707)),
-            },
-            {
-                "position": Gf.Vec3d(5.5, -0.5, 0.25),
-                "orientation": Gf.Quatd(0.707, Gf.Vec3d(0, 0, 0.707)),
-            },
-        ]
-        self.RM = RobotManager(
-            spawning_pose_list,
-            is_ROS2=True,
-            max_robots=len(spawning_pose_list),
-            robots_root="/Robots",
-        )
+        self.RM = RobotManager(is_ROS2=True, robots_root="/Robots")
 
         self.create_subscription(
             PoseStamped, "/Lunalab/Robots/Spawn", self.spawnRobot, 1
