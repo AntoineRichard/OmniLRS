@@ -1,5 +1,7 @@
 __author__ = "Antoine Richard"
-__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__copyright__ = (
+    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+)
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -15,6 +17,7 @@ from omni.isaac.core import World
 from typing import Union
 import omni
 
+
 class SyntheticDataGeneration_LabManagerFactory:
     def __init__(self):
         self._lab_managers = {}
@@ -23,16 +26,20 @@ class SyntheticDataGeneration_LabManagerFactory:
         self._lab_managers[name] = lab_manager
 
     def __call__(self, cfg):
-        return self._lab_managers[cfg["environment"]["name"]](**cfg["environment"],
-                                                              flares_settings = cfg["rendering"]["lens_flares"],
-                                                              camera_settings = cfg["mode"]["camera_settings"])
+        return self._lab_managers[cfg["environment"]["name"]](
+            **cfg["environment"],
+            flares_settings=cfg["rendering"]["lens_flares"],
+            camera_settings=cfg["mode"]["camera_settings"]
+        )
 
-SDG_LMF = SyntheticDataGeneration_LabManagerFactory() 
+
+SDG_LMF = SyntheticDataGeneration_LabManagerFactory()
 SDG_LMF.register("Lunalab", SDG_Lunalab)
 SDG_LMF.register("Lunaryard", SDG_Lunaryard)
 
+
 class SDG_SimulationManager:
-    """"
+    """ "
     Manages the simulation. This class is responsible for:
     - Initializing the simulation
     - Running the simulation
@@ -53,17 +60,21 @@ class SDG_SimulationManager:
         for i in range(100):
             self.world.step(render=True)
         print("After world reset")
-        self.generation_settings.prim_path = self.LC.scene_name +"/"+ self.generation_settings.prim_path
+        self.generation_settings.prim_path = (
+            self.LC.scene_name + "/" + self.generation_settings.prim_path
+        )
         self.AL = AutonomousLabeling(self.generation_settings)
         self.AL.load()
         self.count = 0
-        
+
     def run_simulation(self) -> None:
         """
         Runs the simulation."""
 
         self.timeline.play()
-        while self.simulation_app.is_running() and (self.count < self.generation_settings.num_images):
+        while self.simulation_app.is_running() and (
+            self.count < self.generation_settings.num_images
+        ):
             self.world.step(render=True)
             if self.world.is_playing():
                 try:

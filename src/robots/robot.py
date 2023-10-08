@@ -1,5 +1,7 @@
 __author__ = "Antoine Richard"
-__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__copyright__ = (
+    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+)
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -14,7 +16,10 @@ import os
 import omni
 import omni.graph.core as og
 from omni.isaac.core.utils.stage import add_reference_to_stage
-from omni.isaac.core.utils.transformations import get_relative_transform, pose_from_tf_matrix
+from omni.isaac.core.utils.transformations import (
+    get_relative_transform,
+    pose_from_tf_matrix,
+)
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.dynamic_control import _dynamic_control
 from WorldBuilders.pxr_utils import createXform, createObject, setDefaultOps
@@ -27,14 +32,17 @@ class RobotManager:
     It allows to spawn, reset, teleport robots. It also allows to automatically add namespaces to topics,
     and tfs to enable multi-robot operation."""
 
-    def __init__(self, uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots") -> None:
+    def __init__(
+        self, uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots"
+    ) -> None:
         """
         Args:
             uses_nucleus (bool, optional): Whether the robots are loaded from the nucleus or not. Defaults to False.
             is_ROS2 (bool, optional): Whether the robots are ROS2 enabled or not. Defaults to False.
             max_robots (int, optional): Maximum number of robots that can be spawned. Defaults to 5.
-            robots_root (str, optional): The root path of the robots. Defaults to "/Robots"."""
-        
+            robots_root (str, optional): The root path of the robots. Defaults to "/Robots".
+        """
+
         self.stage = omni.usd.get_context().get_stage()
         self.uses_nucleus = uses_nucleus
         self.is_ROS2 = is_ROS2
@@ -44,29 +52,38 @@ class RobotManager:
         self.robots = {}
         self.num_robots = 0
 
-    def addRobot(self, usd_path:str = None,
-                       robot_name:str = None,
-                       p: Tuple[float, float, float] = [0,0,0],
-                       q:Tuple[float, float, float, float] = [0,0,0,1],
-                       domain_id:int = None,
-                       ) -> None:
+    def addRobot(
+        self,
+        usd_path: str = None,
+        robot_name: str = None,
+        p: Tuple[float, float, float] = [0, 0, 0],
+        q: Tuple[float, float, float, float] = [0, 0, 0, 1],
+        domain_id: int = None,
+    ) -> None:
         """
         Add a robot to the scene.
-        
+
         Args:
             usd_path (str): The path of the robot's usd file.
             robot_name (str): The name of the robot.
             domain_id (int): The domain id of the robot."""
-        
+
         if robot_name[0] != "/":
-            robot_name = "/"+robot_name
+            robot_name = "/" + robot_name
         if self.num_robots >= self.max_robots:
             pass
         else:
             if robot_name in self.robots.keys():
                 warnings.warn("Robot already exists. Ignoring request.")
             else:
-                self.robots[robot_name] = Robot(usd_path, robot_name, is_on_nucleus=self.uses_nucleus, is_ROS2=self.is_ROS2, domain_id=domain_id, robots_root=self.robots_root)
+                self.robots[robot_name] = Robot(
+                    usd_path,
+                    robot_name,
+                    is_on_nucleus=self.uses_nucleus,
+                    is_ROS2=self.is_ROS2,
+                    domain_id=domain_id,
+                    robots_root=self.robots_root,
+                )
                 self.robots[robot_name].load(p, q)
                 self.num_robots += 1
 
@@ -77,10 +94,10 @@ class RobotManager:
         for robot in self.robots.keys():
             self.robots[robot].reset()
 
-    def resetRobot(self, robot_name:str) -> None:
+    def resetRobot(self, robot_name: str) -> None:
         """
         Reset a specific robot to its original position.
-        
+
         Args:
             robot_name (str): The name of the robot."""
 
@@ -89,10 +106,12 @@ class RobotManager:
         else:
             warnings.warn("Robot does not exist. Ignoring request.")
 
-    def teleportRobot(self, robot_name:str, position:np.ndarray, orienation:np.ndarray) -> None:
+    def teleportRobot(
+        self, robot_name: str, position: np.ndarray, orienation: np.ndarray
+    ) -> None:
         """
         Teleport a specific robot to a specific position and orientation.
-        
+
         Args:
             robot_name (str): The name of the robot."""
         if robot_name in self.robots.keys():
@@ -100,13 +119,22 @@ class RobotManager:
         else:
             warnings.warn("Robot does not exist. Ignoring request.")
 
+
 class Robot:
     """
     Robot class.
     It allows to spawn, reset, teleport a robot. It also allows to automatically add namespaces to topics,
     and tfs to enable multi-robot operation."""
-    
-    def __init__(self, usd_path:str, robot_name:str, robots_root:str="/Robots", is_on_nucleus:bool=False, is_ROS2:bool=False, domain_id:int=0) -> None:
+
+    def __init__(
+        self,
+        usd_path: str,
+        robot_name: str,
+        robots_root: str = "/Robots",
+        is_on_nucleus: bool = False,
+        is_ROS2: bool = False,
+        domain_id: int = 0,
+    ) -> None:
         """
         Args:
             usd_path (str): The path of the robot's usd file.
@@ -140,46 +168,67 @@ class Robot:
 
         selected_paths = []
         for prim in Usd.PrimRange(self.stage.GetPrimAtPath(self.robot_path)):
-            l =  [attr for attr in prim.GetAttributes() if attr.GetName().split(':')[0] == "graph"]
+            l = [
+                attr
+                for attr in prim.GetAttributes()
+                if attr.GetName().split(":")[0] == "graph"
+            ]
             if l:
                 selected_paths.append(prim.GetPath())
-        
+
         for path in selected_paths:
-            prim = self.stage.GetPrimAtPath(path) 
+            prim = self.stage.GetPrimAtPath(path)
             prim.GetAttribute("graph:variable:Namespace").Set(self.robot_name)
             if self.is_ROS2:
                 prim.GetAttribute("graph:variable:Context").Set(self.domain_id)
-    
+
     def load(self, position: np.ndarray, orientation: np.ndarray) -> None:
         """
         Load the robot in the scene, and automatically edit its graphs.
-        
+
         Args:
             position (np.ndarray): The position of the robot.
             orientation (np.ndarray): The orientation of the robot."""
-        
+
         self.stage = omni.usd.get_context().get_stage()
         self.setResetPose(position, orientation)
         if self.is_on_nucleus:
             nucleus = get_assets_root_path()
-            self.usd_path = os.path.join(nucleus,self.usd_path)
-        createObject(self.robot_path, self.stage, self.usd_path, is_instance=False, position=Gf.Vec3d(*position), rotation=Gf.Quatd(*orientation))
+            self.usd_path = os.path.join(nucleus, self.usd_path)
+        createObject(
+            self.robot_path,
+            self.stage,
+            self.usd_path,
+            is_instance=False,
+            position=Gf.Vec3d(*position),
+            rotation=Gf.Quatd(*orientation),
+        )
         self.editGraphs()
-    
+
     def getPose(self) -> List[float]:
         """
         Get the pose of the robot."""
 
-        source_prim = UsdGeom.Xformable(self.stage.GetPrimAtPath(self._robot_base_link_path))
+        source_prim = UsdGeom.Xformable(
+            self.stage.GetPrimAtPath(self._robot_base_link_path)
+        )
         target_prim = UsdGeom.Xformable(self.stage.GetPrimAtPath(self._root_path))
         relative_transform = get_relative_transform(source_prim, target_prim)
         translation, rotation = pose_from_tf_matrix(relative_transform)
-        return [translation[0], translation[1], translation[2], rotation[1], rotation[2], rotation[3], rotation[0]]
+        return [
+            translation[0],
+            translation[1],
+            translation[2],
+            rotation[1],
+            rotation[2],
+            rotation[3],
+            rotation[0],
+        ]
 
-    def setResetPose(self, position:np.ndarray, orientation:np.ndarray) -> None:
+    def setResetPose(self, position: np.ndarray, orientation: np.ndarray) -> None:
         """
         Set the reset pose of the robot.
-        
+
         Args:
             position (np.ndarray): The position of the robot.
             orientation (np.ndarray): The orientation of the robot."""
@@ -187,25 +236,32 @@ class Robot:
         self.reset_position = position
         self.reset_orientation = orientation
 
-    def teleport(self, p:List[float], q: List[float]) -> None:
+    def teleport(self, p: List[float], q: List[float]) -> None:
         """
         Teleport the robot to a specific position and orientation.
-        
+
         Args:
             p (list): The position of the robot.
             q (list): The orientation of the robot."""
-        
+
         self.getRootRigidBodyPath()
         transform = _dynamic_control.Transform(p, q)
         self.dc.set_rigid_body_pose(self.root_body_id, transform)
-        self.dc.set_rigid_body_linear_velocity(self.root_body_id, [0,0,0])
-        self.dc.set_rigid_body_angular_velocity(self.root_body_id, [0,0,0])
+        self.dc.set_rigid_body_linear_velocity(self.root_body_id, [0, 0, 0])
+        self.dc.set_rigid_body_angular_velocity(self.root_body_id, [0, 0, 0])
 
     def reset(self) -> None:
         """
         Reset the robot to its original position and orientation."""
 
-        #w = self.reset_orientation.GetReal()
-        #xyz = self.reset_orientation.GetImaginary()
-        self.teleport([self.reset_position[0], self.reset_position[1], self.reset_position[2]],
-                       [self.reset_orientation[1],self.reset_orientation[2],self.reset_orientation[3],self.reset_orientation[0]])
+        # w = self.reset_orientation.GetReal()
+        # xyz = self.reset_orientation.GetImaginary()
+        self.teleport(
+            [self.reset_position[0], self.reset_position[1], self.reset_position[2]],
+            [
+                self.reset_orientation[1],
+                self.reset_orientation[2],
+                self.reset_orientation[3],
+                self.reset_orientation[0],
+            ],
+        )

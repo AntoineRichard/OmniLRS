@@ -1,5 +1,7 @@
 __author__ = "Antoine Richard"
-__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__copyright__ = (
+    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+)
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -13,17 +15,20 @@ from src.environments_wrappers import startSim
 from typing import Dict, List
 import hydra
 
+
 def resolve_tuple(*args):
     return tuple(args)
 
-OmegaConf.register_new_resolver('as_tuple', resolve_tuple)
-            
+
+OmegaConf.register_new_resolver("as_tuple", resolve_tuple)
+
+
 def omegaconfToDict(d: DictConfig) -> Dict:
     """Converts an omegaconf DictConfig to a python Dict, respecting variable interpolation.
-    
+
     Args:
         d (DictConfig): OmegaConf DictConfig.
-    
+
     Returns:
         Dict: Python dict."""
 
@@ -43,6 +48,7 @@ def omegaconfToDict(d: DictConfig) -> Dict:
 
     return ret
 
+
 def instantiateConfigs(cfg: dict) -> dict:
     """"""
 
@@ -59,6 +65,7 @@ def instantiateConfigs(cfg: dict) -> dict:
             ret[k] = v
     return ret
 
+
 @hydra.main(config_name="config", config_path="cfg")
 def run(cfg: DictConfig):
     cfg = omegaconfToDict(cfg)
@@ -68,5 +75,6 @@ def run(cfg: DictConfig):
     SM.run_simulation()
     simulation_app.close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     run()

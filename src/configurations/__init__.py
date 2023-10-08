@@ -1,5 +1,7 @@
 __author__ = "Antoine Richard"
-__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__copyright__ = (
+    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+)
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -20,24 +22,31 @@ When possible, the parameter values are also checked to make sure they are withi
 
 from typing import Any
 
-from src.configurations.procedural_terrain_confs import TerrainManagerConf, MoonYardConf, CraterGeneratorConf, CraterDistributionConf, BaseTerrainGeneratorConf
+from src.configurations.procedural_terrain_confs import (
+    TerrainManagerConf,
+    MoonYardConf,
+    CraterGeneratorConf,
+    CraterDistributionConf,
+    BaseTerrainGeneratorConf,
+)
 from src.configurations.auto_labeling_confs import AutoLabelingConf, CameraConf
 from src.configurations.rendering_confs import FlaresConf, RendererConf
 from src.configurations.environments import LunalabConf, LunaryardConf
+
 
 class ConfigFactory:
     def __init__(self):
         self.configs = {}
 
-    def registerConfig(self, config_name:str, config: Any) -> None:
+    def registerConfig(self, config_name: str, config: Any) -> None:
         self.configs[config_name] = config
 
-    def __call__(self, config_name:str, **kwargs) -> Any:
+    def __call__(self, config_name: str, **kwargs) -> Any:
         return self.configs[config_name](**kwargs)
-    
+
     def getConfigs(self) -> list:
         return self.configs.keys()
-    
+
 
 configFactory = ConfigFactory()
 # Terrain Configs

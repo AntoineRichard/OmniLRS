@@ -1,5 +1,7 @@
 __author__ = "Antoine Richard"
-__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__copyright__ = (
+    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+)
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -17,35 +19,44 @@ from src.environments_wrappers.ros2.lunalab_ros2 import ROS_LunalabManager
 from src.environments_wrappers.ros2.lunaryard_ros2 import ROS_LunaryardManager
 from rclpy.executors import SingleThreadedExecutor as Executor
 
+
 class ROS2_LabManagerFactory:
     def __init__(self):
         self._lab_managers = {}
 
-    def register(self, name:str,
-                       lab_manager: Union[ROS_LunalabManager, ROS_LunaryardManager],
-                       ) -> None:
+    def register(
+        self,
+        name: str,
+        lab_manager: Union[ROS_LunalabManager, ROS_LunaryardManager],
+    ) -> None:
         """
         Registers a lab manager.
-        
+
         Args:
             name (str): Name of the lab manager.
-            lab_manager (Union[ROS_LunalabManager, ROS_LunaryardManager]): Instance of the lab manager."""
+            lab_manager (Union[ROS_LunalabManager, ROS_LunaryardManager]): Instance of the lab manager.
+        """
 
         self._lab_managers[name] = lab_manager
 
-    def __call__(self, cfg: dict,
-                       ) -> Union[ROS_LunalabManager, ROS_LunaryardManager]:
+    def __call__(
+        self,
+        cfg: dict,
+    ) -> Union[ROS_LunalabManager, ROS_LunaryardManager]:
         """
         Returns an instance of the lab manager corresponding to the environment name.
-        
+
         Args:
             cfg (dict): Configuration dictionary.
-            
-        Returns:
-            Union[ROS_LunalabManager, ROS_LunaryardManager]: Instance of the lab manager."""
 
-        return self._lab_managers[cfg["environment"]["name"]](environment_cfg = cfg["environment"],
-                                                              flares_cfg = cfg["rendering"]["lens_flares"])
+        Returns:
+            Union[ROS_LunalabManager, ROS_LunaryardManager]: Instance of the lab manager.
+        """
+
+        return self._lab_managers[cfg["environment"]["name"]](
+            environment_cfg=cfg["environment"],
+            flares_cfg=cfg["rendering"]["lens_flares"],
+        )
 
 
 ROS2_LMF = ROS2_LabManagerFactory()
@@ -54,7 +65,7 @@ ROS2_LMF.register("Lunaryard", ROS_LunaryardManager)
 
 
 class ROS2_SimulationManager:
-    """"
+    """ "
     Manages the simulation. This class is responsible for:
     - Initializing the simulation
     - Running the lab manager thread
@@ -62,12 +73,14 @@ class ROS2_SimulationManager:
     - Running the simulation
     - Cleaning the simulation"""
 
-    def __init__(self, cfg: dict,
-                       simulation_app,
-                       ) -> None:
+    def __init__(
+        self,
+        cfg: dict,
+        simulation_app,
+    ) -> None:
         """
         Initializes the simulation.
-        
+
         Args:
             cfg (dict): Configuration dictionary.
             simulation_app (SimulationApp): SimulationApp instance."""
@@ -96,7 +109,7 @@ class ROS2_SimulationManager:
         # 24 topics. More than that and you won't reveive any messages.
         # Keep it in mind if you want to go crazy with the ROS2 calls to modify the sim...
         self.world.reset()
-        
+
     def run_simulation(self) -> None:
         """
         Runs the simulation."""

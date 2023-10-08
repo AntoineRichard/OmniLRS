@@ -1,5 +1,7 @@
 __author__ = "Antoine Richard"
-__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__copyright__ = (
+    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+)
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -8,6 +10,7 @@ __status__ = "development"
 
 import dataclasses
 from typing import Any
+
 
 @dataclasses.dataclass
 class CraterGeneratorConf:
@@ -31,7 +34,9 @@ class CraterGeneratorConf:
         assert type(self.z_scale) is float, "z_scale must be a float"
         assert type(self.seed) is int, "seed must be an integer"
 
-        assert self.min_xy_ratio <= self.max_xy_ratio, "min_xy_ratio must be smaller than max_xy_ratio"
+        assert (
+            self.min_xy_ratio <= self.max_xy_ratio
+        ), "min_xy_ratio must be smaller than max_xy_ratio"
         assert self.min_xy_ratio > 0, "min_xy_ratio must be greater than 0"
         assert self.max_xy_ratio > 0, "max_xy_ratio must be greater than 0"
         assert self.min_xy_ratio <= 1, "min_xy_ratio must be smaller than 1"
@@ -39,6 +44,7 @@ class CraterGeneratorConf:
         assert self.resolution > 0, "resolution must be greater than 0"
         assert self.pad_size >= 0, "pad_size must be greater or equal to 0"
         assert self.z_scale > 0, "z_scale must be greater than 0"
+
 
 @dataclasses.dataclass
 class CraterDistributionConf:
@@ -57,8 +63,11 @@ class CraterDistributionConf:
 
         assert self.x_size > 0, "x_size must be greater than 0"
         assert self.y_size > 0, "y_size must be greater than 0"
-        assert len(self.densities) == len(self.radius), "densities and radius must have the same length"
+        assert len(self.densities) == len(
+            self.radius
+        ), "densities and radius must have the same length"
         assert self.num_repeat >= 0, "num_repeat must be greater or equal to 0"
+
 
 @dataclasses.dataclass
 class BaseTerrainGeneratorConf:
@@ -82,8 +91,11 @@ class BaseTerrainGeneratorConf:
         assert self.x_size > 0, "x_size must be greater than 0"
         assert self.y_size > 0, "y_size must be greater than 0"
         assert self.resolution > 0, "resolution must be greater than 0"
-        assert self.max_elevation > self.min_elevation, "max_elevation must be greater than min_elevation"
+        assert (
+            self.max_elevation > self.min_elevation
+        ), "max_elevation must be greater than min_elevation"
         assert self.z_scale > 0, "z_scale must be greater than 0"
+
 
 @dataclasses.dataclass
 class MoonYardConf:
@@ -96,10 +108,13 @@ class MoonYardConf:
     def __post_init__(self):
         self.crater_generator = CraterGeneratorConf(**self.crater_generator)
         self.crater_distribution = CraterDistributionConf(**self.crater_distribution)
-        self.base_terrain_generator = BaseTerrainGeneratorConf(**self.base_terrain_generator)
+        self.base_terrain_generator = BaseTerrainGeneratorConf(
+            **self.base_terrain_generator
+        )
 
         assert type(self.is_yard) is bool, "is_yard must be a boolean"
         assert type(self.is_lab) is bool, "is_lab must be a boolean"
+
 
 @dataclasses.dataclass
 class TerrainManagerConf:
@@ -125,9 +140,10 @@ class TerrainManagerConf:
         assert type(self.resolution) is float, "resolution must be a float"
 
         assert len(self.mesh_position) == 3, "mesh_position must be a tuple of length 3"
-        assert len(self.mesh_orientation) == 4, "mesh_orientation must be a tuple of length 4"
+        assert (
+            len(self.mesh_orientation) == 4
+        ), "mesh_orientation must be a tuple of length 4"
         assert len(self.mesh_scale) == 3, "mesh_scale must be a tuple of length 3"
         assert self.sim_length > 0, "sim_length must be greater than 0"
         assert self.sim_width > 0, "sim_width must be greater than 0"
         assert self.resolution > 0, "resolution must be greater than 0"
-        

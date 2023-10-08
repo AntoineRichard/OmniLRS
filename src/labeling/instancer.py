@@ -1,5 +1,7 @@
 __author__ = "Antoine Richard, Junnosuke Kahamora"
-__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__copyright__ = (
+    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+)
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -8,16 +10,20 @@ __status__ = "development"
 
 import numpy as np
 import omni
-import os 
+import os
 from omni.isaac.core.utils.prims import delete_prim
 from omni.isaac.core.utils.semantics import add_update_semantics
 from pxr import UsdGeom, Gf
 from WorldBuilders.pxr_utils import createObject, createXform
 
-def castVec3d(data:np.ndarray):
+
+def castVec3d(data: np.ndarray):
     return Gf.Vec3d(data[0], data[1], data[2])
-def castRot(data:np.ndarray):
+
+
+def castRot(data: np.ndarray):
     return Gf.Quatd(data[3], data[0], data[1], data[2])
+
 
 class CustomInstancer:
     """
@@ -25,12 +31,19 @@ class CustomInstancer:
     We defined our own instancer instead of using a Usd.Geom.PointInstancer as the latter does not support semantic information properly.
     It may be fixed in the next release of Omniverse?"""
 
-    def __init__(self, instancer_path:str, asset_list:list, semantic_class:str = None, seed:int = 0):
+    def __init__(
+        self,
+        instancer_path: str,
+        asset_list: list,
+        semantic_class: str = None,
+        seed: int = 0,
+    ):
         """
         Args:
             instancer_path (str): The path of the instancer.
             asset_list (list): The list of assets that can be spawned by the instancer.
-            seed (int, optional): The seed used to generate the random numbers. Defaults to 0."""
+            seed (int, optional): The seed used to generate the random numbers. Defaults to 0.
+        """
 
         self.instancer_path = instancer_path
         self.stage = omni.usd.get_context().get_stage()
@@ -43,16 +56,18 @@ class CustomInstancer:
         self.semantic_class = semantic_class
         self.rng = np.random.default_rng(seed=seed)
 
-    def setInstanceParameter(self, position:np.ndarray, orientation:np.ndarray, 
-                             scale:np.ndarray) -> None:
+    def setInstanceParameter(
+        self, position: np.ndarray, orientation: np.ndarray, scale: np.ndarray
+    ) -> None:
         """
         Set the instancer's parameters. It sets the position, orientation, scale, and semantic class of the instances.
-        
+
         Args:
             position (np.ndarray): The position of the instances.
             orientation (np.ndarray): The orientation of the instances.
             scale (np.ndarray): The scale of the instances.
-            semantic_class (str, optional): The semantic class of the instances. Defaults to None."""
+            semantic_class (str, optional): The semantic class of the instances. Defaults to None.
+        """
 
         self.destroy()
         self.num = position.shape[0]
@@ -69,7 +84,7 @@ class CustomInstancer:
         These assets are hidden from the scene. The idea being that when the instancer spawns an instance,
         it will use the cached asset instead of loading it from the disk."""
 
-        self.cache_path =  os.path.join(self.instancer_path, "cache")
+        self.cache_path = os.path.join(self.instancer_path, "cache")
         self.cache_prim = createXform(self.stage, self.cache_path)
         for asset in self.prototypes:
             prefix = os.path.join(self.cache_path, "cached_obj")
@@ -86,12 +101,15 @@ class CustomInstancer:
             source_prim_path = self.prototypes[id]
             prefix = os.path.join(self.instancer_path, f"instance_{i}")
             self.instance_paths.append(prefix)
-            prim, _ = createObject(prefix, self.stage, 
-                                   source_prim_path, 
-                                   castVec3d(self.position[i]), 
-                                   castRot(self.orientation[i]),
-                                   castVec3d(self.scale[i]),
-                                   True)
+            prim, _ = createObject(
+                prefix,
+                self.stage,
+                source_prim_path,
+                castVec3d(self.position[i]),
+                castRot(self.orientation[i]),
+                castVec3d(self.scale[i]),
+                True,
+            )
             if self.semantic_classes[i] is not None:
                 add_update_semantics(prim, self.semantic_classes[i])
         self.flag = True
@@ -102,7 +120,7 @@ class CustomInstancer:
 
         for instance_path in self.instance_paths:
             delete_prim(instance_path)
-        self.num =None
+        self.num = None
         self.position = None
         self.orientation = None
         self.scale = None
