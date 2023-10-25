@@ -49,7 +49,7 @@ git clone --recurse-submodules https://github.com/AntoineRichard/OmniLRS.git
 cd OmniLRS
 git submodule init
 git submodule update
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh opencv-python omegaconf hydra-core
+~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh -m pip install opencv-python omegaconf hydra-core
 ```
 
 </details>
