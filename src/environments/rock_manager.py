@@ -65,6 +65,7 @@ class TypeFactory:
 samplerTypeFactory = TypeFactory()
 samplerTypeFactory.register_type("Uniform", UniformSampler_T)
 samplerTypeFactory.register_type("HardCoreUniform", HardCoreUniformSampler_T)
+samplerTypeFactory.register_type("ClipMapUniform", UniformClipMapSampler_T)
 samplerTypeFactory.register_type("Normal", NormalSampler_T)
 samplerTypeFactory.register_type("MaternCluster", MaternClusterPointSampler_T)
 samplerTypeFactory.register_type(

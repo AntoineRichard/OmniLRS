@@ -180,8 +180,8 @@ class GeoClipmap:
                             self.addTriangle(E, B, A)
             self.prev_indices = copy(self.new_indices)
             self.new_indices = {}
-        self.points = np.array(self.points) * 2 * self.specs.meters_per_texel
-        self.uvs = np.array(self.uvs) * 2 * self.specs.meters_per_texel
+        self.points = np.array(self.points) * self.specs.meters_per_texel
+        self.uvs = np.array(self.uvs) * self.specs.meters_per_texel
         self.indices = np.array(self.indices)
 
     def saveMesh(self):

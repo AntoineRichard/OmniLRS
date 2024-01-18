@@ -64,22 +64,23 @@ def run(cfg:DictConfig):
     from geo_clipmaps_static import GeoClipmapSpecs
     from geo_clipmaps_manager_static import GeoClipmapManager, GeoClipmapManagerConf
     from src.environments.rock_manager import RockManager
+    from omni.isaac.core.utils.stage import get_current_stage
+    from pxr import UsdGeom
 
     # build terrain
-    terrain_root = "/home/lunar5/jnskkmhr/omn_asset/Terrain/SouthPole"
+    terrain_root = "assets/Terrains/SouthPole/Site_All"
+
     geo_spec = GeoClipmapSpecs(
-        numMeshLODLevels= 2,
+        numMeshLODLevels= 7,
         demPath=os.path.join(terrain_root, "dem.npy"), 
     )
     clipmap_cfg = GeoClipmapManagerConf(geo_clipmap_specs=geo_spec)
 
-    world = World(stage_units_in_meters=1.0)
     T = GeoClipmapManager(clipmap_cfg)
     T.updateGeoClipmap(np.array([20000*5, 0, 20000*5]))
 
     # spawn rocks
     rock_cfg = cfg["environment"]["rocks_settings"]
-    # rock_cfg = OmegaConf.load("cfg/environment/rock_settings.yaml").rocks_settings
     rock_cfg = omegaconfToDict(rock_cfg)
     rock_cfg = instantiateConfigs(rock_cfg)
     RM = RockManager(**rock_cfg)
@@ -88,7 +89,16 @@ def run(cfg:DictConfig):
     mask = np.load(os.path.join(terrain_root, "mask.npy"))
     RM.build(dem, mask)
     RM.updateImageData(dem, mask)
-    RM.randomizeInstancers(100)
+    RM.randomizeInstancers(500)
+
+    
+    world = World(stage_units_in_meters=1.0)
+    stage = get_current_stage()
+    light_prim = stage.DefinePrim(cfg["environment"]["lsp_settings"]["projector_path"], "DistantLight")
+    UsdGeom.Xformable(light_prim).AddTranslateOp()
+    UsdGeom.Xformable(light_prim).AddRotateXYZOp()
+    light_prim.GetAttribute('xformOp:translate').Set((0, 0, 1.0))
+    light_prim.GetAttribute('xformOp:rotateXYZ').Set((80, 0, 0))
 
     while True:
         world.step(render=True)
