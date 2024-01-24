@@ -89,9 +89,8 @@ def run(cfg:DictConfig):
     mask = np.load(os.path.join(terrain_root, "mask.npy"))
     RM.build(dem, mask)
     RM.updateImageData(dem, mask)
-    RM.randomizeInstancers(500)
+    RM.randomizeInstancers(2844)
 
-    
     world = World(stage_units_in_meters=1.0)
     stage = get_current_stage()
     light_prim = stage.DefinePrim(cfg["environment"]["lsp_settings"]["projector_path"], "DistantLight")

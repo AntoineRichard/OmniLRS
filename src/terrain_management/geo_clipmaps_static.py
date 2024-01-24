@@ -213,6 +213,7 @@ class GeoClipmap:
 
     def loadDEM(self):
         self.dem = np.load(self.specs.demPath) * self.specs.z_scale
+        self.dem = np.flipud(self.dem)
         self.dem_size = self.dem.shape
 
     def getElevation(self, position):
@@ -240,10 +241,15 @@ class GeoClipmap:
         dx = x - x1
         dy = y - y1
 
-        q11 = self.dem[x1, y1]
-        q12 = self.dem[x1, y2]
-        q21 = self.dem[x2, y1]
-        q22 = self.dem[x2, y2]
+        # q11 = self.dem[x1, y1]
+        # q12 = self.dem[x1, y2]
+        # q21 = self.dem[x2, y1]
+        # q22 = self.dem[x2, y2]
+
+        q11 = self.dem[y1, x1]
+        q12 = self.dem[y2, x1]
+        q21 = self.dem[y1, x2]
+        q22 = self.dem[y2, x2]
 
         z = wp.zeros(x.shape[0], dtype=float)
         with wp.ScopedTimer("linear_interpolation", active=True):

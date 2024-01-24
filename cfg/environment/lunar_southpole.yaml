@@ -26,12 +26,17 @@ rocks_settings:
             ymin: 0
             ymax: 20000
             output_space: 2
+          # sampler:
+          #   name: ClipMapUniform
+          #   randomization_space: 2
+          #   seed: ${.......seed}
+          #   min: ${as_tuple:0.0,0.0}
+          #   max: ${as_tuple:20000,20000}
           sampler:
-            name: ClipMapUniform
+            name: DeterministicSampler
             randomization_space: 2
             seed: ${.......seed}
-            min: ${as_tuple:0.0,0.0}
-            max: ${as_tuple:20000,20000}
+            data_path: "assets/Terrains/SouthPole/Site_All/lunar_boulder_position.npy"
 
         req_pos_z:
           attribute: Position
