@@ -21,6 +21,7 @@ from src.configurations.procedural_terrain_confs import (
     CraterGeneratorConf,
     CraterDistributionConf,
     BaseTerrainGeneratorConf,
+    DeformationEngineConf,
     MoonYardConf,
 )
 
@@ -506,14 +507,78 @@ class GenerateProceduralMoonYard:
         coords, radius = self.D.run()
         DEM, mask = self.G.generateCraters(DEM, coords, radius)
         return DEM, mask
-    
+
 class DeformationEngine:
-    def __init__(self, cfg:dict=None)-> None:
-        self.cfg = cfg
-    def deform(self, DEM:np.ndarray, coords:np.ndarray)-> np.ndarray:
-        raise NotImplementedError
+    def __init__(self, deformation_engine:DeformationEngineConf)-> None:
+        """
+        deform_point_delta: (List[float]) offset between contact point and deformation point. (default:0)
+        """
+        self.wheel_width = deformation_engine.wheel_width
+        self.wheel_radius = deformation_engine.wheel_radius
+        self.terrain_resolution = deformation_engine.terrain_resolution
+        self.create_profile()
+
+    def create_profile(self):
+        """
+        Create a profile for wheel deformation
+        Returns:
+            profile (np.ndarray): profile of wheel deformation (num_point_sample, 2)
+        """
+        xs = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution))
+        ys = np.linspace(-self.wheel_radius, 0, int(self.wheel_radius/self.terrain_resolution))
+        xs, ys = np.meshgrid(xs, ys)
+        self.profile = np.column_stack([xs.flatten(), ys.flatten(), np.zeros_like(xs.flatten())])
+
+    def _get_projection(self, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
+        """
+        Args:
+            body_transforms (np.ndarray): projected coordinates of rover's wheels (N, 4, 4)
+            contact_forces (np.ndarray): contact forces of rover's wheels (N, 3)
+        Returns:
+            projection_points (np.ndarray): projected pixel coordinates of rover's wheels (N, 2)
+        """
+        projection_points = []
+        projection_forces = []
+        for i in range(body_transforms.shape[0]):
+            body_transform = body_transforms[i]
+            contact_force = contact_forces[i]
+            profile_global = (body_transform[:3, :3] @ self.profile.T)[:2, :].T + body_transform[:2, 3] # (num_point_sample, 2)
+            profile_global = profile_global / self.terrain_resolution
+            projection_points.append(profile_global.astype(np.int8))
+            # projection_forces.append(np.ones(profile_global.shape[0]) * contact_force[-1]) # (num_point_sample, 1)
+            projection_forces.append(np.ones(profile_global.shape[0]) * np.linalg.norm(contact_force)) # (num_point_sample, 1)
+        return np.concatenate(projection_points), np.concatenate(projection_forces)
     
-class GenerateProceduralMoonYard_withDeformation:
+    def _get_deformation_depth(self, contact_forces:np.ndarray)-> np.ndarray:
+        """
+        Args:
+            projection_points (np.ndarray): projected pixel coordinates of rover's wheels (N, 2)
+        Returns:
+            force (np.ndarray): deformation force (N, 2)
+        """
+        factor = 0.1
+        return factor * (contact_forces+1.0)
+    
+    def deform(self, DEM:np.ndarray, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
+        """
+        Args:
+            DEM (np.ndarray): DEM to deform
+            body_transforms (np.ndarray): projected coordinates of rover's wheels (N, 4, 4)
+            contact_forces (np.ndarray): contact forces of rover's wheels (N, 3)
+        """
+        #TODO: check coordinate transform
+        dem_shape = DEM.shape
+        profile_points, profile_forces = self._get_projection(body_transforms=body_transforms, contact_forces=contact_forces)
+        deformation_depth = self._get_deformation_depth(profile_forces)
+        for i, profile_point in enumerate(profile_points):
+            x = -profile_point[0]
+            y = dem_shape[0] - profile_point[1]
+            if x >= 0 and x < dem_shape[1] and y >= 0 and y < dem_shape[0]:
+                DEM[y, x] -= deformation_depth[i]
+        return DEM
+
+    
+class GenerateProceduralMoonYardwithDeformation:
     """
     Generates a random terrain DEM with craters."""
 
@@ -541,26 +606,37 @@ class GenerateProceduralMoonYard_withDeformation:
         self.T = BaseTerrainGenerator(moon_yard.base_terrain_generator)
         self.D = Distribute(moon_yard.crater_distribution)
         self.G = CraterGenerator(moon_yard.crater_generator)
-        self.DE = DeformationEngine()
+        self.DE = DeformationEngine(moon_yard.deformation_engine)
         self.is_lab = moon_yard.is_lab
         self.is_yard = moon_yard.is_yard
+        self._dem_init = None
+        self._mask = None
+        self._dem_delta = None
     
-    def initialize(self)-> np.ndarray:
-        """
-        Generates a random terrain DEM with craters.
-        """
+    def randomize(self) -> np.ndarray:
         DEM = self.T.generateRandomTerrain(is_lab=self.is_lab, is_yard=self.is_yard)
         coords, radius = self.D.run()
         DEM, mask = self.G.generateCraters(DEM, coords, radius)
+        self._dem_init = DEM
+        self._dem_delta = np.zeros_like(DEM)
+        self._mask = mask
         return DEM, mask
     
-    def run(self, coords:np.ndarray)-> np.ndarray:
+    def deform(self, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
         """
         Args:
-            coords(numpy.ndarray): projected coordiantes of rover's wheels
+            body_transforms(numpy.ndarray): body to world transform of rover's wheels (N, 4, 4)
+            contact_forces(numpy.ndarray): contact forces of rover's wheels (N, 3)
         """
-        DEM = self.T._DEM
-        DEM, mask = self.DE.deform(DEM, coords)
+        # NOTE: implement some dem buffer?
+        dem_delta = self._dem_delta
+        mask = self._mask
+        # deform delta height map
+        dem_delta = self.DE.deform(dem_delta, body_transforms, contact_forces)
+        # update dem_delta memory
+        self._dem_delta = dem_delta
+        # merge initial dem and delta dem
+        DEM = self._dem_init + dem_delta
         return DEM, mask
 
 

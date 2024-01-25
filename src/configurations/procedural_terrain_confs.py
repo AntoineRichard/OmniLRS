@@ -96,12 +96,28 @@ class BaseTerrainGeneratorConf:
         ), "max_elevation must be greater than min_elevation"
         assert self.z_scale > 0, "z_scale must be greater than 0"
 
+@dataclasses.dataclass
+class DeformationEngineConf:
+    wheel_width: float = dataclasses.field(default_factory=float)
+    wheel_radius: float = dataclasses.field(default_factory=float)
+    terrain_resolution: float = dataclasses.field(default_factory=float)
+
+    def __post_init__(self):
+        assert type(self.wheel_width) is float, "wheel_width must be a float"
+        assert type(self.wheel_radius) is float, "wheel_radius must be a float"
+        assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
+
+        assert self.wheel_width > 0, "wheel_width must be greater than 0"
+        assert self.wheel_radius > 0, "wheel_radius must be greater than 0"
+        assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"
+
 
 @dataclasses.dataclass
 class MoonYardConf:
     crater_generator: CraterGeneratorConf = None
     crater_distribution: CraterDistributionConf = None
     base_terrain_generator: BaseTerrainGeneratorConf = None
+    deformation_engine: DeformationEngineConf = None
     is_yard: bool = dataclasses.field(default_factory=bool)
     is_lab: bool = dataclasses.field(default_factory=bool)
 
@@ -111,6 +127,7 @@ class MoonYardConf:
         self.base_terrain_generator = BaseTerrainGeneratorConf(
             **self.base_terrain_generator
         )
+        self.deformation_engine = DeformationEngineConf(**self.deformation_engine)
 
         assert type(self.is_yard) is bool, "is_yard must be a boolean"
         assert type(self.is_lab) is bool, "is_lab must be a boolean"

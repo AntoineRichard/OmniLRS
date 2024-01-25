@@ -17,7 +17,7 @@ from semantics.schema.editor import PrimSemanticData
 from pxr import UsdGeom, Sdf
 import omni
 
-from src.terrain_management.terrain_generation import GenerateProceduralMoonYard
+from src.terrain_management.terrain_generation import GenerateProceduralMoonYard, GenerateProceduralMoonYardwithDeformation
 from src.configurations.procedural_terrain_confs import TerrainManagerConf
 from WorldBuilders import pxr_utils
 from assets import get_assets_path
@@ -36,7 +36,8 @@ class TerrainManager:
             **kwargs: additional arguments."""
 
         self._dems_path = os.path.join(get_assets_path(), cfg.dems_path)
-        self._G = GenerateProceduralMoonYard(cfg.moon_yard)
+        # self._G = GenerateProceduralMoonYard(cfg.moon_yard)
+        self._G = GenerateProceduralMoonYardwithDeformation(cfg.moon_yard)
 
         self._stage = omni.usd.get_context().get_stage()
         self._texture_path = cfg.texture_path
@@ -270,6 +271,16 @@ class TerrainManager:
         Randomizes the terrain."""
 
         self._DEM, self._mask = self._G.randomize()
+        self.update()
+    
+    def deformTerrain(self, body_transforms:np.ndarray, contact_forces:np.ndarray) -> None:
+        """
+        Deforms the terrain based on the given body transforms.
+
+        Args:
+            body_transforms (np.ndarray): the body transforms."""
+
+        self._DEM, self._mask = self._G.deform(body_transforms, contact_forces)
         self.update()
 
     def loadTerrainByName(self, name: str) -> None:
