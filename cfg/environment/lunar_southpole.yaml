@@ -72,8 +72,8 @@ rocks_settings:
           axes: ["xyz"]
           layer:
             name: Line
-            xmin: 50.0
-            xmax: 100.0
+            xmin: 10.0
+            xmax: 20.0
           sampler:
             name: Uniform
             randomization_space: 1
