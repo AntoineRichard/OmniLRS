@@ -105,8 +105,8 @@ terrain_manager:
       seed: ${....seed}
     
     deformation_engine:
-      wheel_width: 0.1
-      wheel_radius: 0.2
+      wheel_width: 0.05
+      wheel_radius: 0.102
       terrain_resolution: 0.025
       deform_offset: -0.05
 
