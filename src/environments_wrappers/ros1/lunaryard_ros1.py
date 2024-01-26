@@ -12,11 +12,13 @@ __status__ = "development"
 from src.environments.lunaryard import LunaryardController
 from src.configurations.rendering_confs import FlaresConf
 from src.robots.robot import RobotManager
+from src.robots.view import FourWheelView
 
 # Loads ROS1 dependent libraries
 import rospy
 from std_msgs.msg import Bool, Float32, ColorRGBA, Int8, Int32, String, Empty
 from geometry_msgs.msg import Pose, PoseStamped
+import os
 
 
 class ROS_LunaryardManager:
@@ -42,6 +44,8 @@ class ROS_LunaryardManager:
             uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots"
         )
         self.LC.load()
+        self.scene = None
+        self.robot_view = FourWheelView("/Robots")
 
         self.projector_subs = []
         self.projector_subs.append(
@@ -67,6 +71,11 @@ class ROS_LunaryardManager:
         self.terrains_subs.append(
             rospy.Subscriber(
                 "/Lunalab/Terrain/Switch", Int8, self.switchTerrain, queue_size=1
+            )
+        )
+        self.terrains_subs.append(
+            rospy.Subscriber(
+                "/Lunalab/Terrain/Deform", Bool, self.deformTerrain, queue_size=1
             )
         )
         self.terrains_subs.append(
@@ -207,8 +216,29 @@ class ROS_LunaryardManager:
     def reset(self):
         """
         Resets the lab to its initial state."""
-
         pass
+    
+    def set_scene_asset(self):
+        """
+        Sets the scene asset."""
+        #TODO: parse from hydra config.
+        usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_ROS1.usd")
+        robot_name = "ex1"
+        p = [3.0, 3.0, 0.5]
+        q = [0, 0, 0, 1]
+        domain_id = "0"
+        self.RM.addRobot(usd_path, robot_name, p, q, domain_id)
+    
+    def set_scene_view(self):
+        """
+        Sets the robot prim view."""
+        robot_name = "ex1"
+        self.robot_view.initialize(robot_name, self.scene)
+
+    def set_world_scene(self, scene):
+        """
+        Sets the world scene."""
+        self.scene = scene
 
     def setProjectorOn(self, data: Bool) -> None:
         """
@@ -264,6 +294,18 @@ class ROS_LunaryardManager:
             data (Int32): 0 for the first terrain, 1 for the second terrain."""
 
         self.modifications.append([self.LC.switchTerrain, [data.data]])
+    
+    def deformTerrain(self, data: Bool) -> None:
+        """
+        Deforms the terrain.
+
+        Args:
+            data (Bool): True to deform the terrain, False to not deform it."""
+        world_pose = self.robot_view.get_world_poses()
+        contact_forces = self.robot_view.get_net_contact_forces()
+        # print(f"contact_forces: {contact_forces}")
+        # print(f"world_pose: {world_pose}")
+        self.modifications.append([self.LC.deformTerrain, [world_pose, contact_forces]])
 
     def enableRocks(self, data: Bool) -> None:
         """
@@ -390,9 +432,9 @@ class ROS_LunaryardManager:
                            Must be in the format: robot_name:usd_path"""
 
         assert (
-            len(data.header.frame_id.split(":")) == 2
-        ), "The data should be in the format: robot_name:usd_path"
-        robot_name, usd_path = data.header.frame_id.split(":")
+            len(data.header.frame_id.split(":")) == 3
+        ), "The data should be in the format: robot_name:usd_path:domain_id"
+        robot_name, usd_path, domain_id = data.header.frame_id.split(":")
         p = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
         q = [
             data.pose.orientation.w,
@@ -400,7 +442,7 @@ class ROS_LunaryardManager:
             data.pose.orientation.z,
             data.pose.orientation.x,
         ]
-        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q]])
+        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q, domain_id]])
 
     def teleportRobot(self, data: PoseStamped) -> None:
         """

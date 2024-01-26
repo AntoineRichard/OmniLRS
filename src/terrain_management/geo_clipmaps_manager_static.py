@@ -14,8 +14,9 @@ from pxr import UsdGeom, Sdf
 import numpy as np
 import warp as wp
 import omni
+import dataclasses
 
-
+@dataclasses.dataclass
 class GeoClipmapManagerConf:
     root_path: str = "/World"
     geo_clipmap_specs: GeoClipmapSpecs = GeoClipmapSpecs()

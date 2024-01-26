@@ -17,7 +17,7 @@ from semantics.schema.editor import PrimSemanticData
 from pxr import UsdGeom, Sdf
 import omni
 
-from src.terrain_management.terrain_generation import GenerateProceduralMoonYard
+from src.terrain_management.terrain_generation import GenerateProceduralMoonYard, GenerateProceduralMoonYardwithDeformation
 from src.configurations.procedural_terrain_confs import TerrainManagerConf
 from WorldBuilders import pxr_utils
 from assets import get_assets_path
@@ -36,7 +36,12 @@ class TerrainManager:
             **kwargs: additional arguments."""
 
         self._dems_path = os.path.join(get_assets_path(), cfg.dems_path)
-        self._G = GenerateProceduralMoonYard(cfg.moon_yard)
+        if cfg.moon_yard.__class__.__name__ == "MoonYardConf":
+            self._G = GenerateProceduralMoonYard(cfg.moon_yard)
+        elif cfg.moon_yard.__class__.__name__ == "MoonYardWithDeformationConf":
+            self._G = GenerateProceduralMoonYardwithDeformation(cfg.moon_yard)
+        else:
+            raise ValueError("Invalid moon yard configuration")
 
         self._stage = omni.usd.get_context().get_stage()
         self._texture_path = cfg.texture_path
@@ -251,7 +256,7 @@ class TerrainManager:
         # pxr_utils.removeCollision(self._stage, self._mesh_path)
         pxr_utils.addCollision(self._stage, self._mesh_path)
 
-    def update(self) -> None:
+    def update(self, collider_update:bool=True) -> None:
         """
         Updates the terrain mesh. This function should be called after the DEM and mask are updated.
         """
@@ -259,7 +264,8 @@ class TerrainManager:
         pxr_utils.deletePrim(self._stage, self._mesh_path)
         self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
         self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
-        self.updateTerrainCollider()
+        if collider_update:
+            self.updateTerrainCollider()
         self.autoLabel()
         pxr_utils.applyMaterialFromPath(
             self._stage, self._mesh_path, self._texture_path
@@ -270,6 +276,16 @@ class TerrainManager:
         Randomizes the terrain."""
 
         self._DEM, self._mask = self._G.randomize()
+        self.update()
+    
+    def deformTerrain(self, body_transforms:np.ndarray, contact_forces:np.ndarray) -> None:
+        """
+        Deforms the terrain based on the given body transforms.
+
+        Args:
+            body_transforms (np.ndarray): the body transforms."""
+
+        self._DEM, self._mask = self._G.deform(body_transforms, contact_forces)
         self.update()
 
     def loadTerrainByName(self, name: str) -> None:

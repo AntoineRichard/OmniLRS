@@ -80,7 +80,7 @@ class ROS1_SimulationManager:
         Args:
             cfg (dict): Configuration dictionary.
             simulation_app: Simulation application."""
-
+        self.cfg = cfg
         self.simulation_app = simulation_app
         # Setups the physics and acquires the different interfaces to talk with Isaac
         self.timeline = omni.timeline.get_timeline_interface()
@@ -97,7 +97,12 @@ class ROS1_SimulationManager:
     def run_simulation(self) -> None:
         """
         Runs the simulation."""
-
+        if self.cfg["environment"]["init_with_robot"]:
+            self.ROSLabManager.set_scene_asset()
+            self.world.reset()
+            self.ROSLabManager.set_world_scene(self.world.scene)
+            self.ROSLabManager.set_scene_view()
+            self.world.reset()
         self.timeline.play()
         while self.simulation_app.is_running():
             self.world.step(render=True)
