@@ -1,5 +1,6 @@
 name: Lunaryard
-seed: 42  
+seed: 42
+init_with_robot: False
 # Stage settings, only edit if you know what you are doing.
 lunaryard_settings:
   lab_length: 40.0
@@ -107,6 +108,7 @@ terrain_manager:
 
     is_yard: False
     is_lab: True
+    deformable: False
 
   root_path: /Lunaryard
   texture_path: /Lunaryard/Looks/Basalt

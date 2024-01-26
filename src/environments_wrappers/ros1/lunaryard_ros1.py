@@ -18,6 +18,7 @@ from src.robots.view import FourWheelView
 import rospy
 from std_msgs.msg import Bool, Float32, ColorRGBA, Int8, Int32, String, Empty
 from geometry_msgs.msg import Pose, PoseStamped
+import os
 
 
 class ROS_LunaryardManager:
@@ -221,7 +222,7 @@ class ROS_LunaryardManager:
         """
         Sets the scene asset."""
         #TODO: parse from hydra config.
-        usd_path = "/home/lunar5/jnskkmhr/omn_isaacsim/OmniLRS/assets/USD_Assets/robots/EX1_steer_ROS1.usd"
+        usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_ROS1.usd")
         robot_name = "ex1"
         p = [3.0, 3.0, 0.5]
         q = [0, 0, 0, 1]
@@ -229,6 +230,8 @@ class ROS_LunaryardManager:
         self.RM.addRobot(usd_path, robot_name, p, q, domain_id)
     
     def set_scene_view(self):
+        """
+        Sets the robot prim view."""
         robot_name = "ex1"
         self.robot_view.initialize(robot_name, self.scene)
 

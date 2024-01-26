@@ -23,6 +23,7 @@ from src.configurations.procedural_terrain_confs import (
     BaseTerrainGeneratorConf,
     DeformationEngineConf,
     MoonYardConf,
+    MoonYardWithDeformationConf,
 )
 
 
@@ -464,6 +465,94 @@ class BaseTerrainGenerator:
         # self._DEM = self._DEM * (self._max_elevation - self._min_elevation) + self._min_elevation
         return self._DEM * self._z_scale
 
+class DeformationEngine:
+    def __init__(self, deformation_engine:DeformationEngineConf)-> None:
+        """
+        deform_point_delta: (List[float]) offset between contact point and deformation point. (default:0)
+        """
+        self.wheel_width = deformation_engine.wheel_width
+        self.wheel_radius = deformation_engine.wheel_radius
+        self.terrain_resolution = deformation_engine.terrain_resolution
+        self.deform_offset = deformation_engine.deform_offset
+        self.profile_type = deformation_engine.profile_type
+        self.create_profile()
+
+    def create_profile(self):
+        """
+        Create a profile for wheel deformation
+        Returns:
+            profile (np.ndarray): profile of wheel deformation (num_point_sample, 2)
+        """
+        if self.profile_type == "uniform":
+            """
+            Create a uniform profile for wheel deformation"""
+            xs = np.linspace(-self.wheel_radius, self.wheel_radius, int(2*self.wheel_radius/self.terrain_resolution)) + self.deform_offset
+            ys = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution))
+            xs, ys = np.meshgrid(xs, ys)
+            self.profile = np.column_stack([xs.flatten(), ys.flatten(), np.zeros_like(xs.flatten())])
+        elif self.profile_type == "triangle":
+            """
+            Create a triangle profile for wheel deformation"""
+            pass
+        elif self.profile_type == "sinusoidal":
+            """
+            Create a sinusoidal profile for wheel deformation"""
+            pass
+        elif self.profile_type == "data":
+            """
+            Load a profile for wheel deformation"""
+            pass
+
+    def _get_projection(self, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
+        """
+        Args:
+            body_transforms (np.ndarray): projected coordinates of rover's wheels (N, 4, 4)
+            contact_forces (np.ndarray): contact forces of rover's wheels (N, 3)
+        Returns:
+            projection_points (np.ndarray): projected pixel coordinates of rover's wheels (N, 2)
+        """
+        projection_points = []
+        projection_forces = []
+        for i in range(body_transforms.shape[0]):
+            body_transform = body_transforms[i]
+            contact_force = contact_forces[i]
+            profile_global = (body_transform[:3, :3] @ self.profile.T)[:2, :].T + body_transform[:2, 3] # (num_point_sample, 2)
+            projection_points.append(profile_global)
+            projection_forces.append(np.ones(profile_global.shape[0]) * np.linalg.norm(contact_force)) # (num_point_sample, 1)
+        return np.concatenate(projection_points), np.concatenate(projection_forces)
+    
+    def _get_deformation_depth(self, contact_forces:np.ndarray)-> np.ndarray:
+        """
+        Calculate deformation depth from contact forces and profile.
+        Args:
+            projection_points (np.ndarray): projected pixel coordinates of rover's wheels (N, 2)
+        Returns:
+            force (np.ndarray): deformation force (N, 2)
+        """
+        factor = 0.02
+        return factor * contact_forces
+    
+    def deform(self, DEM:np.ndarray, mask:np.ndarray, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
+        """
+        Args:
+            DEM (np.ndarray): DEM to deform
+            body_transforms (np.ndarray): projected coordinates of rover's wheels (N, 4, 4)
+            contact_forces (np.ndarray): contact forces of rover's wheels (N, 3)
+        """
+        dem_shape = DEM.shape
+        profile_points, profile_forces = self._get_projection(body_transforms=body_transforms, contact_forces=contact_forces)
+        deformation_depth = self._get_deformation_depth(profile_forces)
+        for i, profile_point in enumerate(profile_points):
+            # BUG: some profile_point[1] are negative!
+            x = int(profile_point[0] / self.terrain_resolution)
+            y = int(dem_shape[0] - profile_point[1]/self.terrain_resolution)
+            if x >= 0 and x < dem_shape[1] and y >= 0 and y < dem_shape[0]:
+                if mask[y, x] == 1:
+                    DEM[y, x] -= deformation_depth[i]
+                    mask[y, x] = 0
+                elif mask[y, x] == 0:
+                    pass
+        return DEM, mask
 
 class GenerateProceduralMoonYard:
     """
@@ -508,75 +597,6 @@ class GenerateProceduralMoonYard:
         DEM, mask = self.G.generateCraters(DEM, coords, radius)
         return DEM, mask
 
-class DeformationEngine:
-    def __init__(self, deformation_engine:DeformationEngineConf)-> None:
-        """
-        deform_point_delta: (List[float]) offset between contact point and deformation point. (default:0)
-        """
-        self.wheel_width = deformation_engine.wheel_width
-        self.wheel_radius = deformation_engine.wheel_radius
-        self.terrain_resolution = deformation_engine.terrain_resolution
-        self.deform_offset = deformation_engine.deform_offset
-        self.create_profile()
-
-    def create_profile(self):
-        """
-        Create a profile for wheel deformation
-        Returns:
-            profile (np.ndarray): profile of wheel deformation (num_point_sample, 2)
-        """
-        xs = np.linspace(-self.wheel_radius, self.wheel_radius, int(2*self.wheel_radius/self.terrain_resolution)) + self.deform_offset
-        ys = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution))
-        xs, ys = np.meshgrid(xs, ys)
-        self.profile = np.column_stack([xs.flatten(), ys.flatten(), np.zeros_like(xs.flatten())])
-
-    def _get_projection(self, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
-        """
-        Args:
-            body_transforms (np.ndarray): projected coordinates of rover's wheels (N, 4, 4)
-            contact_forces (np.ndarray): contact forces of rover's wheels (N, 3)
-        Returns:
-            projection_points (np.ndarray): projected pixel coordinates of rover's wheels (N, 2)
-        """
-        projection_points = []
-        projection_forces = []
-        for i in range(body_transforms.shape[0]):
-            body_transform = body_transforms[i]
-            contact_force = contact_forces[i]
-            profile_global = (body_transform[:3, :3] @ self.profile.T)[:2, :].T + body_transform[:2, 3] # (num_point_sample, 2)
-            projection_points.append(profile_global)
-            projection_forces.append(np.ones(profile_global.shape[0]) * np.linalg.norm(contact_force)) # (num_point_sample, 1)
-        return np.concatenate(projection_points), np.concatenate(projection_forces)
-    
-    def _get_deformation_depth(self, contact_forces:np.ndarray)-> np.ndarray:
-        """
-        Calculate deformation depth from contact forces and profile.
-        Args:
-            projection_points (np.ndarray): projected pixel coordinates of rover's wheels (N, 2)
-        Returns:
-            force (np.ndarray): deformation force (N, 2)
-        """
-        factor = 0.01
-        return factor * contact_forces
-    
-    def deform(self, DEM:np.ndarray, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
-        """
-        Args:
-            DEM (np.ndarray): DEM to deform
-            body_transforms (np.ndarray): projected coordinates of rover's wheels (N, 4, 4)
-            contact_forces (np.ndarray): contact forces of rover's wheels (N, 3)
-        """
-        dem_shape = DEM.shape
-        profile_points, profile_forces = self._get_projection(body_transforms=body_transforms, contact_forces=contact_forces)
-        deformation_depth = self._get_deformation_depth(profile_forces)
-        for i, profile_point in enumerate(profile_points):
-            # BUG: profile_point[1] is sometimes negative
-            x = int(profile_point[0] / self.terrain_resolution)
-            y = int(dem_shape[0] - profile_point[1]/self.terrain_resolution)
-            if x >= 0 and x < dem_shape[1] and y >= 0 and y < dem_shape[0]:
-                DEM[y, x] -= deformation_depth[i]
-        return DEM
-
     
 class GenerateProceduralMoonYardwithDeformation:
     """
@@ -584,7 +604,7 @@ class GenerateProceduralMoonYardwithDeformation:
 
     def __init__(
         self,
-        moon_yard: MoonYardConf,
+        moon_yard: MoonYardWithDeformationConf,
     ) -> None:
         """
         Args:
@@ -615,6 +635,7 @@ class GenerateProceduralMoonYardwithDeformation:
     
     def randomize(self) -> np.ndarray:
         DEM = self.T.generateRandomTerrain(is_lab=self.is_lab, is_yard=self.is_yard)
+        mask = np.ones_like(DEM)
         coords, radius = self.D.run()
         DEM, mask = self.G.generateCraters(DEM, coords, radius)
         self._dem_init = DEM
@@ -628,13 +649,13 @@ class GenerateProceduralMoonYardwithDeformation:
             body_transforms(numpy.ndarray): body to world transform of rover's wheels (N, 4, 4)
             contact_forces(numpy.ndarray): contact forces of rover's wheels (N, 3)
         """
-        # NOTE: implement some dem buffer?
         dem_delta = self._dem_delta
         mask = self._mask
         # deform delta height map
-        dem_delta = self.DE.deform(dem_delta, body_transforms, contact_forces)
-        # update dem_delta memory
+        dem_delta, mask = self.DE.deform(dem_delta, mask, body_transforms, contact_forces)
+        # update dem_delta and mask memory
         self._dem_delta = dem_delta
+        self._mask = mask
         # merge initial dem and delta dem
         DEM = self._dem_init + dem_delta
         return DEM, mask

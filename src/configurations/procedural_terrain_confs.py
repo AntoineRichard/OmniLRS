@@ -9,7 +9,7 @@ __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
 import dataclasses
-from typing import Any
+from typing import Any, Union
 
 
 @dataclasses.dataclass
@@ -102,12 +102,14 @@ class DeformationEngineConf:
     wheel_radius: float = dataclasses.field(default_factory=float)
     terrain_resolution: float = dataclasses.field(default_factory=float)
     deform_offset: float = dataclasses.field(default_factory=float)
+    profile_type: str = dataclasses.field(default_factory=str)
 
     def __post_init__(self):
         assert type(self.wheel_width) is float, "wheel_width must be a float"
         assert type(self.wheel_radius) is float, "wheel_radius must be a float"
         assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
         assert type(self.deform_offset) is float, "deform_offset must be a float"
+        assert type(self.profile_type) is str, "deform_profile must be a string"
 
         assert self.wheel_width > 0, "wheel_width must be greater than 0"
         assert self.wheel_radius > 0, "wheel_radius must be greater than 0"
@@ -119,9 +121,29 @@ class MoonYardConf:
     crater_generator: CraterGeneratorConf = None
     crater_distribution: CraterDistributionConf = None
     base_terrain_generator: BaseTerrainGeneratorConf = None
+    is_yard: bool = dataclasses.field(default_factory=bool)
+    is_lab: bool = dataclasses.field(default_factory=bool)
+    deformable: bool = False
+
+    def __post_init__(self):
+        self.crater_generator = CraterGeneratorConf(**self.crater_generator)
+        self.crater_distribution = CraterDistributionConf(**self.crater_distribution)
+        self.base_terrain_generator = BaseTerrainGeneratorConf(
+            **self.base_terrain_generator
+        )
+
+        assert type(self.is_yard) is bool, "is_yard must be a boolean"
+        assert type(self.is_lab) is bool, "is_lab must be a boolean"
+
+@dataclasses.dataclass
+class MoonYardWithDeformationConf:
+    crater_generator: CraterGeneratorConf = None
+    crater_distribution: CraterDistributionConf = None
+    base_terrain_generator: BaseTerrainGeneratorConf = None
     deformation_engine: DeformationEngineConf = None
     is_yard: bool = dataclasses.field(default_factory=bool)
     is_lab: bool = dataclasses.field(default_factory=bool)
+    deformable: bool = True
 
     def __post_init__(self):
         self.crater_generator = CraterGeneratorConf(**self.crater_generator)
@@ -137,7 +159,7 @@ class MoonYardConf:
 
 @dataclasses.dataclass
 class TerrainManagerConf:
-    moon_yard: MoonYardConf = None
+    moon_yard: Union[MoonYardConf, MoonYardWithDeformationConf] = None
     root_path: str = dataclasses.field(default_factory=str)
     texture_path: str = dataclasses.field(default_factory=str)
     dems_path: str = dataclasses.field(default_factory=str)
@@ -149,7 +171,10 @@ class TerrainManagerConf:
     resolution: float = dataclasses.field(default_factory=float)
 
     def __post_init__(self):
-        self.moon_yard = MoonYardConf(**self.moon_yard)
+        if self.moon_yard["deformable"]:
+            self.moon_yard = MoonYardWithDeformationConf(**self.moon_yard)
+        else:
+            self.moon_yard = MoonYardConf(**self.moon_yard)
 
         assert type(self.root_path) is str, "root_path must be a string"
         assert type(self.texture_path) is str, "texture_path must be a string"
