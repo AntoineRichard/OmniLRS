@@ -196,12 +196,6 @@ class ROS_LunaryardManager:
             )
         )
 
-        self.robot_subs.append(
-            rospy.Subscriber(
-                "/Lunalab/Robots/Initialize", String, self.initializeView, queue_size=1
-            )
-        )
-
         self.modifications = []
 
     def clearModifications(self):
@@ -221,8 +215,22 @@ class ROS_LunaryardManager:
     def reset(self):
         """
         Resets the lab to its initial state."""
-
         pass
+    
+    def set_scene_asset(self):
+        """
+        Sets the scene asset."""
+        #TODO: parse from hydra config.
+        usd_path = "/home/lunar5/jnskkmhr/omn_isaacsim/OmniLRS/assets/USD_Assets/robots/EX1_steer_ROS1.usd"
+        robot_name = "ex1"
+        p = [3.0, 3.0, 0.5]
+        q = [0, 0, 0, 1]
+        domain_id = "0"
+        self.RM.addRobot(usd_path, robot_name, p, q, domain_id)
+    
+    def set_scene_view(self):
+        robot_name = "ex1"
+        self.robot_view.initialize(robot_name, self.scene)
 
     def set_world_scene(self, scene):
         """
@@ -432,14 +440,6 @@ class ROS_LunaryardManager:
             data.pose.orientation.x,
         ]
         self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q, domain_id]])
-    
-    def initializeView(self, data: String) -> None:
-        """
-        Initializes the robot view. 
-        Args:
-            data (String): Name of the robot to initialize.
-        """
-        self.modifications.append([self.robot_view.initialize, [data.data, self.scene]])
 
     def teleportRobot(self, data: PoseStamped) -> None:
         """

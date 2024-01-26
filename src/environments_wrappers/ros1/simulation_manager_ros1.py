@@ -98,8 +98,12 @@ class ROS1_SimulationManager:
         """
         Runs the simulation."""
 
-        self.timeline.play()
+        self.ROSLabManager.set_scene_asset()
+        self.world.reset()
         self.ROSLabManager.set_world_scene(self.world.scene)
+        self.ROSLabManager.set_scene_view()
+        self.world.reset()
+        self.timeline.play()
         while self.simulation_app.is_running():
             self.world.step(render=True)
             if self.world.is_playing():

@@ -516,6 +516,7 @@ class DeformationEngine:
         self.wheel_width = deformation_engine.wheel_width
         self.wheel_radius = deformation_engine.wheel_radius
         self.terrain_resolution = deformation_engine.terrain_resolution
+        self.deform_offset = deformation_engine.deform_offset
         self.create_profile()
 
     def create_profile(self):
@@ -524,8 +525,8 @@ class DeformationEngine:
         Returns:
             profile (np.ndarray): profile of wheel deformation (num_point_sample, 2)
         """
-        xs = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution))
-        ys = np.linspace(-self.wheel_radius, 0, int(self.wheel_radius/self.terrain_resolution))
+        xs = np.linspace(-self.wheel_radius, self.wheel_radius, int(2*self.wheel_radius/self.terrain_resolution)) + self.deform_offset
+        ys = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution))
         xs, ys = np.meshgrid(xs, ys)
         self.profile = np.column_stack([xs.flatten(), ys.flatten(), np.zeros_like(xs.flatten())])
 
@@ -543,21 +544,20 @@ class DeformationEngine:
             body_transform = body_transforms[i]
             contact_force = contact_forces[i]
             profile_global = (body_transform[:3, :3] @ self.profile.T)[:2, :].T + body_transform[:2, 3] # (num_point_sample, 2)
-            profile_global = profile_global / self.terrain_resolution
-            projection_points.append(profile_global.astype(np.int8))
-            # projection_forces.append(np.ones(profile_global.shape[0]) * contact_force[-1]) # (num_point_sample, 1)
+            projection_points.append(profile_global)
             projection_forces.append(np.ones(profile_global.shape[0]) * np.linalg.norm(contact_force)) # (num_point_sample, 1)
         return np.concatenate(projection_points), np.concatenate(projection_forces)
     
     def _get_deformation_depth(self, contact_forces:np.ndarray)-> np.ndarray:
         """
+        Calculate deformation depth from contact forces and profile.
         Args:
             projection_points (np.ndarray): projected pixel coordinates of rover's wheels (N, 2)
         Returns:
             force (np.ndarray): deformation force (N, 2)
         """
-        factor = 0.1
-        return factor * (contact_forces+1.0)
+        factor = 0.01
+        return factor * contact_forces
     
     def deform(self, DEM:np.ndarray, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
         """
@@ -566,13 +566,13 @@ class DeformationEngine:
             body_transforms (np.ndarray): projected coordinates of rover's wheels (N, 4, 4)
             contact_forces (np.ndarray): contact forces of rover's wheels (N, 3)
         """
-        #TODO: check coordinate transform
         dem_shape = DEM.shape
         profile_points, profile_forces = self._get_projection(body_transforms=body_transforms, contact_forces=contact_forces)
         deformation_depth = self._get_deformation_depth(profile_forces)
         for i, profile_point in enumerate(profile_points):
-            x = -profile_point[0]
-            y = dem_shape[0] - profile_point[1]
+            # BUG: profile_point[1] is sometimes negative
+            x = int(profile_point[0] / self.terrain_resolution)
+            y = int(dem_shape[0] - profile_point[1]/self.terrain_resolution)
             if x >= 0 and x < dem_shape[1] and y >= 0 and y < dem_shape[0]:
                 DEM[y, x] -= deformation_depth[i]
         return DEM

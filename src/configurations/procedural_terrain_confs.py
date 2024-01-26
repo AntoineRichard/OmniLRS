@@ -101,11 +101,13 @@ class DeformationEngineConf:
     wheel_width: float = dataclasses.field(default_factory=float)
     wheel_radius: float = dataclasses.field(default_factory=float)
     terrain_resolution: float = dataclasses.field(default_factory=float)
+    deform_offset: float = dataclasses.field(default_factory=float)
 
     def __post_init__(self):
         assert type(self.wheel_width) is float, "wheel_width must be a float"
         assert type(self.wheel_radius) is float, "wheel_radius must be a float"
         assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
+        assert type(self.deform_offset) is float, "deform_offset must be a float"
 
         assert self.wheel_width > 0, "wheel_width must be greater than 0"
         assert self.wheel_radius > 0, "wheel_radius must be greater than 0"
