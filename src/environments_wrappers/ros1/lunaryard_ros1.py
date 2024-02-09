@@ -302,9 +302,8 @@ class ROS_LunaryardManager:
         Args:
             data (Bool): True to deform the terrain, False to not deform it."""
         world_pose = self.robot_view.get_world_poses()
-        contact_forces = self.robot_view.get_net_contact_forces()
-        # print(f"contact_forces: {contact_forces}")
-        # print(f"world_pose: {world_pose}")
+        # contact_forces = self.robot_view.get_net_contact_forces()
+        contact_forces = None
         self.modifications.append([self.LC.deformTerrain, [world_pose, contact_forces]])
 
     def enableRocks(self, data: Bool) -> None:

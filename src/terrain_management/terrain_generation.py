@@ -475,72 +475,108 @@ class DeformationEngine:
         self.terrain_resolution = deformation_engine.terrain_resolution
         self.deform_offset = deformation_engine.deform_offset
         self.profile_type = deformation_engine.profile_type
+        self.force_distribution = deformation_engine.force_distribution
+        self.force_depth_ratio = deformation_engine.force_depth_ratio
         self.create_profile()
 
     def create_profile(self):
         """
-        Create a profile for wheel deformation
+        Create a profile of trace in wheel frame (FLU)
         Returns:
             profile (np.ndarray): profile of wheel deformation (num_point_sample, 2)
         """
-        if self.profile_type == "uniform":
-            """
-            Create a uniform profile for wheel deformation"""
+        if self.profile_type == "rectangle":
             xs = np.linspace(-self.wheel_radius, self.wheel_radius, int(2*self.wheel_radius/self.terrain_resolution)) + self.deform_offset
             ys = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution))
-            xs, ys = np.meshgrid(xs, ys)
-            self.profile = np.column_stack([xs.flatten(), ys.flatten(), np.zeros_like(xs.flatten())])
-        elif self.profile_type == "triangle":
-            """
-            Create a triangle profile for wheel deformation"""
-            pass
-        elif self.profile_type == "sinusoidal":
-            """
-            Create a sinusoidal profile for wheel deformation"""
-            pass
-        elif self.profile_type == "data":
-            """
-            Load a profile for wheel deformation"""
-            pass
+            X, Y = np.meshgrid(xs, ys)
+            self.profile = np.column_stack([X.flatten(), Y.flatten(), np.zeros_like(X.flatten())])
+            self.profile_width = X.shape[1]
+            self.profile_height = X.shape[0]
+        # elif self.profile_type == "rectangle_corner_circle":
+        #     xs = np.linspace(-self.wheel_radius, self.wheel_radius, int(2*self.wheel_radius/self.terrain_resolution)) + self.deform_offset
+        #     ys = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution))
+        #     X, Y = np.meshgrid(xs, ys)
+        #     self.profile = np.column_stack([X.flatten(), Y.flatten(), np.zeros_like(X.flatten())])
+        #     self.profile_width = X.shape[1]
+        #     self.profile_height = X.shape[0]
+        #     # TODO: add circle on the edge (at x_min and at x_max)
+        #     # Right now, only circle edge is added (actually inner parts should also be included)
+        #     semi_circle_sample_num = 100
+        #     theta = np.linspace(0, np.pi, semi_circle_sample_num/2)
+        #     semi_circle_up = np.column_stack(
+        #         [self.wheel_radius + np.cos(theta) * self.wheel_width/2, np.sin(theta) * self.wheel_width/2, np.zeros_like(theta)])
+        #     theta = np.linspace(-np.pi, 0, semi_circle_sample_num/2)
+        #     semi_circle_down = np.column_stack(
+        #         [-self.wheel_radius + np.cos(theta) * self.wheel_width/2, np.sin(theta) * self.wheel_width/2, np.zeros_like(theta)])
+            
+        #     self.profile = np.concatenate([self.profile, semi_circle_up, semi_circle_down], axis=0)
+        #     self.profile_width += semi_circle_sample_num
+        #     self.profile_height += semi_circle_sample_num
+    
+    @staticmethod
+    def linear_func(force:np.ndarray, ratio:float)-> np.ndarray:
+        return ratio * force
 
-    def _get_projection(self, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
+    def _get_profile_projection(self, body_transforms:np.ndarray)-> np.ndarray:
         """
         Args:
-            body_transforms (np.ndarray): projected coordinates of rover's wheels (N, 4, 4)
-            contact_forces (np.ndarray): contact forces of rover's wheels (N, 3)
+            body_transforms (np.ndarray): body transform of rover's wheels (N, 4, 4)
         Returns:
-            projection_points (np.ndarray): projected pixel coordinates of rover's wheels (N, 2)
+            projection_points (np.ndarray): projected pixel coordinates of rover's wheels (num_points, 2)
         """
         projection_points = []
-        projection_forces = []
         for i in range(body_transforms.shape[0]):
             body_transform = body_transforms[i]
-            contact_force = contact_forces[i]
             profile_global = (body_transform[:3, :3] @ self.profile.T)[:2, :].T + body_transform[:2, 3] # (num_point_sample, 2)
             projection_points.append(profile_global)
-            projection_forces.append(np.ones(profile_global.shape[0]) * np.linalg.norm(contact_force)) # (num_point_sample, 1)
-        return np.concatenate(projection_points), np.concatenate(projection_forces)
+        return np.concatenate(projection_points)
+    
+    def _get_force(self, contact_forces:np.ndarray)-> np.ndarray:
+        """
+        Get force distribution over profile from single contact force.
+            uniform: force is uniformly distributed over profile.
+            sinusoidal: force is distributed sinusoidally over profile.
+        Args:
+            contact_forces (np.ndarray): contact forces of rover's wheels (N, 3)
+        Returns:
+            force (np.ndarray): projected contact forces on rover's wheels (num_points, 1)
+        """
+        if self.force_distribution == "uniform":
+            force = np.concatenate([np.ones(self.profile.shape[0]) * np.linalg.norm(contact_force) for contact_force in contact_forces])
+        elif self.force_distribution == "sinusoidal":
+            tmp = np.ones((self.profile_height, self.profile_width))
+            scale = np.sin(np.pi * np.linspace(0, 1, self.profile_height)).reshape(-1, 1)
+            scale = scale.repeat(self.profile_width, axis=1)
+            force = (tmp * scale).reshape(-1) * np.linalg.norm(contact_forces)
+            force = np.concatenate([(tmp * scale).reshape(-1) * np.linalg.norm(contact_force) for contact_force in contact_forces])
+        return force
+    
     
     def _get_deformation_depth(self, contact_forces:np.ndarray)-> np.ndarray:
         """
-        Calculate deformation depth from contact forces and profile.
+        Calculate deformation depth from contact forces.
         Args:
-            projection_points (np.ndarray): projected pixel coordinates of rover's wheels (N, 2)
+            contact_forces (np.ndarray): projected contact forces on rover's wheels (N, 1)
         Returns:
-            force (np.ndarray): deformation force (N, 2)
+            depth (np.ndarray): deformation depth (N, 1)
         """
-        factor = 0.02
-        return factor * contact_forces
+        depth = self.linear_func(contact_forces, self.force_depth_ratio)
+        return depth
     
-    def deform(self, DEM:np.ndarray, mask:np.ndarray, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
+    def deform(self, DEM:np.ndarray, mask:np.ndarray, body_transforms:np.ndarray, contact_forces:np.ndarray=None)-> np.ndarray:
         """
         Args:
             DEM (np.ndarray): DEM to deform
             body_transforms (np.ndarray): projected coordinates of rover's wheels (N, 4, 4)
             contact_forces (np.ndarray): contact forces of rover's wheels (N, 3)
         """
+        if contact_forces is None:
+            mass = 22.0
+            gravity = 9.81
+            contact_forces = np.ones((body_transforms.shape[0], 3)) * (mass * gravity / 4)
         dem_shape = DEM.shape
-        profile_points, profile_forces = self._get_projection(body_transforms=body_transforms, contact_forces=contact_forces)
+        profile_points = self._get_profile_projection(body_transforms=body_transforms)
+        profile_forces = self._get_force(contact_forces=contact_forces)
         deformation_depth = self._get_deformation_depth(profile_forces)
         for i, profile_point in enumerate(profile_points):
             # BUG: some profile_point[1] are negative!
@@ -636,8 +672,8 @@ class GenerateProceduralMoonYardwithDeformation:
     def randomize(self) -> np.ndarray:
         DEM = self.T.generateRandomTerrain(is_lab=self.is_lab, is_yard=self.is_yard)
         mask = np.ones_like(DEM)
-        coords, radius = self.D.run()
-        DEM, mask = self.G.generateCraters(DEM, coords, radius)
+        # coords, radius = self.D.run()
+        # DEM, mask = self.G.generateCraters(DEM, coords, radius)
         self._dem_init = DEM
         self._dem_delta = np.zeros_like(DEM)
         self._mask = mask

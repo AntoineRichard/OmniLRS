@@ -5,7 +5,8 @@ init_with_robot: True
 lunaryard_settings:
   lab_length: 10.0
   lab_width: 10.0
-  resolution: 0.025
+  # resolution: 0.025
+  resolution: 0.01
   projector_path: /Lunaryard/Sun
   earth_path: /Lunaryard/Earth
 
@@ -106,11 +107,13 @@ terrain_manager:
       seed: ${....seed}
     
     deformation_engine:
-      wheel_width: 0.05
-      wheel_radius: 0.102
-      terrain_resolution: 0.025
-      deform_offset: -0.05
-      profile_type: uniform
+      wheel_width: 0.09
+      wheel_radius: 0.1
+      terrain_resolution: 0.01
+      deform_offset: -0.01
+      profile_type: rectangle
+      force_distribution: sinusoidal
+      force_depth_ratio: 0.0005
 
     is_yard: False
     is_lab: True

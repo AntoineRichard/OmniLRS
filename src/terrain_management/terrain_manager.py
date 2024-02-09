@@ -247,6 +247,41 @@ class TerrainManager:
 
         self._id += 1
         pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
+    
+    def updateVert(
+        self,
+        points: np.ndarray,
+        indices: np.ndarray,
+        uvs: np.ndarray,
+        colors=None,
+        update_topology: bool = False,
+    ) -> None:
+        """
+        updates a mesh prim with the given points and indices.
+
+        Args:
+            points (np.ndarray): array of points to set as the mesh vertices.
+            indices (np.ndarray): array of indices to set as the mesh indices.
+            uvs (np.ndarray): array of uvs to set as the mesh uvs.
+            colors (np.ndarray): array of colors to set as the mesh colors.
+            update_topology (bool): whether to update the mesh topology."""
+
+        mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
+        mesh.GetPointsAttr().Set(points)
+
+        if update_topology:
+            idxs = np.array(indices).reshape(-1, 3)
+            mesh.GetFaceVertexIndicesAttr().Set(idxs)
+            mesh.GetFaceVertexCountsAttr().Set([3] * len(idxs))
+            UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
+            pv = UsdGeom.PrimvarsAPI(mesh.GetPrim()).CreatePrimvar(
+                "st", Sdf.ValueTypeNames.Float2Array
+            )
+            pv.Set(uvs)
+            pv.SetInterpolation("faceVarying")
+
+        if colors:
+            mesh.GetDisplayColorAttr().Set(colors)
 
     def updateTerrainCollider(self):
         """
@@ -256,7 +291,7 @@ class TerrainManager:
         # pxr_utils.removeCollision(self._stage, self._mesh_path)
         pxr_utils.addCollision(self._stage, self._mesh_path)
 
-    def update(self, collider_update:bool=True) -> None:
+    def update(self) -> None:
         """
         Updates the terrain mesh. This function should be called after the DEM and mask are updated.
         """
@@ -264,12 +299,16 @@ class TerrainManager:
         pxr_utils.deletePrim(self._stage, self._mesh_path)
         self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
         self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
-        if collider_update:
-            self.updateTerrainCollider()
+        self.updateTerrainCollider()
         self.autoLabel()
         pxr_utils.applyMaterialFromPath(
             self._stage, self._mesh_path, self._texture_path
         )
+    
+    def updateMesh(self)-> None:
+        "Updates the terrain mesh. Do not update collider and material."
+        self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
+        self.updateVert(self._sim_verts, self._indices, self._sim_uvs)
 
     def randomizeTerrain(self) -> None:
         """
@@ -286,7 +325,7 @@ class TerrainManager:
             body_transforms (np.ndarray): the body transforms."""
 
         self._DEM, self._mask = self._G.deform(body_transforms, contact_forces)
-        self.update()
+        self.updateMesh()
 
     def loadTerrainByName(self, name: str) -> None:
         """
