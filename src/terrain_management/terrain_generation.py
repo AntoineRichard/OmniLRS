@@ -545,7 +545,7 @@ class DeformationEngine:
             force = np.concatenate([np.ones(self.profile.shape[0]) * np.linalg.norm(contact_force) for contact_force in contact_forces])
         elif self.force_distribution == "sinusoidal":
             tmp = np.ones((self.profile_height, self.profile_width))
-            scale = np.sin(np.pi * np.linspace(0, 1, self.profile_height)).reshape(-1, 1)
+            scale = -1 + np.sin(np.pi * np.linspace(0, 1, self.profile_height)).reshape(-1, 1)
             scale = scale.repeat(self.profile_width, axis=1)
             force = (tmp * scale).reshape(-1) * np.linalg.norm(contact_forces)
             force = np.concatenate([(tmp * scale).reshape(-1) * np.linalg.norm(contact_force) for contact_force in contact_forces])

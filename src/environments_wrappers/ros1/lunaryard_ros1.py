@@ -12,7 +12,7 @@ __status__ = "development"
 from src.environments.lunaryard import LunaryardController
 from src.configurations.rendering_confs import FlaresConf
 from src.robots.robot import RobotManager
-from src.robots.view import FourWheelView
+from src.robots.view import FourWheelRigidPrim, FourWheelRigidPrimView
 
 # Loads ROS1 dependent libraries
 import rospy
@@ -45,7 +45,8 @@ class ROS_LunaryardManager:
         )
         self.LC.load()
         self.scene = None
-        self.robot_view = FourWheelView("/Robots")
+        self.robot_prim = FourWheelRigidPrim("/Robots")
+        self.robot_prim_view = FourWheelRigidPrimView("/Robots")
 
         self.projector_subs = []
         self.projector_subs.append(
@@ -233,7 +234,8 @@ class ROS_LunaryardManager:
         """
         Sets the robot prim view."""
         robot_name = "ex1"
-        self.robot_view.initialize(robot_name, self.scene)
+        self.robot_prim.initialize(robot_name)
+        self.robot_prim_view.initialize(robot_name, self.scene)
 
     def set_world_scene(self, scene):
         """
@@ -301,8 +303,8 @@ class ROS_LunaryardManager:
 
         Args:
             data (Bool): True to deform the terrain, False to not deform it."""
-        world_pose = self.robot_view.get_world_poses()
-        # contact_forces = self.robot_view.get_net_contact_forces()
+        world_pose = self.robot_prim.get_world_poses()
+        # contact_forces = self.robot_prim_view.get_net_contact_forces()
         contact_forces = None
         self.modifications.append([self.LC.deformTerrain, [world_pose, contact_forces]])
 
