@@ -232,7 +232,7 @@ class ROS_LunaryardManager:
     
     def set_scene_view(self):
         """
-        Sets the robot prim view."""
+        Sets the robot prim and rigid body view."""
         robot_name = "ex1"
         self.robot_prim.initialize(robot_name)
         self.robot_prim_view.initialize(robot_name, self.scene)
@@ -304,7 +304,9 @@ class ROS_LunaryardManager:
         Args:
             data (Bool): True to deform the terrain, False to not deform it."""
         world_pose = self.robot_prim.get_world_poses()
+        # option1: get contact force from rigid prim view
         # contact_forces = self.robot_prim_view.get_net_contact_forces()
+        # option2: get contact force from some predefined value
         contact_forces = None
         self.modifications.append([self.LC.deformTerrain, [world_pose, contact_forces]])
 

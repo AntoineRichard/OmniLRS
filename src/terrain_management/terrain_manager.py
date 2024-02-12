@@ -335,6 +335,7 @@ class TerrainManager:
             name (str): the name matching the dictionaty entry."""
 
         self.loadDEMAndMask(name)
+        self._G.register_terrain(self._DEM, self._mask)
         self.update()
 
     def loadTerrainId(self, idx: int) -> None:

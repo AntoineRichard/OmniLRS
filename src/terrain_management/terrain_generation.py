@@ -679,6 +679,11 @@ class GenerateProceduralMoonYardwithDeformation:
         self._mask = mask
         return DEM, mask
     
+    def register_terrain(self, DEM:np.ndarray, mask:np.ndarray):
+        self._dem_init = DEM
+        self._dem_delta = np.zeros_like(DEM)
+        self._mask = mask
+    
     def deform(self, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
         """
         Args:
