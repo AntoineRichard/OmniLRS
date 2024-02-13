@@ -223,7 +223,8 @@ class ROS_LunaryardManager:
         """
         Sets the scene asset."""
         #TODO: parse from hydra config.
-        usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_ROS1.usd")
+        # usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_ROS1.usd")
+        usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_D435i_ROS1.usd")
         robot_name = "ex1"
         p = [3.0, 3.0, 0.5]
         q = [0, 0, 0, 1]
@@ -304,10 +305,7 @@ class ROS_LunaryardManager:
         Args:
             data (Bool): True to deform the terrain, False to not deform it."""
         world_pose = self.robot_prim.get_world_poses()
-        # option1: get contact force from rigid prim view
-        # contact_forces = self.robot_prim_view.get_net_contact_forces()
-        # option2: get contact force from some predefined value
-        contact_forces = None
+        contact_forces = self.robot_prim_view.get_net_contact_forces()
         self.modifications.append([self.LC.deformTerrain, [world_pose, contact_forces]])
 
     def enableRocks(self, data: Bool) -> None:

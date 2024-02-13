@@ -568,12 +568,11 @@ class DeformationEngine:
         Args:
             DEM (np.ndarray): DEM to deform
             body_transforms (np.ndarray): projected coordinates of rover's wheels (N, 4, 4)
-            contact_forces (np.ndarray): contact forces of rover's wheels (N, 3)
+            contact_forces (np.ndarray): (dynamic) contact forces applied on rover's wheels (N, 3)
         """
-        if contact_forces is None:
-            mass = 22.0
-            gravity = 9.81
-            contact_forces = np.ones((body_transforms.shape[0], 3)) * (mass * gravity / 4)
+        mass = 22.0
+        gravity = 9.81
+        contact_forces = np.ones((body_transforms.shape[0], 3)) * (mass * gravity / 4) + contact_forces
         dem_shape = DEM.shape
         profile_points = self._get_profile_projection(body_transforms=body_transforms)
         profile_forces = self._get_force(contact_forces=contact_forces)
