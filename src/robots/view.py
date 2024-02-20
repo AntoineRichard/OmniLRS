@@ -2,6 +2,7 @@ from omni.isaac.core.prims import RigidPrim, RigidPrimView
 from omni.isaac.core.utils.rotations import quat_to_rot_matrix
 import os
 import numpy as np
+from dataclasses import dataclass
 
 class FourWheelRigidPrim:
     """
@@ -43,19 +44,17 @@ class FourWheelRigidPrim:
         right_front_wheel_orientation = quat_to_rot_matrix(right_front_wheel_orientation)
         right_rear_wheel_orientation = quat_to_rot_matrix(right_rear_wheel_orientation)
         # make 4x4 matrix
-        left_front_wheel_pose = np.eye(4)
-        left_rear_wheel_pose = np.eye(4)
-        right_front_wheel_pose = np.eye(4)
-        right_rear_wheel_pose = np.eye(4)
-        left_front_wheel_pose[:3, :3] = left_front_wheel_orientation
-        left_front_wheel_pose[:3, 3] = left_front_wheel_position
-        left_rear_wheel_pose[:3, :3] = left_rear_wheel_orientation
-        left_rear_wheel_pose[:3, 3] = left_rear_wheel_position
-        right_front_wheel_pose[:3, :3] = right_front_wheel_orientation
-        right_front_wheel_pose[:3, 3] = right_front_wheel_position
-        right_rear_wheel_pose[:3, :3] = right_rear_wheel_orientation
-        right_rear_wheel_pose[:3, 3] = right_rear_wheel_position
-        return np.stack([left_front_wheel_pose, left_rear_wheel_pose, right_front_wheel_pose, right_rear_wheel_pose], axis=0)
+        wheel_pose = np.zeros((4, 4, 4))
+        wheel_pose[:, 3, 3] = 1
+        wheel_pose[0, :3, :3] = left_front_wheel_orientation
+        wheel_pose[0, :3, 3] = left_front_wheel_position
+        wheel_pose[1, :3, :3] = left_rear_wheel_orientation
+        wheel_pose[1, :3, 3] = left_rear_wheel_position
+        wheel_pose[2, :3, :3] = right_front_wheel_orientation
+        wheel_pose[2, :3, 3] = right_front_wheel_position
+        wheel_pose[3, :3, :3] = right_rear_wheel_orientation
+        wheel_pose[3, :3, 3] = right_rear_wheel_position
+        return wheel_pose
 
 class FourWheelRigidPrimView:
     """
@@ -65,6 +64,7 @@ class FourWheelRigidPrimView:
         self.root_path = root_path
 
     def initialize(self, robot_name:str, scene)->None:
+        # TODO: vectorize view (use idx to query wheel links instead of making four prims.)
         self.left_front_wheel_path = os.path.join(self.root_path, robot_name, "left_front_wheel_link")
         self.left_rear_wheel_path = os.path.join(self.root_path, robot_name, "left_rear_wheel_link")
         self.right_front_wheel_path = os.path.join(self.root_path, robot_name, "right_front_wheel_link")
@@ -105,3 +105,19 @@ class FourWheelRigidPrimView:
         right_front_wheel_contact_force = self.right_front_wheel_view.get_net_contact_forces()[-1]
         right_rear_wheel_contact_force = self.right_rear_wheel_view.get_net_contact_forces()[-1]
         return np.stack([left_front_wheel_contact_force, left_rear_wheel_contact_force, right_front_wheel_contact_force, right_rear_wheel_contact_force], axis=0)
+    
+    def apply_force_torque(self, forces:np.ndarray, torques:np.ndarray)->None:
+        """
+        Apply force and torque (defined in local body frame) to body frame of the four wheels.
+        Args:
+            forces (np.ndarray): The forces to apply to the body origin of the four wheels.
+                                 (Fx, Fy, Fz) = (F_DP, F_S, F_N)
+            torques (np.ndarray): The torques to apply to the body origin of the four wheels.
+                                 (Mx, My, Mz0 = (M_O,-M_R, M_S)
+        """
+        assert len(forces) == 4
+        assert len(torques) == 4
+        self.left_front_wheel_view.apply_forces_and_torques_at_pos(forces=forces[0], torques=torques[0], is_global=False)
+        self.left_rear_wheel_view.apply_forces_and_torques_at_pos(forces=forces[1], torques=torques[1], is_global=False)
+        self.right_front_wheel_view.apply_forces_and_torques_at_pos(forces=forces[2], torques=torques[2], is_global=False)
+        self.right_rear_wheel_view.apply_forces_and_torques_at_pos(forces=forces[3], torques=torques[3], is_global=False)

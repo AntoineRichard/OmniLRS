@@ -12,13 +12,11 @@ __status__ = "development"
 from src.environments.lunalab import LunalabController
 from src.configurations.rendering_confs import FlaresConf
 from src.robots.robot import RobotManager
-from src.robots.view import FourWheelRigidPrim, FourWheelRigidPrimView
 
 # Loads ROS1 dependent libraries
 import rospy
 from std_msgs.msg import Bool, Float32, ColorRGBA, Int8, Int32, String, Empty
 from geometry_msgs.msg import Pose, PoseStamped
-import os
 
 
 class ROS_LunalabManager:
@@ -44,9 +42,6 @@ class ROS_LunalabManager:
             uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots"
         )
         self.LC.load()
-        self.scene = None
-        self.robot_prim = FourWheelRigidPrim("/Robots")
-        self.robot_prim_view = FourWheelRigidPrimView("/Robots")
 
         self.projector_subs = []
         self.projector_subs.append(
@@ -99,11 +94,6 @@ class ROS_LunalabManager:
         self.terrains_subs.append(
             rospy.Subscriber(
                 "/Lunalab/Terrain/Switch", Int8, self.switchTerrain, queue_size=1
-            )
-        )
-        self.terrains_subs.append(
-            rospy.Subscriber(
-                "/Lunalab/Terrain/Deform", Bool, self.deformTerrain, queue_size=1
             )
         )
         self.terrains_subs.append(
@@ -248,30 +238,6 @@ class ROS_LunalabManager:
 
         pass
 
-    def set_scene_asset(self):
-        """
-        Sets the scene asset."""
-        #TODO: parse from hydra config.
-        # usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_ROS1.usd")
-        usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_D435i_ROS1.usd")
-        robot_name = "ex1"
-        p = [2.0, 2.0, 0.5]
-        q = [0, 0, 0, 1]
-        domain_id = "0"
-        self.RM.addRobot(usd_path, robot_name, p, q, domain_id)
-    
-    def set_scene_view(self):
-        """
-        Sets the robot prim and rigid body view."""
-        robot_name = "ex1"
-        self.robot_prim.initialize(robot_name)
-        self.robot_prim_view.initialize(robot_name, self.scene)
-
-    def set_world_scene(self, scene):
-        """
-        Sets the world scene."""
-        self.scene = scene
-
     def setProjectorOn(self, data: Bool) -> None:
         """
         Turns the projector on or off.
@@ -390,16 +356,6 @@ class ROS_LunalabManager:
             data (Int32): 0 for the first terrain, 1 for the second terrain."""
 
         self.modifications.append([self.LC.switchTerrain, [data.data]])
-    
-    def deformTerrain(self, data: Bool) -> None:
-        """
-        Deforms the terrain.
-
-        Args:
-            data (Bool): True to deform the terrain, False to not deform it."""
-        world_pose = self.robot_prim.get_world_poses()
-        contact_forces = self.robot_prim_view.get_net_contact_forces()
-        self.modifications.append([self.LC.deformTerrain, [world_pose, contact_forces]])
 
     def enableRocks(self, data: Bool) -> None:
         """

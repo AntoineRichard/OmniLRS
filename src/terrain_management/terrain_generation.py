@@ -631,9 +631,14 @@ class GenerateProceduralMoonYard:
         coords, radius = self.D.run()
         DEM, mask = self.G.generateCraters(DEM, coords, radius)
         return DEM, mask
+    
+    def register_terrain(self, DEM:np.ndarray, mask:np.ndarray):
+        self._dem_init = DEM
+        self._dem_delta = np.zeros_like(DEM)
+        self._mask = mask
 
     
-class GenerateProceduralMoonYardwithDeformation:
+class GenerateProceduralMoonYardwithDeformation(GenerateProceduralMoonYard):
     """
     Generates a random terrain DEM with craters."""
 
@@ -657,13 +662,9 @@ class GenerateProceduralMoonYardwithDeformation:
             is_lab (bool, optional): whether the DEM is in a lab or not. Defaults to False.
             is_yard (bool, optional): whether the DEM is in a yard or not. Defaults to False.
             seed (int, optional): random seed. Defaults to 42."""
-
-        self.T = BaseTerrainGenerator(moon_yard.base_terrain_generator)
-        self.D = Distribute(moon_yard.crater_distribution)
-        self.G = CraterGenerator(moon_yard.crater_generator)
+            
+        super().__init__(moon_yard)
         self.DE = DeformationEngine(moon_yard.deformation_engine)
-        self.is_lab = moon_yard.is_lab
-        self.is_yard = moon_yard.is_yard
         self._dem_init = None
         self._mask = None
         self._dem_delta = None
@@ -671,17 +672,13 @@ class GenerateProceduralMoonYardwithDeformation:
     def randomize(self) -> np.ndarray:
         DEM = self.T.generateRandomTerrain(is_lab=self.is_lab, is_yard=self.is_yard)
         mask = np.ones_like(DEM)
+        # # uncomment to add craters
         # coords, radius = self.D.run()
         # DEM, mask = self.G.generateCraters(DEM, coords, radius)
         self._dem_init = DEM
         self._dem_delta = np.zeros_like(DEM)
         self._mask = mask
         return DEM, mask
-    
-    def register_terrain(self, DEM:np.ndarray, mask:np.ndarray):
-        self._dem_init = DEM
-        self._dem_delta = np.zeros_like(DEM)
-        self._mask = mask
     
     def deform(self, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
         """

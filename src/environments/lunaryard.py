@@ -195,11 +195,6 @@ class LunaryardController:
         self.loadDEM()
         self.RM.updateImageData(self.dem, self.mask)
         self.RM.randomizeInstancers(10)
-    
-    def deformTerrain(self, world_poses, contact_forces) -> None:
-        self.T.deformTerrain(body_transforms=world_poses, contact_forces=contact_forces)
-        self.loadDEM()
-        self.RM.updateImageData(self.dem, self.mask)
 
     def enableRocks(self, flag: bool) -> None:
         """
