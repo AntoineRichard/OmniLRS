@@ -79,11 +79,6 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
         )
         self.terrains_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Terrain/Deform", Bool, self.deformTerrain, queue_size=1
-            )
-        )
-        self.terrains_subs.append(
-            rospy.Subscriber(
                 "/Lunalab/Terrain/EnableRocks", Bool, self.enableRocks, queue_size=1
             )
         )
@@ -227,7 +222,8 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
         Sets the world scene."""
         self.scene = scene
     
-    def deformTerrain(self, data: Bool) -> None:
+    ### Non ROS callback ####
+    def deformTerrain(self) -> None:
         """
         Deforms the terrain.
 
@@ -235,4 +231,9 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
             data (Bool): True to deform the terrain, False to not deform it."""
         world_pose = self.robot_prim.get_world_poses()
         contact_forces = self.robot_prim_view.get_net_contact_forces()
-        self.modifications.append([self.LC.deformTerrain, [world_pose, contact_forces]])
+        self.LC.deformTerrain(world_pose, contact_forces)
+    
+    def applyTerramechanicsForce(self)->None:
+        """
+        Applies the terramechanics force."""
+        raise NotImplementedError
