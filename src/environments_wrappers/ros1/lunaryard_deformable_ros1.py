@@ -225,15 +225,12 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
     ### Non ROS callback ####
     def deformTerrain(self) -> None:
         """
-        Deforms the terrain.
-
-        Args:
-            data (Bool): True to deform the terrain, False to not deform it."""
+        Deforms the terrain."""
         world_pose = self.robot_prim.get_world_poses()
         contact_forces = self.robot_prim_view.get_net_contact_forces()
         self.LC.deformTerrain(world_pose, contact_forces)
     
-    def applyTerramechanicsForce(self)->None:
+    def applyTerramechanicsForceAndTorque(self)->None:
         """
-        Applies the terramechanics force."""
+        Applies the terramechanics force and torque."""
         raise NotImplementedError
