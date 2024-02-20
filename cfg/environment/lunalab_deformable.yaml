@@ -1,4 +1,4 @@
-name: Lunalab
+name: LunalabDeformable
 seed: 42
 init_with_robot: True # set to True to initialize the environment with a robot.
 # Stage settings, only edit if you know what you are doing.

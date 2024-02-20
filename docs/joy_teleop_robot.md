@@ -1,4 +1,4 @@
-# Joystick teleoperation of robot
+# Joystick teleoperation and stereo camera simulation
 
 <img src="media/lunaryard_20m_ex1.png" width=500>
 <img src="media/lunaryard_20m_ex1_rviz.png" width=500>
@@ -14,18 +14,19 @@ First, clone ros package for joystick operation.
 cd {path/to/catkin_ws/src}
 git clone git@github.com:jnskkmhr/omni_ex1_joy.git
 cd ..
+rosdep install --from-paths src -yi
 catkin build
 ```
 
 <details>
 <summary>Joystick operation</summary>
 
-```
+```bash
 # terminal 1
-roslaunch omni_ex1_joy ex1_teleop_joy.launch
+roslaunch omni_ex1_joy ex1_ackermann_teleop.launch
 ```
 
-```
+```bash
 # terminal 2
 cd ~/OmniLRS
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py mode=ROS1 environment=lunaryard_20m rendering=ray_tracing
@@ -42,18 +43,18 @@ Note that `frame_id: "ex1:/home/lunar4/jnskkmhr/OmniLRS/assets/USD_Assets/robots
 <details>
 <summary>Joystick operation and stereo camera simulation</summary>
 
-```
+```bash
 # terminal 1
-roslaunch omni_ex1_joy ex1_teleop_joy.launch
+roslaunch omni_ex1_joy ex1_ackermann_teleop.launch
 ```
 
-```
+```bash
 # terminal 2
 cd ~/OmniLRS
 ~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py mode=ROS1 environment=lunaryard_20m rendering=ray_tracing
 ```
 
-```
+```bash
 # terminal 3
 rostopic pub -1 /Lunalab/Robots/Spawn geometry_msgs/PoseStamped '{header: {stamp: now, frame_id: "ex1:/home/lunar4/jnskkmhr/OmniLRS/assets/USD_Assets/robots/EX1_steer_D435i_ROS1.usd:0"}, pose: {position: {x: 10.0, y: 10.0, z: 0.5}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}'
 ```
