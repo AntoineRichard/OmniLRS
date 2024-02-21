@@ -97,7 +97,7 @@ class ROS1_SimulationManager:
         # However, unlike ROS2, I have yet to find the limit of topics you can subscribe to.
         # Penny for your thoughts "Josh".
         self.ROSLabManager = ROS1_LMF(cfg)
-        self.deform_physics_inv = 4
+        self.deform_physics_inv = 10 #get from cfg
 
     def run_simulation(self) -> None:
         """
@@ -119,11 +119,9 @@ class ROS1_SimulationManager:
                     self.world.reset()
                     self.ROSLabManager.reset()
                 self.ROSLabManager.applyModifications()
-                # TODO: instead of calling force/moment solver, deformation engine in ROS
-                # should be called as physics callback
-                # force/moment solver at the same rate as physics
-                # deformation at 1/4 of physics rate (=15Hz)
-                if self.world.current_time_step_index % self.deform_physics_inv == 0:
-                    self.ROSLabManager.deformTerrain()
+                if self.cfg["environment"]["name"] == "LunalabDeformable" or self.cfg["environment"]["name"] == "LunaryardDeformable":
+                    if self.world.current_time_step_index % self.deform_physics_inv == 0:
+                        self.ROSLabManager.deformTerrain()
+                    self.ROSLabManager.applyTerramechanics()
 
         self.timeline.stop()

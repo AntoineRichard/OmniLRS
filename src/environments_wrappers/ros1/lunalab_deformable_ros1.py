@@ -15,6 +15,8 @@ from src.environments_wrappers.ros1.lunalab_ros1 import ROS_LunalabManager
 from src.configurations.rendering_confs import FlaresConf
 from src.robots.robot import RobotManager
 from src.robots.view import FourWheelRigidPrim, FourWheelRigidPrimView
+from src.physics.terra_param import RobotParameter, TerrainMechanicalParameter
+from src.physics.terramechanics_solver import TerramechanicsSolver
 
 # Loads ROS1 dependent libraries
 import rospy
@@ -46,6 +48,12 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
             uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots"
         )
         self.LC.load()
+
+        self.TS = TerramechanicsSolver(
+            robot_param=RobotParameter(),
+            terrain_param=TerrainMechanicalParameter(),
+        )
+        
         self.scene = None
         self.robot_prim = FourWheelRigidPrim("/Robots")
         self.robot_prim_view = FourWheelRigidPrimView("/Robots")
@@ -257,7 +265,8 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
         contact_forces = self.robot_prim_view.get_net_contact_forces()
         self.LC.deformTerrain(world_pose, contact_forces)
     
-    def applyTerramechanicsForceAndTorque(self)->None:
+    def applyTerramechanics(self)->None:
         """
         Applies the terramechanics force and torque."""
-        raise NotImplementedError
+        force, torque = self.TS.compute_force_and_torque()
+        self.robot_prim_view.apply_force_torque(force, torque)

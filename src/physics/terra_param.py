@@ -6,6 +6,7 @@ class RobotParameter:
     """
     Robot mechanical dimension parameters."""
     mass: float = 20.0
+    num_wheels: int = 4
     wheel_radius: float = 0.09
     wheel_base: float = 0.1
     wheel_lug_height: float = 0.02

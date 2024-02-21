@@ -3,9 +3,8 @@ seed: 42
 init_with_robot: True # set to True to initialize the environment with a robot.
 # Stage settings, only edit if you know what you are doing.
 lunaryard_settings:
-  lab_length: 10.0
-  lab_width: 10.0
-  # resolution: 0.025
+  lab_length: 20.0
+  lab_width: 20.0
   resolution: 0.01
   projector_path: /Lunaryard/Sun
   earth_path: /Lunaryard/Earth

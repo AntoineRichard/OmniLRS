@@ -15,6 +15,8 @@ from src.configurations.rendering_confs import FlaresConf
 from src.robots.robot import RobotManager
 from src.robots.view import FourWheelRigidPrim, FourWheelRigidPrimView
 from src.environments_wrappers.ros1.lunaryard_ros1 import ROS_LunaryardManager
+from src.physics.terra_param import RobotParameter, TerrainMechanicalParameter
+from src.physics.terramechanics_solver import TerramechanicsSolver
 
 # Loads ROS1 dependent libraries
 import rospy
@@ -46,6 +48,11 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
             uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots"
         )
         self.LC.load()
+
+        self.TS = TerramechanicsSolver(
+            robot_param=RobotParameter(),
+            terrain_param=TerrainMechanicalParameter(),
+        )
         
         self.scene = None
         self.robot_prim = FourWheelRigidPrim("/Robots")
@@ -203,9 +210,10 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
         Sets the scene asset."""
         #TODO: parse from hydra config.
         # usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_ROS1.usd")
-        usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_D435i_ROS1.usd")
+        # usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_D435i_ROS1.usd")
+        usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/ex1_camera.usd")
         robot_name = "ex1"
-        p = [3.0, 3.0, 0.5]
+        p = [8.0, 5.0, 0.5]
         q = [0, 0, 0, 1]
         domain_id = "0"
         self.RM.addRobot(usd_path, robot_name, p, q, domain_id)
@@ -230,7 +238,8 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
         contact_forces = self.robot_prim_view.get_net_contact_forces()
         self.LC.deformTerrain(world_pose, contact_forces)
     
-    def applyTerramechanicsForceAndTorque(self)->None:
+    def applyTerramechanics(self)->None:
         """
         Applies the terramechanics force and torque."""
-        raise NotImplementedError
+        force, torque = self.TS.compute_force_and_torque()
+        self.robot_prim_view.apply_force_torque(force, torque)
