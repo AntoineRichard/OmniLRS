@@ -55,6 +55,23 @@ class FourWheelRigidPrim:
         wheel_pose[3, :3, :3] = right_rear_wheel_orientation
         wheel_pose[3, :3, 3] = right_rear_wheel_position
         return wheel_pose
+    
+    def get_velocities(self)->np.ndarray:
+        """
+        Return linear and angular velocties of four wheels.
+        """
+        #TODO: get from rigid prim api
+        velocities = np.random.rand(4)
+        omega = np.random.rand(4)
+        return velocities, omega
+    
+    def get_sinkages(self)->np.ndarray:
+        """
+        Return sinkages of four wheels.
+        """
+        # TODO: get from terrain manager
+        sinkages = np.random.rand(4)
+        return sinkages
 
 class FourWheelRigidPrimView:
     """

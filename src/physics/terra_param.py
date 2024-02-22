@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import math
 import numpy as np
 
 @dataclass
@@ -17,5 +18,12 @@ class TerrainMechanicalParameter:
     Terrain mechanical parameters.
     - bearing_parameter: (k_c, k_phi, n_0, n_1) bearing parameters.
     - shearing_parameter: (c, phi, K) shearing parameters."""
-    bearing_parameter: np.ndarray = np.array([0.0, 0.0, 0.0, 0.0])
-    shearing_parameter: np.ndarray = np.array([0.0, 0.0, 0.0])
+    k_c: float = 0.0
+    k_phi: float = 100.0
+    a_0: float = 0.4
+    a_1: float = 0.3
+    n: float = 0.7
+    c: float = 0.0
+    phi: float = 30.0 * math.pi / 180.0
+    K: float = 0.03
+    rho: float = 1400.0
