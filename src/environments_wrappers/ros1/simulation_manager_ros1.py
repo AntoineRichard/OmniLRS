@@ -122,6 +122,6 @@ class ROS1_SimulationManager:
                 if self.cfg["environment"]["name"] == "LunalabDeformable" or self.cfg["environment"]["name"] == "LunaryardDeformable":
                     if self.world.current_time_step_index % self.deform_physics_inv == 0:
                         self.ROSLabManager.deformTerrain()
-                    self.ROSLabManager.applyTerramechanics()
+                    # self.ROSLabManager.applyTerramechanics()
 
         self.timeline.stop()

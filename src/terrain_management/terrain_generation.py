@@ -586,7 +586,7 @@ class DeformationEngine:
     def linear_func(force:np.ndarray, ratio:float)-> np.ndarray:
         return ratio * force
     
-    def deform(self, DEM:np.ndarray, mask:np.ndarray, body_transforms:np.ndarray, contact_forces:np.ndarray=None)-> np.ndarray:
+    def deform(self, DEM:np.ndarray, multipass:np.ndarray, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
         """
         Args:
             DEM (np.ndarray): DEM to deform
@@ -594,7 +594,7 @@ class DeformationEngine:
             contact_forces (np.ndarray): (dynamic) contact forces applied on rover's wheels (n, 3)
             n is the number of wheels.
         """
-        contact_forces = np.ones((body_transforms.shape[0], 3)) * (self.static_normal_force / 4) - contact_forces
+        # contact_forces = np.ones((body_transforms.shape[0], 3)) * (self.static_normal_force / body_transforms.shape[0]) - contact_forces
         dem_shape = DEM.shape
         profile_points = self._get_profile_projection(body_transforms=body_transforms)
         profile_forces = self._get_force(contact_forces=contact_forces)
@@ -603,10 +603,9 @@ class DeformationEngine:
             x = int(profile_point[0] / self.terrain_resolution)
             y = int(dem_shape[0] - profile_point[1]/self.terrain_resolution)
             # Logic to avoid digging mesh too much
-            # TODO: use velocity mask to avoid deformation when the rover is static
-            DEM[y, x] += deformation_depth[i] * (self.deform_decay_ratio)**mask[y, x]
-            mask[y, x] += 1
-        return DEM, mask
+            DEM[y, x] += deformation_depth[i] * (self.deform_decay_ratio)**multipass[y, x]
+            multipass[y, x] += 1
+        return DEM, multipass
 
 class GenerateProceduralMoonYard:
     """
@@ -687,7 +686,7 @@ class GenerateProceduralMoonYardwithDeformation(GenerateProceduralMoonYard):
         self._dem_init = None
         self._mask = None
         self._dem_delta = None
-        self._mask_delta = None
+        self._multipass = None
     
     def randomize(self) -> np.ndarray:
         DEM = self.T.generateRandomTerrain(is_lab=self.is_lab, is_yard=self.is_yard)
@@ -698,8 +697,12 @@ class GenerateProceduralMoonYardwithDeformation(GenerateProceduralMoonYard):
         self._dem_init = DEM
         self._dem_delta = np.zeros_like(DEM)
         self._mask = mask
-        self._mask_delta = np.zeros_like(mask)
+        self._multipass = np.zeros_like(mask)
         return DEM, mask
+    
+    def register_terrain(self, DEM:np.ndarray, mask:np.ndarray):
+        super().register_terrain(DEM, mask)
+        self._multipass = np.zeros_like(mask)
     
     def deform(self, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
         """
@@ -708,12 +711,12 @@ class GenerateProceduralMoonYardwithDeformation(GenerateProceduralMoonYard):
             contact_forces(numpy.ndarray): contact forces of rover's wheels (N, 3)
         """
         dem_delta = self._dem_delta
-        mask_delta = self._mask_delta
+        multipass = self._multipass
         # deform delta height map
-        dem_delta, mask_delta = self.DE.deform(dem_delta, mask_delta, body_transforms, contact_forces)
+        dem_delta, multipass = self.DE.deform(dem_delta, multipass, body_transforms, contact_forces)
         # update dem_delta and mask memory
         self._dem_delta = dem_delta
-        self._mask_delta = mask_delta
+        self._multipass = multipass
         # merge initial dem and delta dem
         DEM = self._dem_init + dem_delta
         return DEM, self._mask

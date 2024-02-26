@@ -180,7 +180,7 @@ class TerrainManagerConf:
     resolution: float = dataclasses.field(default_factory=float)
 
     def __post_init__(self):
-        if self.moon_yard["deformable"]:
+        if "deformable" in self.moon_yard:
             self.moon_yard = MoonYardWithDeformationConf(**self.moon_yard)
         else:
             self.moon_yard = MoonYardConf(**self.moon_yard)

@@ -103,6 +103,7 @@ class FourWheelRigidPrimView:
                                                     name="right_rear_wheel_view",
                                                     track_contact_forces=True,
                                                     )
+
         self.left_front_wheel_view.initialize()
         self.left_rear_wheel_view.initialize()
         self.right_front_wheel_view.initialize()
@@ -116,6 +117,7 @@ class FourWheelRigidPrimView:
     def get_net_contact_forces(self)->np.ndarray:
         """
         Returns the net contact forces of the four wheels.
+        RigidBodyPrimView.get_net_contact_forces only considers force applied among rigid bodies (rigidbodyAPI is applied.)
         """
         left_front_wheel_contact_force = self.left_front_wheel_view.get_net_contact_forces()[-1]
         left_rear_wheel_contact_force = self.left_rear_wheel_view.get_net_contact_forces()[-1]

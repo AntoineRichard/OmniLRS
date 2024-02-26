@@ -23,6 +23,7 @@ import rospy
 from std_msgs.msg import Bool, Float32, ColorRGBA, Int8, Int32, String, Empty
 from geometry_msgs.msg import Pose, PoseStamped
 import os
+import numpy as np
 
 
 class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
@@ -204,6 +205,7 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
         )
 
         self.modifications = []
+        self.world_poses = []
     
     def set_scene_asset(self):
         """
@@ -213,7 +215,7 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
         # usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_D435i_ROS1.usd")
         usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/ex1_camera.usd")
         robot_name = "ex1"
-        p = [8.0, 5.0, 0.5]
+        p = [5.0, 5.0, 0.5]
         q = [0, 0, 0, 1]
         domain_id = "0"
         self.RM.addRobot(usd_path, robot_name, p, q, domain_id)
@@ -235,8 +237,10 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
         """
         Deforms the terrain."""
         world_pose = self.robot_prim.get_world_poses()
-        contact_forces = self.robot_prim_view.get_net_contact_forces()
-        self.LC.deformTerrain(world_pose, contact_forces)
+        self.LC.deformTerrain(world_pose)
+        self.world_poses.append(world_pose)
+        np.save("wheel_trajectory_lunaryard.npy", np.array(self.world_poses))
+
     
     def applyTerramechanics(self)->None:
         """

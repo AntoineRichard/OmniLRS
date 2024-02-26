@@ -108,13 +108,13 @@ terrain_manager:
     deformation_engine:
       wheel_width: 0.09
       wheel_radius: 0.1
-      terrain_resolution: 0.01
+      terrain_resolution: ${....lunaryard_settings.resolution}
       deform_offset: 0.0
       profile_shape: rectangle
       force_distribution: sinusoidal
       # force_distribution: lug
       force_depth_ratio: 0.0005
-      static_normal_force: 201.96
+      static_normal_force: 50.49
       deform_decay_ratio: 0.01
 
     is_yard: True

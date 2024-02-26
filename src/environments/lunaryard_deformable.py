@@ -53,8 +53,27 @@ class LunaryardDeformableController(LunaryardController):
             **kwargs: Arbitrary keyword arguments."""
     
         super().__init__(lunaryard_settings, rocks_settings, flares_settings, terrain_manager, **kwargs)
+        self.terrain_managet_conf = terrain_manager
     
-    def deformTerrain(self, world_poses, contact_forces) -> None:
+    def deformTerrain(self, world_poses:np.ndarray=None) -> None:
+        num_forces = world_poses.shape[0]
+        contact_forces = np.zeros((num_forces, 3))
+        contact_forces[:, 2] = np.ones(num_forces) * self.terrain_managet_conf.moon_yard.deformation_engine.static_normal_force
+        contact_forces = self.get_contact_forces_in_world(contact_forces, world_poses)
         self.T.deformTerrain(body_transforms=world_poses, contact_forces=contact_forces)
         self.loadDEM()
         self.RM.updateImageData(self.dem, self.mask)
+    
+    @staticmethod
+    def get_contact_forces_in_world(contact_forces_local:np.ndarray, world_poses:np.ndarray)->np.ndarray:
+        """
+        Returns the contact forces in world frame.
+
+        Args:
+            contact_forces_local (np.ndarray): The contact forces in local frame.
+            world_poses (np.ndarray): The world poses of the contact points.
+
+        Returns:
+            np.ndarray: The contact forces in world frame.
+        """
+        return np.matmul(world_poses[:, :3, :3], contact_forces_local[:, :, None]).squeeze()

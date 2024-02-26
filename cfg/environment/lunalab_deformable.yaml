@@ -119,7 +119,7 @@ terrain_manager:
       force_distribution: sinusoidal
       # force_distribution: lug
       force_depth_ratio: 0.0005
-      static_normal_force: 201.96
+      static_normal_force: 50.49
       deform_decay_ratio: 0.01
 
     is_yard: False
