@@ -30,7 +30,7 @@ rocks_settings:
           sampler:
             name: ThomasCluster
             randomization_space: 2
-            lambda_parent: 0.1
+            lambda_parent: 0.25
             lambda_daughter: 200
             sigma: 0.2
             seed: ${.......seed}
@@ -159,7 +159,7 @@ rocks_settings:
           sampler:
             name: ThomasCluster
             randomization_space: 2
-            lambda_parent: 0.25
+            lambda_parent: 0.5
             lambda_daughter: 500
             sigma: 0.3
             inherit_parents: True
@@ -223,7 +223,7 @@ terrain_manager:
       y_size: ${....lunaryard_settings.lab_width}
       densities: [0.025, 0.05, 0.5]
       radius: [[1.5,2.5],[0.75,1.5],[0.25,0.5]]
-      num_repeat: 0
+      num_repeat: 1
       seed: ${....seed}
 
     base_terrain_generator:
@@ -235,8 +235,8 @@ terrain_manager:
       z_scale: 1.0
       seed: ${....seed}
 
-    is_yard: False
-    is_lab: True
+    is_yard: True
+    is_lab: False
 
   root_path: /Lunaryard
   texture_path: /Lunaryard/Looks/Basalt

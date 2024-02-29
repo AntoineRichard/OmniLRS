@@ -247,6 +247,7 @@ terrain_manager:
       force_depth_ratio: 0.0005
       static_normal_force: 50.49
       deform_decay_ratio: 0.01
+      wave_frequency: 1.0
 
     is_yard: True
     is_lab: False

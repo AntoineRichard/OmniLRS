@@ -85,7 +85,7 @@ terrain_manager:
       resolution: ${....lunaryard_settings.resolution}
       pad_size: 500
       random_rotation: True
-      z_scale: 0.5
+      z_scale: 1.0
       seed: ${....seed}
 
     crater_distribution:
@@ -116,14 +116,16 @@ terrain_manager:
       force_depth_ratio: 0.0005
       static_normal_force: 50.49
       deform_decay_ratio: 0.01
+      wave_frequency: 1.0
 
     is_yard: True
     is_lab: False
     deformable: True
 
   root_path: /Lunaryard
-  texture_path: /Lunaryard/Looks/Basalt
+  # texture_path: /Lunaryard/Looks/Basalt
   # texture_path: /Lunaryard/Looks/Sand
+  /Lunaryard/Looks/Regolith_footprint
   dems_path: Terrains/Lunaryard
   mesh_position: [0, 0, 0]
   mesh_orientation: [0, 0, 0, 1] # Quaternion x,y,z,w

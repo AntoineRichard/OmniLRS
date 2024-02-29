@@ -479,6 +479,7 @@ class DeformationEngine:
         self.force_depth_ratio = deformation_engine.force_depth_ratio
         self.static_normal_force = deformation_engine.static_normal_force
         self.deform_decay_ratio = deformation_engine.deform_decay_ratio
+        self.wave_frequency = deformation_engine.wave_frequency
         self.create_profile()
 
     def create_profile(self):
@@ -492,8 +493,8 @@ class DeformationEngine:
             ys = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution))
             X, Y = np.meshgrid(xs, ys)
             self.profile = np.column_stack([X.flatten(), Y.flatten(), np.zeros_like(X.flatten())])
-            self.profile_width = X.shape[1]
-            self.profile_height = X.shape[0]
+            self.profile_width = X.shape[0]
+            self.profile_height = X.shape[1]
         else: 
             raise ValueError("Unknown profile shape")
 
@@ -526,13 +527,13 @@ class DeformationEngine:
             force (np.ndarray): projected contact forces on rover's wheels (num_points, 1)
         """
         if self.force_distribution == "uniform":
-            force = np.concatenate([np.ones(self.profile.shape[0]) * np.linalg.norm(contact_force) for contact_force in contact_forces])
+            force = -1 * np.concatenate([np.ones(self.profile.shape[0]) * np.linalg.norm(contact_force) for contact_force in contact_forces])
         elif self.force_distribution == "sinusoidal":
-            force_x = -1 + np.sin(np.pi * np.linspace(0, 1, self.profile_height)) # create force distribution on x axis
-            force = np.concatenate([force_x[:, np.newaxis].repeat(self.profile_width, axis=1).reshape(-1) * np.linalg.norm(contact_force) for contact_force in contact_forces]) # clone force_x to y axis
+            force_x = -1 + np.cos(2*self.wave_frequency*np.pi * np.linspace(-1, 1, self.profile_height)) # create force distribution on x axis
+            force = np.concatenate([force_x[None, :].repeat(self.profile_width, axis=0).reshape(-1) * np.linalg.norm(contact_force) for contact_force in contact_forces]) # clone force_x to y axis
         elif self.force_distribution == "lug":
             force_x = self.lug_func(np.linspace(0, 1, self.profile_height)) # create force distribution on x axis
-            force = np.concatenate([force_x[:, np.newaxis].repeat(self.profile_width, axis=1).reshape(-1) * np.linalg.norm(contact_force) for contact_force in contact_forces]) # clone force_x to y axis
+            force = np.concatenate([force_x[None, :].repeat(self.profile_width, axis=0).reshape(-1) * np.linalg.norm(contact_force) for contact_force in contact_forces]) # clone force_x to y axis
         return force
     
     @staticmethod

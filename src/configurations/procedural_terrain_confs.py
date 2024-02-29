@@ -107,6 +107,7 @@ class DeformationEngineConf:
     force_depth_ratio: float = dataclasses.field(default_factory=float)
     static_normal_force: float = dataclasses.field(default_factory=float)
     deform_decay_ratio: float = dataclasses.field(default_factory=float)
+    wave_frequency: float = dataclasses.field(default_factory=float)
 
     def __post_init__(self):
         assert type(self.wheel_width) is float, "wheel_width must be a float"
@@ -123,6 +124,7 @@ class DeformationEngineConf:
         assert self.force_depth_ratio > 0, "force_depth_ratio must be greater than 0"
         assert self.static_normal_force > 0, "static_normal_force must be greater than 0"
         assert self.deform_decay_ratio > 0, "deform_decay_ratio must be greater than 0"
+        assert self.wave_frequency > 0, "wave_frequency must be greater than 0"
 
 
 @dataclasses.dataclass
