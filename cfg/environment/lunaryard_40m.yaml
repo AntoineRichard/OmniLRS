@@ -108,7 +108,6 @@ terrain_manager:
 
     is_yard: False
     is_lab: True
-    deformable: False
 
   root_path: /Lunaryard
   texture_path: /Lunaryard/Looks/Basalt

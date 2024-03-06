@@ -1,6 +1,6 @@
 name: SDG
 generation_settings:
-  num_images: 10000
+  num_images: 1000
   prim_path: Camera
   camera_name: camera_annotations
   camera_resolution: ${as_tuple:640,480}
@@ -16,8 +16,8 @@ generation_settings:
 camera_settings:
   camera_path: Camera/camera_annotations
   focal_length: 1.93
-  horizontal_aperture: 2.4
-  vertical_aperture: 1.8
+  horizontal_aperture: 3.6
+  vertical_aperture: 2.7
   fstop: 0.0
   focus_distance: 10.0
   clipping_range: ${as_tuple:0.01, 1000000.0}
