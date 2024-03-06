@@ -104,6 +104,7 @@ class DeformationEngineConf:
     deform_offset: float = dataclasses.field(default_factory=float)
     profile_shape: str = dataclasses.field(default_factory=str)
     force_distribution: str = dataclasses.field(default_factory=str)
+    boundary_distribution: str = dataclasses.field(default_factory=str)
     force_depth_ratio: float = dataclasses.field(default_factory=float)
     static_normal_force: float = dataclasses.field(default_factory=float)
     deform_decay_ratio: float = dataclasses.field(default_factory=float)
@@ -116,6 +117,7 @@ class DeformationEngineConf:
         assert type(self.deform_offset) is float, "deform_offset must be a float"
         assert type(self.profile_shape) is str, "deform_profile must be a string"
         assert type(self.force_distribution) is str, "force_distribution must be a string"
+        assert type(self.boundary_distribution) is str, "boundary_distribution must be a string"
         assert type(self.force_depth_ratio) is float, "force_depth_ratio must be a float"
 
         assert self.wheel_width > 0, "wheel_width must be greater than 0"

@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 from scipy.ndimage import rotate
 from typing import List, Tuple
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 import datetime
 import pickle
 import cv2
@@ -476,6 +477,7 @@ class DeformationEngine:
         self.deform_offset = deformation_engine.deform_offset
         self.profile_shape = deformation_engine.profile_shape
         self.force_distribution = deformation_engine.force_distribution
+        self.boundary_distribution = deformation_engine.boundary_distribution
         self.force_depth_ratio = deformation_engine.force_depth_ratio
         self.static_normal_force = deformation_engine.static_normal_force
         self.deform_decay_ratio = deformation_engine.deform_decay_ratio
@@ -489,10 +491,10 @@ class DeformationEngine:
             profile (np.ndarray): profile of wheel deformation (num_point_sample, 2)
         """
         if self.profile_shape == "rectangle":
-            xs = np.linspace(-self.wheel_radius, self.wheel_radius, int(2*self.wheel_radius/self.terrain_resolution)) + self.deform_offset
-            ys = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution))
+            xs = np.linspace(-self.wheel_radius, self.wheel_radius, int(2*self.wheel_radius/self.terrain_resolution)+1) + self.deform_offset
+            ys = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution)+1)
             X, Y = np.meshgrid(xs, ys)
-            self.profile = np.column_stack([X.flatten(), Y.flatten(), np.zeros_like(X.flatten())])
+            self.profile = np.column_stack([X.flatten(), Y.flatten()])
             self.profile_width = X.shape[0]
             self.profile_height = X.shape[1]
         else: 
@@ -511,10 +513,13 @@ class DeformationEngine:
         projection_points = []
         for i in range(body_transforms.shape[0]):
             body_transform = body_transforms[i]
-            profile_global = (body_transform[:3, :3] @ self.profile.T)[:2, :].T + body_transform[:2, 3] # (num_point_sample, 2)
-            projection_points.append(profile_global)
+            heading = R.from_matrix(body_transform[:3, :3]).as_euler("zyx")[0]
+            projection_point = np.array(
+                [self.profile[:, 0]*np.cos(heading) - self.profile[:, 1]*np.sin(heading), 
+                self.profile[:, 0]*np.sin(heading) + self.profile[:, 1]*np.cos(heading)]).T + body_transform[:2, 3]
+            projection_points.append(projection_point)
         return np.concatenate(projection_points)
-    
+
     def _get_force(self, contact_forces:np.ndarray)-> np.ndarray:
         """
         Get force distribution over profile from single contact force.
@@ -527,14 +532,40 @@ class DeformationEngine:
             force (np.ndarray): projected contact forces on rover's wheels (num_points, 1)
         """
         if self.force_distribution == "uniform":
-            force = -1 * np.concatenate([np.ones(self.profile.shape[0]) * np.linalg.norm(contact_force) for contact_force in contact_forces])
+            force = self.uniform_force_generator(contact_forces)
         elif self.force_distribution == "sinusoidal":
-            force_x = -1 + np.cos(2*self.wave_frequency*np.pi * np.linspace(-1, 1, self.profile_height)) # create force distribution on x axis
-            force = np.concatenate([force_x[None, :].repeat(self.profile_width, axis=0).reshape(-1) * np.linalg.norm(contact_force) for contact_force in contact_forces]) # clone force_x to y axis
+            force = self.sinusoidal_force_generator(contact_forces)
         elif self.force_distribution == "lug":
-            force_x = self.lug_func(np.linspace(0, 1, self.profile_height)) # create force distribution on x axis
-            force = np.concatenate([force_x[None, :].repeat(self.profile_width, axis=0).reshape(-1) * np.linalg.norm(contact_force) for contact_force in contact_forces]) # clone force_x to y axis
+            force = self.lug_force_generator(contact_forces)
         return force
+    
+    ### Boundary distribution functions ###
+    def get_boundary_distribution(self):
+        if self.boundary_distribution == "uniform":
+            boundary_dist = np.ones(self.profile.shape[0])
+        if self.boundary_distribution == "parabolic":
+            y = np.linspace(-1, 1, self.profile_width)
+            boundary_dist_y = y**2 - 1
+            boundary_dist = boundary_dist_y[None, :].repeat(self.profile_height, axis=1).reshape(-1)
+        return boundary_dist
+    ########################################
+    
+    ### Force distribution functions ###
+    def uniform_force_generator(self, contact_forces:np.ndarray)-> np.ndarray:
+        boundary_dist = self.get_boundary_distribution()
+        force = np.concatenate([np.ones(self.profile.shape[0]) * boundary_dist * np.linalg.norm(contact_force) for contact_force in contact_forces])
+        return force
+    def sinusoidal_force_generator(self, contact_forces:np.ndarray)-> np.ndarray:
+        boundary_dist = self.get_boundary_distribution()
+        force_x = 1 + np.cos(2*self.wave_frequency*np.pi * np.linspace(-1, 1, self.profile_height)) # create force distribution on x axis
+        force = np.concatenate([force_x[None, :].repeat(self.profile_width, axis=0).reshape(-1) * boundary_dist * np.linalg.norm(contact_force) for contact_force in contact_forces]) # clone force_x to y axis
+        return force
+    def lug_force_generator(self, contact_forces:np.ndarray)-> np.ndarray:
+        boundary_dist = self.get_boundary_distribution()
+        force_x = self.lug_func(np.linspace(0, 1, self.profile_height))
+        force = np.concatenate([force_x[None, :].repeat(self.profile_width, axis=0).reshape(-1) * boundary_dist * np.linalg.norm(contact_force) for contact_force in contact_forces])
+        return force
+    #####################################
     
     @staticmethod
     def lug_func(linspace_x:np.ndarray)-> np.ndarray:
