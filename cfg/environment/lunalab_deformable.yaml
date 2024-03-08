@@ -117,8 +117,8 @@ terrain_manager:
       deform_offset: 0.0
       profile_shape: rectangle
       force_distribution: sinusoidal
-      # force_distribution: lug
-      force_depth_ratio: 0.0005
+      boundary_distribution: parabolic
+      force_depth_ratio: 0.0002
       static_normal_force: 50.49
       deform_decay_ratio: 0.01
       wave_frequency: 1.0

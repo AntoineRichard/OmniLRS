@@ -535,8 +535,6 @@ class DeformationEngine:
             force = self.uniform_force_generator(contact_forces)
         elif self.force_distribution == "sinusoidal":
             force = self.sinusoidal_force_generator(contact_forces)
-        elif self.force_distribution == "lug":
-            force = self.lug_force_generator(contact_forces)
         return force
     
     ### Boundary distribution functions ###
@@ -560,45 +558,6 @@ class DeformationEngine:
         force_x = 1 + np.cos(2*self.wave_frequency*np.pi * np.linspace(-1, 1, self.profile_height)) # create force distribution on x axis
         force = np.concatenate([force_x[None, :].repeat(self.profile_width, axis=0).reshape(-1) * boundary_dist * np.linalg.norm(contact_force) for contact_force in contact_forces]) # clone force_x to y axis
         return force
-    def lug_force_generator(self, contact_forces:np.ndarray)-> np.ndarray:
-        boundary_dist = self.get_boundary_distribution()
-        force_x = self.lug_func(np.linspace(0, 1, self.profile_height))
-        force = np.concatenate([force_x[None, :].repeat(self.profile_width, axis=0).reshape(-1) * boundary_dist * np.linalg.norm(contact_force) for contact_force in contact_forces])
-        return force
-    #####################################
-    
-    @staticmethod
-    def lug_func(linspace_x:np.ndarray)-> np.ndarray:
-        """
-        Create lug force distribution along single axis.
-        Need to make it cleaner!!!"""
-        bump_length = 0.05
-        hole_length = 0.025
-        bump_height = 0.4
-        hole_height = 1.0
-        undisturbed_length = (1.0 - 2 * bump_length - 2 * hole_length) / 2
-        first_region = (linspace_x < undisturbed_length).astype(np.float32)
-        second_region = ((linspace_x >= undisturbed_length) & (linspace_x < undisturbed_length+bump_length)).astype(np.float32)
-        third_region = ((linspace_x >= undisturbed_length+bump_length) & (linspace_x < undisturbed_length+2*bump_length)).astype(np.float32)
-        fourth_region = ((linspace_x >= undisturbed_length+2*bump_length) & (linspace_x < undisturbed_length+2*bump_length+hole_length)).astype(np.float32)
-        fifth_region = ((linspace_x >= undisturbed_length+2*bump_length+hole_length) & (linspace_x < undisturbed_length+2*bump_length+2*hole_length)).astype(np.float32)
-        sixth_region = ((linspace_x >= undisturbed_length+2*bump_length+2*hole_length) & (linspace_x < undisturbed_length+3*bump_length+2*hole_length)).astype(np.float32)
-        seventh_region = ((linspace_x >= undisturbed_length+3*bump_length+2*hole_length) & (linspace_x < undisturbed_length+4*bump_length+2*hole_length)).astype(np.float32)
-        eighth_region = (linspace_x >= undisturbed_length+4*bump_length+2*hole_length).astype(np.float32)
-
-        first_region_curve = 0.0 * linspace_x
-        second_region_curve = (bump_height/bump_length) * (linspace_x - (undisturbed_length+bump_length)) + bump_height
-        third_region_curve = (-bump_height/bump_length) * (linspace_x - (undisturbed_length+bump_length)) + bump_height
-        fourth_region_curve = (hole_height/hole_length) * (linspace_x - (undisturbed_length+2*bump_length+hole_length)) - hole_height
-        fifth_region_curve = (-hole_height/hole_length) * (linspace_x - (undisturbed_length+2*bump_length+hole_length)) - hole_height
-        sixth_region_curve = (bump_height/bump_length) * (linspace_x - (undisturbed_length+3*bump_length+2*hole_length)) + bump_height
-        seventh_region_curve = (-bump_height/bump_length) * (linspace_x - (undisturbed_length+3*bump_length+2*hole_length)) + bump_height
-        eighth_region_curve = 0.0 * linspace_x
-        return first_region * first_region_curve + second_region * second_region_curve + \
-            third_region * third_region_curve + fourth_region * fourth_region_curve + \
-                fifth_region * fifth_region_curve + sixth_region * sixth_region_curve + \
-                    seventh_region * seventh_region_curve + eighth_region * eighth_region_curve
-    
     
     def _get_deformation_depth(self, contact_forces:np.ndarray, model:str="linear")-> np.ndarray:
         """
