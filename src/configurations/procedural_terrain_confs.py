@@ -105,7 +105,8 @@ class DeformationEngineConf:
     profile_shape: str = dataclasses.field(default_factory=str)
     force_distribution: str = dataclasses.field(default_factory=str)
     boundary_distribution: str = dataclasses.field(default_factory=str)
-    force_depth_ratio: float = dataclasses.field(default_factory=float)
+    force_depth_slope: float = dataclasses.field(default_factory=float)
+    force_depth_intercept: float = dataclasses.field(default_factory=float)
     static_normal_force: float = dataclasses.field(default_factory=float)
     deform_decay_ratio: float = dataclasses.field(default_factory=float)
     wave_frequency: float = dataclasses.field(default_factory=float)
@@ -118,12 +119,14 @@ class DeformationEngineConf:
         assert type(self.profile_shape) is str, "deform_profile must be a string"
         assert type(self.force_distribution) is str, "force_distribution must be a string"
         assert type(self.boundary_distribution) is str, "boundary_distribution must be a string"
-        assert type(self.force_depth_ratio) is float, "force_depth_ratio must be a float"
+        assert type(self.force_depth_slope) is float, "force_depth_ratio must be a float"
+        assert type(self.force_depth_intercept) is float, "force_depth_intercept must be a float"
 
         assert self.wheel_width > 0, "wheel_width must be greater than 0"
         assert self.wheel_radius > 0, "wheel_radius must be greater than 0"
         assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"
-        assert self.force_depth_ratio > 0, "force_depth_ratio must be greater than 0"
+        assert self.force_depth_slope > 0, "force_depth_ratio must be greater than 0"
+        assert self.force_depth_intercept > 0, "force_depth_intercept must be greater than 0"
         assert self.static_normal_force > 0, "static_normal_force must be greater than 0"
         assert self.deform_decay_ratio > 0, "deform_decay_ratio must be greater than 0"
         assert self.wave_frequency > 0, "wave_frequency must be greater than 0"

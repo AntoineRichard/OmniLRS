@@ -478,7 +478,8 @@ class DeformationEngine:
         self.profile_shape = deformation_engine.profile_shape
         self.force_distribution = deformation_engine.force_distribution
         self.boundary_distribution = deformation_engine.boundary_distribution
-        self.force_depth_ratio = deformation_engine.force_depth_ratio
+        self.force_depth_slope = deformation_engine.force_depth_slope
+        self.force_depth_intercept = deformation_engine.force_depth_intercept
         self.static_normal_force = deformation_engine.static_normal_force
         self.deform_decay_ratio = deformation_engine.deform_decay_ratio
         self.wave_frequency = deformation_engine.wave_frequency
@@ -568,14 +569,14 @@ class DeformationEngine:
             depth (np.ndarray): deformation depth (num_points, 1)
         """
         if model == "linear":
-            return self.linear_func(contact_forces, self.force_depth_ratio)
+            return self.linear_func(contact_forces, self.force_depth_slope, self.force_depth_intercept)
         else:
             raise ValueError("Unknown model")
         
     # Scaling function from force to sinkage #
     @staticmethod
-    def linear_func(force:np.ndarray, ratio:float)-> np.ndarray:
-        return ratio * force
+    def linear_func(force:np.ndarray, slope:float, intercept:float)-> np.ndarray:
+        return slope * force + intercept
     
     def deform(self, DEM:np.ndarray, multipass:np.ndarray, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
         """

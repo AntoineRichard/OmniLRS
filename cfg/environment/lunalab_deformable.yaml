@@ -118,10 +118,11 @@ terrain_manager:
       profile_shape: rectangle
       force_distribution: sinusoidal
       boundary_distribution: parabolic
-      force_depth_ratio: 0.0002
       static_normal_force: 50.49
       deform_decay_ratio: 0.01
       wave_frequency: 1.0
+      force_depth_slope: 0.00007
+      force_depth_intercept: 0.008
 
     is_yard: False
     is_lab: True
