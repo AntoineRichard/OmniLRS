@@ -13,7 +13,7 @@ from src.environments.lunaryard import LunaryardController
 from src.environments.lunaryard_deformable import LunaryardDeformableController
 from src.configurations.rendering_confs import FlaresConf
 from src.robots.robot import RobotManager
-from src.robots.view import FourWheelRigidPrim, FourWheelRigidPrimView
+from src.robots.robot_view import FourWheelRigidPrim, FourWheelRigidPrimView
 from src.environments_wrappers.ros1.lunaryard_ros1 import ROS_LunaryardManager
 from src.physics.terra_param import RobotParameter, TerrainMechanicalParameter
 from src.physics.terramechanics_solver import TerramechanicsSolver
@@ -237,8 +237,9 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
         """
         Deforms the terrain."""
         world_pose = self.robot_prim.get_world_poses()
-        self.LC.deformTerrain(world_pose)
-        self.world_poses.append(world_pose)
+        contact_forces = self.robot_prim_view.get_net_contact_forces()
+        self.LC.deformTerrain(world_pose, contact_forces)
+        # self.world_poses.append(world_pose)
         # np.save("wheel_trajectory_lunaryard.npy", np.array(self.world_poses))
 
     

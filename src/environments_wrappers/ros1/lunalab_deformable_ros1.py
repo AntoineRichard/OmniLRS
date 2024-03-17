@@ -14,7 +14,7 @@ from src.environments.lunalab_deformable import LunalabDeformableController
 from src.environments_wrappers.ros1.lunalab_ros1 import ROS_LunalabManager
 from src.configurations.rendering_confs import FlaresConf
 from src.robots.robot import RobotManager
-from src.robots.view import FourWheelRigidPrim, FourWheelRigidPrimView
+from src.robots.robot_view import FourWheelRigidPrim, FourWheelRigidPrimView
 from src.physics.terra_param import RobotParameter, TerrainMechanicalParameter
 from src.physics.terramechanics_solver import TerramechanicsSolver
 

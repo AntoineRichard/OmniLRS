@@ -236,9 +236,11 @@ terrain_manager:
       seed: ${....seed}
     
     deformation_engine:
+      terrain_width: ${....lunaryard_settings.lab_width}
+      terrain_height: ${....lunaryard_settings.lab_length}
+      terrain_resolution: ${....lunaryard_settings.resolution}
       wheel_width: 0.09
       wheel_radius: 0.1
-      terrain_resolution: ${....lunaryard_settings.resolution}
       deform_offset: 0.0
       profile_shape: rectangle
       force_distribution: sinusoidal
