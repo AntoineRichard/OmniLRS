@@ -265,7 +265,7 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
         world_pose = self.robot_prim.get_world_poses()
         self.LC.deformTerrain(world_pose)
         self.world_poses.append(world_pose)
-        np.save("wheel_trajectory_lunalab.npy", np.array(self.world_poses))
+        # np.save("wheel_trajectory_lunalab.npy", np.array(self.world_poses))
     
     def applyTerramechanics(self)->None:
         """
