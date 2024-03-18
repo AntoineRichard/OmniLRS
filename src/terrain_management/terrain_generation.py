@@ -478,16 +478,15 @@ class DeformationEngine:
         self.terrain_resolution = deformation_engine.terrain_resolution
         self.terrain_width = deformation_engine.terrain_width
         self.terrain_height = deformation_engine.terrain_height
-        self.wheel_width = deformation_engine.wheel_width
-        self.wheel_radius = deformation_engine.wheel_radius
-        self.deform_offset = deformation_engine.deform_offset
-        self.profile_shape = deformation_engine.profile_shape
+        self.wheel_width = deformation_engine.wheel_params.wheel_width
+        self.wheel_radius = deformation_engine.wheel_params.wheel_radius
+        self.deform_offset = deformation_engine.deform_constraint.deform_offset
+        self.deform_decay_ratio = deformation_engine.deform_constraint.deform_decay_ratio
         self.force_distribution = deformation_engine.force_distribution
         self.boundary_distribution = deformation_engine.boundary_distribution
         self.force_depth_slope = deformation_engine.force_depth_slope
         self.force_depth_intercept = deformation_engine.force_depth_intercept
         self.gravity_force = deformation_engine.gravity_force
-        self.deform_decay_ratio = deformation_engine.deform_decay_ratio
 
         self.sim_width = self.terrain_width / self.terrain_resolution
         self.sim_height = self.terrain_height / self.terrain_resolution
@@ -507,15 +506,12 @@ class DeformationEngine:
         Returns:
             profile (np.ndarray): profile of wheel deformation (num_point_sample, 2)
         """
-        if self.profile_shape == "rectangle":
-            xs = np.linspace(-self.wheel_radius, self.wheel_radius, int(2*self.wheel_radius/self.terrain_resolution)+1) + self.deform_offset
-            ys = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution)+1)
-            X, Y = np.meshgrid(xs, ys)
-            self.profile = np.column_stack([X.flatten(), Y.flatten()])
-            self.profile_width = X.shape[0]
-            self.profile_height = X.shape[1]
-        else: 
-            raise ValueError("Unknown profile shape")
+        xs = np.linspace(-self.wheel_radius, self.wheel_radius, int(2*self.wheel_radius/self.terrain_resolution)+1) + self.deform_offset
+        ys = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution)+1)
+        X, Y = np.meshgrid(xs, ys)
+        self.profile = np.column_stack([X.flatten(), Y.flatten()])
+        self.profile_width = X.shape[0]
+        self.profile_height = X.shape[1]
     
     def get_force_distribution(self)-> None:
         """

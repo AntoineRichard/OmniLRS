@@ -96,6 +96,32 @@ class BaseTerrainGeneratorConf:
         ), "max_elevation must be greater than min_elevation"
         assert self.z_scale > 0, "z_scale must be greater than 0"
 
+@dataclasses.dataclass
+class WheelParams:
+    """
+    Wheel parameters.
+    """
+    wheel_width: float = 0.5
+    wheel_radius: float = 0.25
+
+    def __post_init__(self):
+        assert type(self.wheel_width) is float, "wheel_width must be a float"
+        assert type(self.wheel_radius) is float, "wheel_radius must be a float"
+        assert self.wheel_width > 0, "wheel_width must be greater than 0"
+        assert self.wheel_radius > 0, "wheel_radius must be greater than 0"
+
+@dataclasses.dataclass
+class DeformConstraintParam:
+    """
+    Deformation constrain parameters.
+    """
+    deform_offset: float = 0.0
+    deform_decay_ratio: float = 0.01
+
+    def __post_init__(self):
+        assert type(self.deform_offset) is float, "deform_offset must be a float"
+        assert type(self.deform_decay_ratio) is float, "deform_decay_ratio must be a float"
+        assert self.deform_decay_ratio > 0, "deform_decay_ratio must be greater than 0"
 
 @dataclasses.dataclass
 class BoundaryDistributionParam:
@@ -125,38 +151,30 @@ class ForceDistributionParam:
 
 @dataclasses.dataclass
 class DeformationEngineConf:
-    wheel_width: float = dataclasses.field(default_factory=float)
-    wheel_radius: float = dataclasses.field(default_factory=float)
     terrain_resolution: float = dataclasses.field(default_factory=float)
     terrain_width: float = dataclasses.field(default_factory=float)
     terrain_height: float = dataclasses.field(default_factory=float)
-    deform_offset: float = dataclasses.field(default_factory=float)
-    profile_shape: str = dataclasses.field(default_factory=str)
+    wheel_params: dict = dataclasses.field(default_factory=dict)
+    deform_constraint: dict = dataclasses.field(default_factory=dict)
     force_distribution: dict = dataclasses.field(default_factory=dict)
     boundary_distribution: dict = dataclasses.field(default_factory=dict)
     force_depth_slope: float = dataclasses.field(default_factory=float)
     force_depth_intercept: float = dataclasses.field(default_factory=float)
     gravity_force: float = dataclasses.field(default_factory=float)
-    deform_decay_ratio: float = dataclasses.field(default_factory=float)
 
     def __post_init__(self):
-        assert type(self.wheel_width) is float, "wheel_width must be a float"
-        assert type(self.wheel_radius) is float, "wheel_radius must be a float"
         assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
         assert type(self.terrain_width) is float, "terrain_width must be a float"
         assert type(self.terrain_height) is float, "terrain_height must be a float"
-        assert type(self.deform_offset) is float, "deform_offset must be a float"
-        assert type(self.profile_shape) is str, "deform_profile must be a string"
         assert type(self.force_depth_slope) is float, "force_depth_ratio must be a float"
         assert type(self.force_depth_intercept) is float, "force_depth_intercept must be a float"
 
-        assert self.wheel_width > 0, "wheel_width must be greater than 0"
-        assert self.wheel_radius > 0, "wheel_radius must be greater than 0"
         assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"
         assert self.terrain_width > 0, "terrain_width must be greater than 0"
         assert self.terrain_height > 0, "terrain_height must be greater than 0"
-        assert self.deform_decay_ratio > 0, "deform_decay_ratio must be greater than 0"
         
+        self.wheel_params = WheelParams(**self.wheel_params)
+        self.deform_constraint = DeformConstraintParam(**self.deform_constraint)
         self.force_distribution = ForceDistributionParam(**self.force_distribution)
         self.boundary_distribution = BoundaryDistributionParam(**self.boundary_distribution)
 

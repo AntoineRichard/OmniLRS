@@ -240,10 +240,12 @@ terrain_manager:
       terrain_width: ${....lunaryard_settings.lab_width}
       terrain_height: ${....lunaryard_settings.lab_length}
       terrain_resolution: ${....lunaryard_settings.resolution}
-      wheel_width: 0.09
-      wheel_radius: 0.1
-      deform_offset: 0.0
-      profile_shape: rectangle
+      wheel_params:
+        wheel_width: 0.09
+        wheel_radius: 0.1
+      deform_constraint:
+        deform_offset: 0.0
+        deform_decay_ratio: 0.01
       force_distribution: 
         distribution: sinusoidal
         wave_frequency: 2.0
@@ -251,9 +253,8 @@ terrain_manager:
         distribution: trapezoidal
         angle_of_repose: 1.047
       gravity_force: -50.49
-      force_depth_slope: 0.00007
+      force_depth_slope: 0.00014
       force_depth_intercept: 0.008
-      deform_decay_ratio: 0.01
 
     is_yard: True
     is_lab: False
