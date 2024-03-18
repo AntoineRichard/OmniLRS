@@ -63,7 +63,7 @@ class LunaryardDeformableController(LunaryardController):
             contact_forces (np.ndarray): The contact forces in local frame reported by rigidprimview.
         """
         gravity = np.zeros_like(contact_forces)
-        gravity[:, 2] = -self.terrain_managet_conf.moon_yard.deformation_engine.static_normal_force
+        gravity[:, 2] = self.terrain_managet_conf.moon_yard.deformation_engine.gravity_force
         gravity = self.transform_to_local(gravity, world_poses)
         contact_forces -= gravity # compensate for gravity
         # contact_forces = np.zeros_like(contact_forces)
