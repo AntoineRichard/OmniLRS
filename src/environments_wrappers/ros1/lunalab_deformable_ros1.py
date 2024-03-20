@@ -14,7 +14,7 @@ from src.environments.lunalab_deformable import LunalabDeformableController
 from src.environments_wrappers.ros1.lunalab_ros1 import ROS_LunalabManager
 from src.configurations.rendering_confs import FlaresConf
 from src.robots.robot import RobotManager
-from src.robots.view import FourWheelRigidPrim, FourWheelRigidPrimView
+from src.robots.robot_view import FourWheelRigidPrim, FourWheelRigidPrimView
 from src.physics.terra_param import RobotParameter, TerrainMechanicalParameter
 from src.physics.terramechanics_solver import TerramechanicsSolver
 
@@ -265,7 +265,7 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
         world_pose = self.robot_prim.get_world_poses()
         self.LC.deformTerrain(world_pose)
         self.world_poses.append(world_pose)
-        np.save("wheel_trajectory_lunalab.npy", np.array(self.world_poses))
+        # np.save("wheel_trajectory_lunalab.npy", np.array(self.world_poses))
     
     def applyTerramechanics(self)->None:
         """

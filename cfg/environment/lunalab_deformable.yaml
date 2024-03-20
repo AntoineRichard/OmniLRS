@@ -111,17 +111,24 @@ terrain_manager:
       seed: ${....seed}
     
     deformation_engine:
-      wheel_width: 0.09
-      wheel_radius: 0.1
-      terrain_resolution: 0.01
-      deform_offset: 0.0
-      profile_shape: rectangle
-      force_distribution: sinusoidal
-      boundary_distribution: parabolic
-      force_depth_ratio: 0.0002
-      static_normal_force: 50.49
-      deform_decay_ratio: 0.01
-      wave_frequency: 1.0
+      terrain_width: ${....lunalab_settings.lab_width}
+      terrain_height: ${....lunalab_settings.lab_length}
+      terrain_resolution: ${....lunalab_settings.resolution}
+      wheel_params:
+        wheel_width: 0.09
+        wheel_radius: 0.1
+      deform_constraint:
+        deform_offset: 0.0
+        deform_decay_ratio: 0.01
+      force_distribution: 
+        distribution: sinusoidal
+        wave_frequency: 2.0
+      boundary_distribution: 
+        distribution: trapezoidal
+        angle_of_repose: 1.047
+      gravity_force: -50.49
+      force_depth_slope: 0.00014
+      force_depth_intercept: 0.008
 
     is_yard: False
     is_lab: True

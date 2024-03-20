@@ -55,17 +55,25 @@ class LunaryardDeformableController(LunaryardController):
         super().__init__(lunaryard_settings, rocks_settings, flares_settings, terrain_manager, **kwargs)
         self.terrain_managet_conf = terrain_manager
     
-    def deformTerrain(self, world_poses:np.ndarray=None) -> None:
-        num_forces = world_poses.shape[0]
-        contact_forces = np.zeros((num_forces, 3))
-        contact_forces[:, 2] = np.ones(num_forces) * self.terrain_managet_conf.moon_yard.deformation_engine.static_normal_force
-        contact_forces = self.get_contact_forces_in_world(contact_forces, world_poses)
+    def deformTerrain(self, world_poses:np.ndarray=None, contact_forces:np.ndarray=None) -> None:
+        """
+        Deforms the terrain.
+        Args:
+            world_poses (np.ndarray): The world poses of the contact points.
+            contact_forces (np.ndarray): The contact forces in local frame reported by rigidprimview.
+        """
+        gravity = np.zeros_like(contact_forces)
+        gravity[:, 2] = self.terrain_managet_conf.moon_yard.deformation_engine.gravity_force
+        gravity = self.transform_to_local(gravity, world_poses)
+        contact_forces -= gravity # compensate for gravity
+        # contact_forces = np.zeros_like(contact_forces)
+        # contact_forces[:, 2] = self.terrain_managet_conf.moon_yard.deformation_engine.static_normal_force
         self.T.deformTerrain(body_transforms=world_poses, contact_forces=contact_forces)
         self.loadDEM()
         self.RM.updateImageData(self.dem, self.mask)
     
     @staticmethod
-    def get_contact_forces_in_world(contact_forces_local:np.ndarray, world_poses:np.ndarray)->np.ndarray:
+    def transform_to_local(contact_forces_local:np.ndarray, world_poses:np.ndarray)->np.ndarray:
         """
         Returns the contact forces in world frame.
 
@@ -76,4 +84,5 @@ class LunaryardDeformableController(LunaryardController):
         Returns:
             np.ndarray: The contact forces in world frame.
         """
-        return np.matmul(world_poses[:, :3, :3], contact_forces_local[:, :, None]).squeeze()
+        transform = world_poses.transpose(0, 2, 1)
+        return np.matmul(transform[:, :3, :3], contact_forces_local[:, :, None]).squeeze()

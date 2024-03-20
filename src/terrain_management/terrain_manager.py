@@ -16,6 +16,7 @@ import os
 from semantics.schema.editor import PrimSemanticData
 from pxr import UsdGeom, Sdf
 import omni
+import warp as wp
 
 from src.terrain_management.terrain_generation import GenerateProceduralMoonYard, GenerateProceduralMoonYardwithDeformation
 from src.configurations.procedural_terrain_confs import TerrainManagerConf
@@ -298,7 +299,8 @@ class TerrainManager:
 
         pxr_utils.deletePrim(self._stage, self._mesh_path)
         self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
-        self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
+        with wp.ScopedTimer("mesh update"):
+            self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
         self.updateTerrainCollider()
         self.autoLabel()
         pxr_utils.applyMaterialFromPath(
@@ -306,13 +308,16 @@ class TerrainManager:
         )
     
     def updateMesh(self)-> None:
-        "Updates the terrain mesh. Do not update collider and material."
+        """Updates the terrain mesh. Do not update collider and material.
+        """
         self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
-        self.updateVert(self._sim_verts, self._indices, self._sim_uvs)
+        with wp.ScopedTimer("mesh update"):
+            self.updateVert(self._sim_verts, self._indices, self._sim_uvs)
 
     def randomizeTerrain(self) -> None:
         """
-        Randomizes the terrain."""
+        Randomizes the terrain (update mesh, collider, semantic).
+        """
 
         self._DEM, self._mask = self._G.randomize()
         self.update()
