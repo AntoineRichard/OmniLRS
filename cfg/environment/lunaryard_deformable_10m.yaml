@@ -5,7 +5,6 @@ init_with_robot: True # set to True to initialize the environment with a robot.
 lunaryard_settings:
   lab_length: 10.0
   lab_width: 10.0
-  # resolution: 0.025
   resolution: 0.01
   projector_path: /Lunaryard/Sun
   earth_path: /Lunaryard/Earth
@@ -31,8 +30,8 @@ rocks_settings:
           sampler:
             name: ThomasCluster
             randomization_space: 2
-            lambda_parent: 0.25
-            lambda_daughter: 50
+            lambda_parent: 0.1
+            lambda_daughter: 200
             sigma: 0.2
             seed: ${.......seed}
 
@@ -71,7 +70,7 @@ rocks_settings:
           layer:
             name: Line
             xmin: 1.0
-            xmax: 1.0
+            xmax: 2.0
           sampler:
             name: Uniform
             randomization_space: 1
@@ -135,8 +134,8 @@ rocks_settings:
           axes: ["xyz"]
           layer:
             name: Line
-            xmin: 2.0
-            xmax: 5.0
+            xmin: 5.0
+            xmax: 10.0
           sampler:
             name: Uniform
             randomization_space: 1
@@ -160,8 +159,8 @@ rocks_settings:
           sampler:
             name: ThomasCluster
             randomization_space: 2
-            lambda_parent: 0.5
-            lambda_daughter: 500
+            lambda_parent: 0.3
+            lambda_daughter: 100
             sigma: 0.3
             inherit_parents: True
             seed: ${.......seed}
@@ -224,15 +223,15 @@ terrain_manager:
       y_size: ${....lunaryard_settings.lab_width}
       densities: [0.025, 0.05, 0.5]
       radius: [[1.5,2.5],[0.75,1.5],[0.25,0.5]]
-      num_repeat: 0
+      num_repeat: 1
       seed: ${....seed}
 
     base_terrain_generator:
       x_size: ${....lunaryard_settings.lab_length}
       y_size: ${....lunaryard_settings.lab_width}
       resolution: ${....lunaryard_settings.resolution}
-      max_elevation: 0.2
-      min_elevation: -0.2
+      max_elevation: 1.0
+      min_elevation: -1.0
       z_scale: 1.0
       seed: ${....seed}
     
@@ -262,9 +261,10 @@ terrain_manager:
 
   root_path: /Lunaryard
   # texture_path: /Lunaryard/Looks/Basalt
-  texture_path: /Lunaryard/Looks/Regolith
-  # texture_path: /Lunaryard/Looks/Regolith_footprint
+  texture_path: /Lunaryard/Looks/Synthetic_Regolith_02
+  # texture_path: /Lunaryard/Looks/Regolith
   # texture_path: /Lunaryard/Looks/Sand
+  # texture_path: /Lunaryard/Looks/Regolith_footprint
   dems_path: Terrains/Lunaryard
   mesh_position: [0, 0, 0]
   mesh_orientation: [0, 0, 0, 1] # Quaternion x,y,z,w

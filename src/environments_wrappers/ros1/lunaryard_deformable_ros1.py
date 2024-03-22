@@ -233,7 +233,7 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
         # usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_D435i_ROS1.usd")
         usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/ex1_camera.usd")
         robot_name = "ex1"
-        p = [17.0, 5.0, 2.0]
+        p = [5.0, 5.0, 2.0]
         q = [0, 0, 0, 1]
         domain_id = "0"
         self.RM.addRobot(usd_path, robot_name, p, q, domain_id)

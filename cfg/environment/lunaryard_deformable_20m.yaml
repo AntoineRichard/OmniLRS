@@ -264,7 +264,7 @@ terrain_manager:
   texture_path: /Lunaryard/Looks/Synthetic_Regolith_02
   # texture_path: /Lunaryard/Looks/Regolith
   # texture_path: /Lunaryard/Looks/Sand
-  # /Lunaryard/Looks/Regolith_footprint
+  # texture_path: /Lunaryard/Looks/Regolith_footprint
   dems_path: Terrains/Lunaryard
   mesh_position: [0, 0, 0]
   mesh_orientation: [0, 0, 0, 1] # Quaternion x,y,z,w
