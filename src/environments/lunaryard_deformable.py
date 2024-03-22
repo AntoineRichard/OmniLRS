@@ -66,8 +66,6 @@ class LunaryardDeformableController(LunaryardController):
         gravity[:, 2] = self.terrain_managet_conf.moon_yard.deformation_engine.gravity_force
         gravity = self.transform_to_local(gravity, world_poses)
         contact_forces -= gravity # compensate for gravity
-        # contact_forces = np.zeros_like(contact_forces)
-        # contact_forces[:, 2] = self.terrain_managet_conf.moon_yard.deformation_engine.static_normal_force
         self.T.deformTerrain(body_transforms=world_poses, contact_forces=contact_forces)
         self.loadDEM()
         self.RM.updateImageData(self.dem, self.mask)

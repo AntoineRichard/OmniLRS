@@ -287,5 +287,7 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
     def applyTerramechanics(self)->None:
         """
         Applies the terramechanics force and torque."""
-        force, torque = self.TS.compute_force_and_torque()
+        velocities, omega = self.robot_prim.get_velocities()
+        sinkages = self.robot_prim.get_sinkages()
+        force, torque = self.TS.compute_force_and_torque(velocities, omega, sinkages)
         self.robot_prim_view.apply_force_torque(force, torque)
