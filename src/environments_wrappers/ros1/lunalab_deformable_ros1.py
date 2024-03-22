@@ -231,8 +231,26 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
                 "/Lunalab/Robots/ResetAll", String, self.resetRobots, queue_size=1
             )
         )
+        self.robot_subs.append(
+            rospy.Subscriber(
+                "/Lunalab/Robots/RecordPose", Bool, self.recordPose, queue_size=1
+            )
+        )
+        self.robot_subs.append(
+            rospy.Subscriber(
+                "/Lunalab/Robots/DumpPose", Bool, self.dumpPose, queue_size=1
+            )
+        )
 
         self.modifications = []
+        self.world_poses = []
+    
+    def recordPose(self):
+        world_pose = self.robot_prim.get_world_poses()
+        self.world_poses.append(world_pose)
+    
+    def dumpPose(self):
+        np.save("pose_lunalab.npy", np.array(self.world_poses))
         self.world_poses = []
 
     def set_scene_asset(self):
@@ -263,9 +281,8 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
         """
         Deforms the terrain."""
         world_pose = self.robot_prim.get_world_poses()
-        self.LC.deformTerrain(world_pose)
-        self.world_poses.append(world_pose)
-        # np.save("wheel_trajectory_lunalab.npy", np.array(self.world_poses))
+        contact_forces = self.robot_prim_view.get_net_contact_forces()
+        self.LC.deformTerrain(world_pose, contact_forces)
     
     def applyTerramechanics(self)->None:
         """

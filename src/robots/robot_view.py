@@ -1,8 +1,18 @@
-from omni.isaac.core.prims import RigidPrim, RigidPrimView
-from omni.isaac.core.utils.rotations import quat_to_rot_matrix
+__author__ = "Junnosuke Kamohara"
+__copyright__ = (
+    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+)
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 import os
 import numpy as np
 from dataclasses import dataclass
+from omni.isaac.core.prims import RigidPrim, RigidPrimView
+from omni.isaac.core.utils.rotations import quat_to_rot_matrix
 
 class FourWheelRigidPrim:
     """
