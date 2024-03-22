@@ -231,14 +231,31 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
                 "/Lunalab/Robots/ResetAll", String, self.resetRobots, queue_size=1
             )
         )
+        self.robot_subs.append(
+            rospy.Subscriber(
+                "/Lunalab/Robots/RecordPose", Bool, self.recordPose, queue_size=1
+            )
+        )
+        self.robot_subs.append(
+            rospy.Subscriber(
+                "/Lunalab/Robots/DumpPose", Bool, self.dumpPose, queue_size=1
+            )
+        )
 
         self.modifications = []
+        self.world_poses = []
+    
+    def recordPose(self, data:Bool)->None:
+        world_pose = self.robot_prim.get_world_poses()
+        self.world_poses.append(world_pose)
+    
+    def dumpPose(self, data:Bool)->None:
+        np.save("./pose_lunalab.npy", np.array(self.world_poses))
         self.world_poses = []
 
     def set_scene_asset(self):
         """
         Sets the scene asset."""
-        #TODO: parse from hydra config.
         usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/ex1_camera.usd")
         robot_name = "ex1"
         p = [1.0, 1.0, 0.5]
@@ -263,12 +280,13 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
         """
         Deforms the terrain."""
         world_pose = self.robot_prim.get_world_poses()
-        self.LC.deformTerrain(world_pose)
-        self.world_poses.append(world_pose)
-        # np.save("wheel_trajectory_lunalab.npy", np.array(self.world_poses))
+        contact_forces = self.robot_prim_view.get_net_contact_forces()
+        self.LC.deformTerrain(world_pose, contact_forces)
     
     def applyTerramechanics(self)->None:
         """
         Applies the terramechanics force and torque."""
-        force, torque = self.TS.compute_force_and_torque()
+        velocities, omega = self.robot_prim.get_velocities()
+        sinkages = self.robot_prim.get_sinkages()
+        force, torque = self.TS.compute_force_and_torque(velocities, omega, sinkages)
         self.robot_prim_view.apply_force_torque(force, torque)

@@ -203,19 +203,34 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
                 "/Lunalab/Robots/ResetAll", Empty, self.resetRobots, queue_size=1
             )
         )
+        self.robot_subs.append(
+            rospy.Subscriber(
+                "/Lunalab/Robots/RecordPose", Bool, self.recordPose, queue_size=1
+            )
+        )
+        self.robot_subs.append(
+            rospy.Subscriber(
+                "/Lunalab/Robots/DumpPose", Bool, self.dumpPose, queue_size=1
+            )
+        )
 
         self.modifications = []
+        self.world_poses = []
+    
+    def recordPose(self, data:Bool)->None:
+        world_pose = self.robot_prim.get_world_poses()
+        self.world_poses.append(world_pose)
+    
+    def dumpPose(self, data:Bool)->None:
+        np.save("./pose_lunaryard.npy", np.array(self.world_poses))
         self.world_poses = []
     
     def set_scene_asset(self):
         """
         Sets the scene asset."""
-        #TODO: parse from hydra config.
-        # usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_ROS1.usd")
-        # usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/EX1_steer_D435i_ROS1.usd")
         usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/ex1_camera.usd")
         robot_name = "ex1"
-        p = [17.0, 5.0, 2.0]
+        p = [15.0, 5.0, 2.0]
         q = [0, 0, 0, 1]
         domain_id = "0"
         self.RM.addRobot(usd_path, robot_name, p, q, domain_id)
@@ -239,8 +254,6 @@ class ROS_LunaryardDeformableManager(ROS_LunaryardManager):
         world_pose = self.robot_prim.get_world_poses()
         contact_forces = self.robot_prim_view.get_net_contact_forces()
         self.LC.deformTerrain(world_pose, contact_forces)
-        # self.world_poses.append(world_pose)
-        # np.save("wheel_trajectory_lunaryard.npy", np.array(self.world_poses))
 
     
     def applyTerramechanics(self)->None:
