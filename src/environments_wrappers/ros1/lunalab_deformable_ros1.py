@@ -245,18 +245,17 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
         self.modifications = []
         self.world_poses = []
     
-    def recordPose(self):
+    def recordPose(self, data:Bool)->None:
         world_pose = self.robot_prim.get_world_poses()
         self.world_poses.append(world_pose)
     
-    def dumpPose(self):
-        np.save("pose_lunalab.npy", np.array(self.world_poses))
+    def dumpPose(self, data:Bool)->None:
+        np.save("./pose_lunalab.npy", np.array(self.world_poses))
         self.world_poses = []
 
     def set_scene_asset(self):
         """
         Sets the scene asset."""
-        #TODO: parse from hydra config.
         usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/ex1_camera.usd")
         robot_name = "ex1"
         p = [1.0, 1.0, 0.5]
