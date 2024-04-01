@@ -35,14 +35,53 @@ def _linear_interpolation(
     ) * y[tid]
 
 
+@wp.func
+def _cubic_interpolation(
+    x: float,
+    coeffs: wp.vec4f,
+):
+    a = -0.75
+    coeffs[0] = ((a * (x + 1.0) - 5.0 * a) * (x + 1.0) + 8.0) * a * (x + 1.0) - 4.0 * a
+    coeffs[1] = ((a + 2.0) * x - (a + 3.0)) * x * x + 1.0
+    coeffs[2] = ((a + 2.0) * (1.0 - x) - (a + 3.0)) * (1.0 - x) * (1.0 - x) + 1.0
+    coeffs[3] = 1.0 - coeffs[0] - coeffs[1] - coeffs[2]
+    return coeffs
+
+
+@wp.kernel
+def _bicubic_interpolation(
+    dx: wp.array(dtype=float),
+    dy: wp.array(dtype=float),
+    q1: wp.array(dtype=wp.vec4f),
+    q2: wp.array(dtype=wp.vec4f),
+    q3: wp.array(dtype=wp.vec4f),
+    q4: wp.array(dtype=wp.vec4f),
+    coeffs: wp.array(dtype=wp.vec4f),
+    out: wp.array(dtype=float),
+):
+    tid = wp.tid()
+    coeffs[tid] = _cubic_interpolation(dx[tid], coeffs[tid])
+    a0 = wp.dot(q1[tid], coeffs[tid])
+    a1 = wp.dot(q2[tid], coeffs[tid])
+    a2 = wp.dot(q3[tid], coeffs[tid])
+    a3 = wp.dot(q4[tid], coeffs[tid])
+    coeffs[tid] = _cubic_interpolation(dy[tid], coeffs[tid])
+    out[tid] = (
+        a0 * coeffs[tid][0]
+        + a1 * coeffs[tid][1]
+        + a2 * coeffs[tid][2]
+        + a3 * coeffs[tid][3]
+    )
+
+
 @dataclasses.dataclass
 class GeoClipmapSpecs:
-    numMeshLODLevels: int = 7
+    numMeshLODLevels: int = 12
     meshBaseLODExtentHeightfieldTexels: int = 256
     meshBackBonePath: str = "terrain_mesh_backbone.npz"
     demPath: str = "40k_dem.npy"
     meters_per_pixel: float = 5.0
-    meters_per_texel: float = 5.0
+    meters_per_texel: float = 0.1
     z_scale: float = 1.0
 
 
@@ -217,21 +256,20 @@ class GeoClipmap:
 
     def getElevation(self, position):
         position_in_pixel = position * (1.0 / self.specs.meters_per_pixel)
-        self.wp_texel_per_pixel = (
-            self.specs.meters_per_pixel / self.specs.meters_per_texel
-        )
-        x = (
-            self.points[:, 0] / (self.specs.meters_per_texel / self.wp_texel_per_pixel)
-        ) + position_in_pixel[0]
-        y = (
-            self.points[:, 2] / (self.specs.meters_per_texel / self.wp_texel_per_pixel)
-        ) + position_in_pixel[2]
-
+        x = (self.points[:, 0] / self.specs.meters_per_pixel) + position_in_pixel[0]
+        y = (self.points[:, 2] / self.specs.meters_per_pixel) + position_in_pixel[2]
         x = np.minimum(x, self.dem.shape[0] - 1)
         y = np.minimum(y, self.dem.shape[1] - 1)
         x = np.maximum(x, 0)
         y = np.maximum(y, 0)
 
+        z = self.linear_interpolation(x, y)
+        # bicubic interpolation is broken
+
+        self.points[:, 1] = self.points[:, -1]
+        self.points[:, -1] = z.numpy()
+
+    def linear_interpolation(self, x, y):
         x1 = np.trunc(x).astype(int)
         y1 = np.trunc(y).astype(int)
 
@@ -260,8 +298,58 @@ class GeoClipmap:
                     z,
                 ],
             )
-        self.points[:, 1] = self.points[:, -1]
-        self.points[:, -1] = z.numpy()
+        return z
+
+    def bicubic_interpolation(self, x, y):
+        x1 = np.maximum(np.trunc(x).astype(int) - 1, 0)
+        y1 = np.maximum(np.trunc(y).astype(int) - 1, 0)
+        x2 = np.minimum(x1 + 1, self.dem_size[0] - 1)
+        y2 = np.minimum(y1 + 1, self.dem_size[1] - 1)
+        x3 = np.minimum(x1 + 2, self.dem_size[0] - 2)
+        y3 = np.minimum(y1 + 2, self.dem_size[1] - 2)
+        x4 = np.minimum(x1 + 3, self.dem_size[0] - 3)
+        y4 = np.minimum(y1 + 3, self.dem_size[1] - 3)
+        dx = wp.from_numpy(x - x2, dtype=float, device="cuda")
+        dy = wp.from_numpy(y - y2, dtype=float, device="cuda")
+
+        q11 = self.dem[x1, y1]
+        q12 = self.dem[x1, y2]
+        q13 = self.dem[x1, y3]
+        q14 = self.dem[x1, y4]
+        q1 = wp.from_numpy(
+            np.array([q11, q12, q13, q14]).T, dtype=wp.vec4f, device="cuda"
+        )
+        q21 = self.dem[x2, y1]
+        q22 = self.dem[x2, y2]
+        q23 = self.dem[x2, y3]
+        q24 = self.dem[x2, y4]
+        q2 = wp.from_numpy(
+            np.array([q21, q22, q23, q24]).T, dtype=wp.vec4f, device="cuda"
+        )
+        q31 = self.dem[x2, y1]
+        q32 = self.dem[x2, y2]
+        q33 = self.dem[x3, y3]
+        q34 = self.dem[x3, y4]
+        q3 = wp.from_numpy(
+            np.array([q31, q32, q33, q34]).T, dtype=wp.vec4f, device="cuda"
+        )
+        q41 = self.dem[x4, y1]
+        q42 = self.dem[x4, y2]
+        q43 = self.dem[x4, y3]
+        q44 = self.dem[x4, y4]
+        q4 = wp.from_numpy(
+            np.array([q41, q42, q43, q44]).T, dtype=wp.vec4f, device="cuda"
+        )
+        coeffs = wp.zeros(x.shape[0], dtype=wp.vec4f, device="cuda")
+
+        z = wp.zeros(x.shape[0], dtype=float, device="cuda")
+        with wp.ScopedTimer("linear_interpolation", active=True):
+            wp.launch(
+                kernel=_bicubic_interpolation,
+                dim=x.shape[0],
+                inputs=[dx, dy, q1, q2, q3, q4, coeffs, z],
+            )
+        return z
 
 
 if __name__ == "__main__":

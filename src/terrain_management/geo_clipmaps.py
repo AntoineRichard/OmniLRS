@@ -78,6 +78,7 @@ def fetch_from_dem(
     x_tmp[tid] = x_tmp[tid] - wp.trunc(x_tmp[tid])
     y_tmp[tid] = y_tmp[tid] - wp.trunc(y_tmp[tid])
 
+    # Linear interpolation
     q11[tid] = _sample(dem_data, x_out[tid], y_out[tid], dem_size)
     q12[tid] = _sample(dem_data, x_out[tid], y_out[tid] + 1, dem_size)
     q21[tid] = _sample(dem_data, x_out[tid] + 1, y_out[tid], dem_size)
@@ -150,7 +151,15 @@ class GeoClipmap:
         self.uvs.append(C[::2])
 
     def buildMesh(self):
+        print("Building the mesh backbone, this may take time...")
         for level in range(0, self.specs.numMeshLODLevels):
+            print(
+                "Generating level "
+                + str(level)
+                + " out of "
+                + str(self.specs.numMeshLODLevels)
+                + "..."
+            )
             step = 1 << level
             if level == 0:
                 prevStep = 0
