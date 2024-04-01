@@ -65,7 +65,16 @@ Assets:
 </details>
 
 <details><summary><b>Running the sim</b></summary>
- 
+
+Note that the command provided below are meant to be used with the native installation.
+If you are using docker, run the docker using:
+```bash
+./docker/run_docker.sh
+```
+You can then run the same commands inside the docker but prefix them with `/isaac-sim/python.sh` instead of `~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh`.
+
+Note that downloading the assets is needed to run any of the commands below.
+
 To run the simulation we use a configuration manager called Hydra.
 Inside the `cfg` folder, you will find three folders:
  - `mode`
