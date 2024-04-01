@@ -28,7 +28,7 @@ Finally, we provide simple configurations for different renderers:
 
 ## Getting started:
 
-<details><summary><b>Requirements</b></summary>
+<details><summary><b>Installation & Requirements</b></summary>
 
 Software:
  - Ubuntu 20.04 or 22.04
