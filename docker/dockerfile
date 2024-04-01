@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -q -y \
     dirmngr \
     gnupg2 \
     curl \
-    install libglib2.0-0 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 
