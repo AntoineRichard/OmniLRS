@@ -13,5 +13,3 @@ docker run --name isaac-sim-omnilrs-container -it --gpus all -e "ACCEPT_EULA=Y" 
 -v ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw \
 -v ~/docker/isaac-sim/documents:/root/Documents:rw \
 isaac-sim-omnilrs:latest
-
-docker exec -it -w /workspace/omnilrs isaac-sim-omnilrs bash

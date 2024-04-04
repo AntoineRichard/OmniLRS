@@ -8,7 +8,7 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
-from geo_clipmaps import GeoClipmapSpecs, GeoClipmap
+from src.terrain_management.geo_clipmaps import GeoClipmapSpecs, GeoClipmap
 from WorldBuilders import pxr_utils
 from pxr import UsdGeom, Sdf
 import numpy as np

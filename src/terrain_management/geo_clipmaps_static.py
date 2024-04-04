@@ -76,12 +76,12 @@ def _bicubic_interpolation(
 
 @dataclasses.dataclass
 class GeoClipmapSpecs:
-    numMeshLODLevels: int = 12
-    meshBaseLODExtentHeightfieldTexels: int = 256
+    numMeshLODLevels: int = 7
+    meshBaseLODExtentHeightfieldTexels: int = 512
     meshBackBonePath: str = "terrain_mesh_backbone.npz"
     demPath: str = "40k_dem.npy"
     meters_per_pixel: float = 5.0
-    meters_per_texel: float = 0.1
+    meters_per_texel: float = 5.0
     z_scale: float = 1.0
 
 

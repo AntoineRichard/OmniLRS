@@ -8,7 +8,10 @@ simulation_app = SimulationApp({"headless": False})
 if __name__ == "__main__":
     from omni.isaac.core import World
     import numpy as np
-    from geo_clipmaps_manager import GeoClipmapManager, GeoClipmapManagerConf
+    from src.terrain_management.geo_clipmaps_manager import (
+        GeoClipmapManager,
+        GeoClipmapManagerConf,
+    )
 
     cfg = GeoClipmapManagerConf()
 
