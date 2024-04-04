@@ -67,7 +67,7 @@ Assets:
 <details><summary><b>Running the sim</b></summary>
 
 Note that the command provided below are meant to be used with the native installation.
-If you are using docker, run the docker using:
+If you are using docker, run the container using:
 ```bash
 ./docker/run_docker.sh
 ```
