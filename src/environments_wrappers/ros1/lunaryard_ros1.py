@@ -187,7 +187,7 @@ class ROS_LunaryardManager:
                 "/Lunalab/Robots/ResetAll", Empty, self.resetRobots, queue_size=1
             )
         )
-
+        self.domain_id = 0
         self.modifications = []
 
     def clearModifications(self):
@@ -390,9 +390,9 @@ class ROS_LunaryardManager:
                            Must be in the format: robot_name:usd_path"""
 
         assert (
-            len(data.header.frame_id.split(":")) == 3
-        ), "The data should be in the format: robot_name:usd_path:domain_id"
-        robot_name, usd_path, domain_id = data.header.frame_id.split(":")
+            len(data.header.frame_id.split(":")) == 2
+        ), "The data should be in the format: robot_name:usd_path"
+        robot_name, usd_path = data.header.frame_id.split(":")
         p = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
         q = [
             data.pose.orientation.w,
@@ -400,7 +400,7 @@ class ROS_LunaryardManager:
             data.pose.orientation.z,
             data.pose.orientation.x,
         ]
-        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q, domain_id]])
+        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q, self.domain_id]])
 
     def teleportRobot(self, data: PoseStamped) -> None:
         """

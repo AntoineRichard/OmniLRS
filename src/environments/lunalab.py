@@ -11,11 +11,8 @@ __status__ = "development"
 from typing import List, Tuple, Union, Dict
 import omni.kit.actions.core
 import numpy as np
-import dataclasses
 import omni
 import carb
-import cv2
-import os
 
 from omni.isaac.core.utils.stage import open_stage, add_reference_to_stage
 from pxr import UsdGeom, Sdf, UsdLux, Gf, UsdShade, Usd

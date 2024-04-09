@@ -469,11 +469,13 @@ class BaseTerrainGenerator:
 
 class DeformationEngine:
     """
-    Manipulate given DEM array with terramechanics laws.
+    Terrain deformation class. 
+    Idea is to deform the part of terrain where wheel contacted. 
     """
     def __init__(self, deformation_engine:DeformationEngineConf)-> None:
         """
-        deform_point_delta: (List[float]) offset between contact point and deformation point. (default:0)
+        Args:
+            deformation_engine (DeformationEngineConf): deformation engine configuration.
         """
         self.terrain_resolution = deformation_engine.terrain_resolution
         self.terrain_width = deformation_engine.terrain_width

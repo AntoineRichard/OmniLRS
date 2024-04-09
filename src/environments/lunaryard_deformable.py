@@ -1,4 +1,4 @@
-__author__ = "Antoine Richard"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
 __copyright__ = (
     "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
@@ -13,21 +13,11 @@ import omni.kit.actions.core
 import numpy as np
 import omni
 import carb
-import cv2
-import os
-
-from omni.isaac.core.utils.stage import add_reference_to_stage
-
-from pxr import UsdGeom, UsdLux, Gf, Usd
 
 from src.environments.lunaryard import LunaryardController
 from src.configurations.procedural_terrain_confs import TerrainManagerConf
-from src.terrain_management.terrain_manager import TerrainManager
 from src.configurations.environments import LunaryardConf
 from src.configurations.rendering_confs import FlaresConf
-from src.environments.rock_manager import RockManager
-from WorldBuilders.pxr_utils import setDefaultOps
-from assets import get_assets_path
 
 class LunaryardDeformableController(LunaryardController):
     def __init__(

@@ -1,4 +1,4 @@
-__author__ = "Antoine Richard"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
 __copyright__ = (
     "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
@@ -241,7 +241,7 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
                 "/Lunalab/Robots/DumpPose", Bool, self.dumpPose, queue_size=1
             )
         )
-
+        self.domain_id = 0
         self.modifications = []
         self.world_poses = []
     
@@ -253,15 +253,15 @@ class ROS_LunalabDeformableManager(ROS_LunalabManager):
         np.save("./pose_lunalab.npy", np.array(self.world_poses))
         self.world_poses = []
 
-    def set_scene_asset(self):
+    def spawnRobot(self):
         """
-        Sets the scene asset."""
+        Spawn robot in the given pose.
+        """
         usd_path = os.path.join(os.getcwd(), "assets/USD_Assets/robots/ex1_camera.usd")
         robot_name = "ex1"
         p = [1.0, 1.0, 0.5]
         q = [1, 0, 0, 0]
-        domain_id = "0"
-        self.RM.addRobot(usd_path, robot_name, p, q, domain_id)
+        self.RM.addRobot(usd_path, robot_name, p, q, self.domain_id)
     
     def set_scene_view(self):
         """
