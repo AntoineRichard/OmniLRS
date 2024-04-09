@@ -13,8 +13,6 @@ import omni.kit.actions.core
 import numpy as np
 import omni
 import carb
-import cv2
-import os
 
 from omni.isaac.core.utils.stage import add_reference_to_stage
 

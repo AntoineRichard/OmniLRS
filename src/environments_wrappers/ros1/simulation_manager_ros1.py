@@ -1,4 +1,4 @@
-__author__ = "Antoine Richard"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
 __copyright__ = (
     "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
@@ -102,8 +102,8 @@ class ROS1_SimulationManager:
     def run_simulation(self) -> None:
         """
         Runs the simulation."""
-        if self.cfg["environment"]["init_with_robot"]:
-            self.ROSLabManager.set_scene_asset()
+        if self.cfg["environment"].get("init_with_robot", False):
+            self.ROSLabManager.spawnRobot()
             self.world.reset()
             self.ROSLabManager.set_world_scene(self.world.scene)
             self.ROSLabManager.set_scene_view()
