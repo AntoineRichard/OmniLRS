@@ -1,4 +1,4 @@
-__author__ = "Antoine Richard"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
 __copyright__ = (
     "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
@@ -177,12 +177,12 @@ class SDG_LunalabDeformable(LunalabDeformableController):
 
     def switchTerrain(self, flag: int) -> None:
         super().switchTerrain(flag)
-        self.generateTrack()
+        self.generateWheelTrace()
         self.createCameraSampler()
         self.randomizeCamera()
     
-    def generateTrack(self):
-        world_transforms = np.load("wheel_trajectory_lunalab.npy")
+    def generateWheelTrace(self):
+        world_transforms = np.load("pose_lunalab.npy")
         for T in world_transforms:
             super().deformTerrain(T)
 
