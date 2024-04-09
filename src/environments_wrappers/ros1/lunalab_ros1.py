@@ -194,7 +194,7 @@ class ROS_LunalabManager:
         self.robot_subs = []
         self.robot_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Robots/Spawn", String, self.spawnRobot, queue_size=1
+                "/Lunalab/Robots/Spawn", PoseStamped, self.spawnRobot, queue_size=1
             )
         )
         self.robot_subs.append(
@@ -215,7 +215,7 @@ class ROS_LunalabManager:
                 "/Lunalab/Robots/ResetAll", String, self.resetRobots, queue_size=1
             )
         )
-
+        self.domain_id = 0
         self.modifications = []
 
     def clearModifications(self):
@@ -501,7 +501,7 @@ class ROS_LunalabManager:
             data.pose.orientation.z,
             data.pose.orientation.x,
         ]
-        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q]])
+        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q, self.domain_id]])
 
     def teleportRobot(self, data: PoseStamped) -> None:
         """

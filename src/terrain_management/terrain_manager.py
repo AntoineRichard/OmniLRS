@@ -1,4 +1,4 @@
-__author__ = "Antoine Richard"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
 __copyright__ = (
     "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
@@ -16,8 +16,9 @@ import os
 from semantics.schema.editor import PrimSemanticData
 from pxr import UsdGeom, Sdf
 import omni
+import warp as wp
 
-from src.terrain_management.terrain_generation import GenerateProceduralMoonYard
+from src.terrain_management.terrain_generation import GenerateProceduralMoonYard, GenerateProceduralMoonYardwithDeformation
 from src.configurations.procedural_terrain_confs import TerrainManagerConf
 from WorldBuilders import pxr_utils
 from assets import get_assets_path
@@ -36,7 +37,12 @@ class TerrainManager:
             **kwargs: additional arguments."""
 
         self._dems_path = os.path.join(get_assets_path(), cfg.dems_path)
-        self._G = GenerateProceduralMoonYard(cfg.moon_yard)
+        if cfg.moon_yard.__class__.__name__ == "MoonYardConf":
+            self._G = GenerateProceduralMoonYard(cfg.moon_yard)
+        elif cfg.moon_yard.__class__.__name__ == "MoonYardWithDeformationConf":
+            self._G = GenerateProceduralMoonYardwithDeformation(cfg.moon_yard)
+        else:
+            raise ValueError("Invalid moon yard configuration")
 
         self._stage = omni.usd.get_context().get_stage()
         self._texture_path = cfg.texture_path
@@ -242,6 +248,41 @@ class TerrainManager:
 
         self._id += 1
         pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
+    
+    def updateVert(
+        self,
+        points: np.ndarray,
+        indices: np.ndarray,
+        uvs: np.ndarray,
+        colors=None,
+        update_topology: bool = False,
+    ) -> None:
+        """
+        updates a mesh prim with the given points and indices.
+
+        Args:
+            points (np.ndarray): array of points to set as the mesh vertices.
+            indices (np.ndarray): array of indices to set as the mesh indices.
+            uvs (np.ndarray): array of uvs to set as the mesh uvs.
+            colors (np.ndarray): array of colors to set as the mesh colors.
+            update_topology (bool): whether to update the mesh topology."""
+
+        mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
+        mesh.GetPointsAttr().Set(points)
+
+        if update_topology:
+            idxs = np.array(indices).reshape(-1, 3)
+            mesh.GetFaceVertexIndicesAttr().Set(idxs)
+            mesh.GetFaceVertexCountsAttr().Set([3] * len(idxs))
+            UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
+            pv = UsdGeom.PrimvarsAPI(mesh.GetPrim()).CreatePrimvar(
+                "st", Sdf.ValueTypeNames.Float2Array
+            )
+            pv.Set(uvs)
+            pv.SetInterpolation("faceVarying")
+
+        if colors:
+            mesh.GetDisplayColorAttr().Set(colors)
 
     def updateTerrainCollider(self):
         """
@@ -258,19 +299,38 @@ class TerrainManager:
 
         pxr_utils.deletePrim(self._stage, self._mesh_path)
         self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
-        self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
+        with wp.ScopedTimer("mesh update"):
+            self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
         self.updateTerrainCollider()
         self.autoLabel()
         pxr_utils.applyMaterialFromPath(
             self._stage, self._mesh_path, self._texture_path
         )
+    
+    def updateMesh(self)-> None:
+        """Updates the terrain mesh. Do not update collider and material.
+        """
+        self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
+        with wp.ScopedTimer("mesh update"):
+            self.updateVert(self._sim_verts, self._indices, self._sim_uvs)
 
     def randomizeTerrain(self) -> None:
         """
-        Randomizes the terrain."""
+        Randomizes the terrain (update mesh, collider, semantic).
+        """
 
         self._DEM, self._mask = self._G.randomize()
         self.update()
+    
+    def deformTerrain(self, body_transforms:np.ndarray, contact_forces:np.ndarray) -> None:
+        """
+        Deforms the terrain based on the given body transforms.
+
+        Args:
+            body_transforms (np.ndarray): the body transforms."""
+
+        self._DEM, self._mask = self._G.deform(body_transforms, contact_forces)
+        self.updateMesh()
 
     def loadTerrainByName(self, name: str) -> None:
         """
@@ -280,6 +340,7 @@ class TerrainManager:
             name (str): the name matching the dictionaty entry."""
 
         self.loadDEMAndMask(name)
+        self._G.register_terrain(self._DEM, self._mask)
         self.update()
 
     def loadTerrainId(self, idx: int) -> None:

@@ -187,7 +187,7 @@ class ROS_LunaryardManager:
                 "/Lunalab/Robots/ResetAll", Empty, self.resetRobots, queue_size=1
             )
         )
-
+        self.domain_id = 0
         self.modifications = []
 
     def clearModifications(self):
@@ -400,7 +400,7 @@ class ROS_LunaryardManager:
             data.pose.orientation.z,
             data.pose.orientation.x,
         ]
-        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q]])
+        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q, self.domain_id]])
 
     def teleportRobot(self, data: PoseStamped) -> None:
         """

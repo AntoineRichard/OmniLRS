@@ -1,4 +1,4 @@
-name: Lunaryard
+name: LunaryardDeformable
 seed: 42
 init_with_robot: False
 # Stage settings, only edit if you know what you are doing.
@@ -235,9 +235,30 @@ terrain_manager:
       min_elevation: -0.5
       z_scale: 1.0
       seed: ${....seed}
+    
+    deformation_engine:
+      terrain_width: ${....lunaryard_settings.lab_width}
+      terrain_height: ${....lunaryard_settings.lab_length}
+      terrain_resolution: ${....lunaryard_settings.resolution}
+      wheel_params:
+        wheel_width: 0.09
+        wheel_radius: 0.1
+      deform_constraint:
+        deform_offset: 0.0
+        deform_decay_ratio: 0.01
+      force_distribution: 
+        distribution: sinusoidal
+        wave_frequency: 2.0
+      boundary_distribution: 
+        distribution: trapezoidal
+        angle_of_repose: 1.047
+      gravity_force: -50.49
+      force_depth_slope: 0.00014
+      force_depth_intercept: 0.008
 
-    is_yard: False
-    is_lab: True
+    is_yard: True
+    is_lab: False
+    deformable: True
 
   root_path: /Lunaryard
   texture_path: /Lunaryard/Looks/Basalt
