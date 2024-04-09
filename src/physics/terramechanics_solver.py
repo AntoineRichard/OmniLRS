@@ -6,6 +6,7 @@ from src.physics.terra_param import RobotParameter, TerrainMechanicalParameter
 
 class TerramechanicsSolver:
     """
+    WIP.
     Terramechanics solver class. This class computes the force and torque acting on the robot as a disturbance.
     Fx: Draw bar pull
     Fy: Side slip force
