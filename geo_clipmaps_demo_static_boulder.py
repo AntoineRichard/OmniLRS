@@ -7,8 +7,7 @@ from omni.isaac.kit import SimulationApp
 
 simulation_app = SimulationApp({"headless": False})
 
-from run import resolve_tuple, omegaconfToDict, instantiateConfigs
-OmegaConf.register_new_resolver("as_tuple", resolve_tuple)
+from run import omegaconfToDict, instantiateConfigs
 
 @hydra.main(config_name="config", config_path="cfg")
 def run(cfg:DictConfig):
