@@ -120,7 +120,7 @@ def addImageData(requests: dict, image: np.ndarray, mask: np.ndarray = None):
     for name in requests.keys():
         if requests[name]["layer"]["name"] == "Image":
             requests[name]["layer"]["data"] = mask
-        if requests[name]["sampler"]["name"] in ["Image", "ClipMap"]:
+        if requests[name]["sampler"]["name"] in ["Image", "ClipMap", "Geoclipmap"]:
             requests[name]["sampler"]["data"] = image
             requests[name]["sampler"]["resolution"] = image.shape[:2]
     return requests
