@@ -29,7 +29,7 @@ rocks_settings:
             name: DeterministicSampler
             randomization_space: 2
             seed: ${.......seed}
-            data_path: "assets/Terrains/SouthPole/Site_All/lunar_boulder_position.npy"
+            data_path: "lunar_boulder_position.npy"
 
         req_pos_z:
           attribute: Position
@@ -38,11 +38,12 @@ rocks_settings:
             name: Image
             output_space: 1
           sampler:
-            name: ClipMap
+            name: Image
             randomization_space: 1
             # resolution: Resolution is infered automatically from the loaded DEM.
             # data: Is loaded automatically from the DEM.
             mpp_resolution: ${.......lsp_settings.resolution}
+            loc_origin: center
 
         req_random_z_rot:
           attribute: Orientation
