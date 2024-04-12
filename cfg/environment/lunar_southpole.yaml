@@ -3,8 +3,7 @@ seed: 77
 # Stage settings, only edit if you know what you are doing.
 lsp_settings:
   resolution: 5.00
-  projector_path: /World/Sun
-  earth_path: /World/Earth
+  sun_path: /World/Sun
 
 # Rocks sampling parameters.
 rocks_settings:
@@ -26,12 +25,6 @@ rocks_settings:
             ymin: 0
             ymax: 20000
             output_space: 2
-          # sampler:
-          #   name: ClipMapUniform
-          #   randomization_space: 2
-          #   seed: ${.......seed}
-          #   min: ${as_tuple:0.0,0.0}
-          #   max: ${as_tuple:20000,20000}
           sampler:
             name: DeterministicSampler
             randomization_space: 2

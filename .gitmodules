@@ -1,4 +1,4 @@
 [submodule "WorldBuilders"]
 	path = WorldBuilders
 	url = git@github.com:AntoineRichard/WorldBuilders.git
-	branch = feature/clipmap_clipper
+	branch = lsp_boulder
