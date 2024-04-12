@@ -38,11 +38,12 @@ rocks_settings:
             name: Image
             output_space: 1
           sampler:
-            name: Geoclipmap
+            name: Image
             randomization_space: 1
             # resolution: Resolution is infered automatically from the loaded DEM.
             # data: Is loaded automatically from the DEM.
             mpp_resolution: ${.......lsp_settings.resolution}
+            loc_origin: center
 
         req_random_z_rot:
           attribute: Orientation
