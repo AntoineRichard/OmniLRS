@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import scipy.integrate as integ
 
-from src.physics.terra_param import RobotParameter, TerrainMechanicalParameter
+from src.physics.terramechanics_parameters import RobotParameter, TerrainMechanicalParameter
 
 class TerramechanicsSolver:
     """

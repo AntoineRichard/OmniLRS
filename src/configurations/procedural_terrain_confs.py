@@ -9,7 +9,7 @@ __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
 import dataclasses
-from typing import Any, Union
+from typing import Any, Union, List
 
 
 @dataclasses.dataclass
@@ -151,24 +151,28 @@ class ForceDistributionParam:
 
 @dataclasses.dataclass
 class DeformationEngineConf:
+    enable: bool = False
+    deformFrequencyInv: int = 10
     terrain_resolution: float = dataclasses.field(default_factory=float)
     terrain_width: float = dataclasses.field(default_factory=float)
     terrain_height: float = dataclasses.field(default_factory=float)
-    wheel_params: dict = dataclasses.field(default_factory=dict)
-    deform_constraint: dict = dataclasses.field(default_factory=dict)
-    force_distribution: dict = dataclasses.field(default_factory=dict)
-    boundary_distribution: dict = dataclasses.field(default_factory=dict)
     force_depth_slope: float = dataclasses.field(default_factory=float)
     force_depth_intercept: float = dataclasses.field(default_factory=float)
-    gravity_force: float = dataclasses.field(default_factory=float)
+    gravity: List[float] = dataclasses.field(default_factory=list)
+    wheel_params: WheelParams = dataclasses.field(default_factory=dict)
+    deform_constraint: DeformConstraintParam = dataclasses.field(default_factory=dict)
+    force_distribution: ForceDistributionParam = dataclasses.field(default_factory=dict)
+    boundary_distribution: BoundaryDistributionParam = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
+        assert type(self.deformFrequencyInv) is int, "deformFrequenyInv must be an int"
         assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
         assert type(self.terrain_width) is float, "terrain_width must be a float"
         assert type(self.terrain_height) is float, "terrain_height must be a float"
         assert type(self.force_depth_slope) is float, "force_depth_ratio must be a float"
         assert type(self.force_depth_intercept) is float, "force_depth_intercept must be a float"
-
+        
+        assert self.deformFrequencyInv > 1, "deformFrequencyInv must be greater than 1"
         assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"
         assert self.terrain_width > 0, "terrain_width must be greater than 0"
         assert self.terrain_height > 0, "terrain_height must be greater than 0"
@@ -183,29 +187,9 @@ class MoonYardConf:
     crater_generator: CraterGeneratorConf = None
     crater_distribution: CraterDistributionConf = None
     base_terrain_generator: BaseTerrainGeneratorConf = None
-    is_yard: bool = dataclasses.field(default_factory=bool)
-    is_lab: bool = dataclasses.field(default_factory=bool)
-    deformable: bool = False
-
-    def __post_init__(self):
-        self.crater_generator = CraterGeneratorConf(**self.crater_generator)
-        self.crater_distribution = CraterDistributionConf(**self.crater_distribution)
-        self.base_terrain_generator = BaseTerrainGeneratorConf(
-            **self.base_terrain_generator
-        )
-
-        assert type(self.is_yard) is bool, "is_yard must be a boolean"
-        assert type(self.is_lab) is bool, "is_lab must be a boolean"
-
-@dataclasses.dataclass
-class MoonYardWithDeformationConf:
-    crater_generator: CraterGeneratorConf = None
-    crater_distribution: CraterDistributionConf = None
-    base_terrain_generator: BaseTerrainGeneratorConf = None
     deformation_engine: DeformationEngineConf = None
     is_yard: bool = dataclasses.field(default_factory=bool)
     is_lab: bool = dataclasses.field(default_factory=bool)
-    deformable: bool = True
 
     def __post_init__(self):
         self.crater_generator = CraterGeneratorConf(**self.crater_generator)
@@ -221,7 +205,7 @@ class MoonYardWithDeformationConf:
 
 @dataclasses.dataclass
 class TerrainManagerConf:
-    moon_yard: Union[MoonYardConf, MoonYardWithDeformationConf] = None
+    moon_yard: MoonYardConf = None
     root_path: str = dataclasses.field(default_factory=str)
     texture_path: str = dataclasses.field(default_factory=str)
     dems_path: str = dataclasses.field(default_factory=str)
@@ -233,10 +217,7 @@ class TerrainManagerConf:
     resolution: float = dataclasses.field(default_factory=float)
 
     def __post_init__(self):
-        if "deformable" in self.moon_yard:
-            self.moon_yard = MoonYardWithDeformationConf(**self.moon_yard)
-        else:
-            self.moon_yard = MoonYardConf(**self.moon_yard)
+        self.moon_yard = MoonYardConf(**self.moon_yard)
 
         assert type(self.root_path) is str, "root_path must be a string"
         assert type(self.texture_path) is str, "texture_path must be a string"

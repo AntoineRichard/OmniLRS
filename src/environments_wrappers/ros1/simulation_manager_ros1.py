@@ -14,9 +14,7 @@ from omni.isaac.core import World
 import omni
 
 from src.environments_wrappers.ros1.lunalab_ros1 import ROS_LunalabManager
-from src.environments_wrappers.ros1.lunalab_deformable_ros1 import ROS_LunalabDeformableManager
 from src.environments_wrappers.ros1.lunaryard_ros1 import ROS_LunaryardManager
-from src.environments_wrappers.ros1.lunaryard_deformable_ros1 import ROS_LunaryardDeformableManager
 
 
 class ROS1_LabManagerFactory:
@@ -26,7 +24,7 @@ class ROS1_LabManagerFactory:
     def register(
         self,
         name: str,
-        lab_manager: Union[ROS_LunalabManager, ROS_LunalabDeformableManager, ROS_LunaryardManager, ROS_LunaryardDeformableManager],
+        lab_manager: Union[ROS_LunalabManager, ROS_LunaryardManager],
     ) -> None:
         """
         Registers a lab manager.
@@ -41,7 +39,7 @@ class ROS1_LabManagerFactory:
     def __call__(
         self,
         cfg: dict,
-    ) -> Union[ROS_LunalabManager, ROS_LunalabDeformableManager, ROS_LunaryardManager, ROS_LunaryardDeformableManager]:
+    ) -> Union[ROS_LunalabManager, ROS_LunaryardManager]:
         """
         Returns an instance of the lab manager corresponding to the environment name.
 
@@ -60,9 +58,7 @@ class ROS1_LabManagerFactory:
 
 ROS1_LMF = ROS1_LabManagerFactory()
 ROS1_LMF.register("Lunalab", ROS_LunalabManager)
-ROS1_LMF.register("LunalabDeformable", ROS_LunalabDeformableManager)
 ROS1_LMF.register("Lunaryard", ROS_LunaryardManager)
-ROS1_LMF.register("LunaryardDeformable", ROS_LunaryardDeformableManager)
 
 
 class ROS1_SimulationManager:
@@ -97,17 +93,13 @@ class ROS1_SimulationManager:
         # However, unlike ROS2, I have yet to find the limit of topics you can subscribe to.
         # Penny for your thoughts "Josh".
         self.ROSLabManager = ROS1_LMF(cfg)
-        self.deform_render_inv = 10 #get from cfg
+        self.deform_render_inv = self.cfg["environment"]["terrain_manager"]["deformation_engine"]["deformFrequencyInv"]
+        self.ROSLabManager.preloadAssets(self.world.scene)
+        self.world.reset()
 
     def run_simulation(self) -> None:
         """
         Runs the simulation."""
-        if self.cfg["environment"].get("init_with_robot", False):
-            self.ROSLabManager.spawnRobot()
-            self.world.reset()
-            self.ROSLabManager.set_world_scene(self.world.scene)
-            self.ROSLabManager.set_scene_view()
-            self.world.reset()
         self.timeline.play()
         while self.simulation_app.is_running():
             self.world.step(render=True)
@@ -119,9 +111,9 @@ class ROS1_SimulationManager:
                     self.world.reset()
                     self.ROSLabManager.reset()
                 self.ROSLabManager.applyModifications()
-                if self.cfg["environment"]["name"] == "LunalabDeformable" or self.cfg["environment"]["name"] == "LunaryardDeformable":
+                if self.cfg["environment"]["terrain_manager"]["deformation_engine"]["enable"]:
                     if self.world.current_time_step_index % self.deform_render_inv == 0:
-                        self.ROSLabManager.deformTerrain()
-                    # self.ROSLabManager.applyTerramechanics()
+                        self.ROSLabManager.LC.deformTerrain()
+                    # self.ROSLabManager.LC.applyTerramechanics()
 
         self.timeline.stop()

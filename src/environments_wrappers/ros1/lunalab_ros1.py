@@ -39,7 +39,7 @@ class ROS_LunalabManager:
 
         self.LC = LunalabController(**environment_cfg, flares_settings=flares_cfg)
         self.RM = RobotManager(
-            uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots"
+            environment_cfg["robots_settings"]
         )
         self.LC.load()
 
@@ -556,3 +556,14 @@ class ROS_LunalabManager:
         for sub in self.robot_subs:
             sub.unregister()
         rospy.signal_shutdown("Shutting down")
+    
+    ### Non ROS function ####
+    def preloadAssets(self, scene):
+        """
+        Preload stage assets.
+        Args:
+            scene (Usd.stage): Usd stage scene.
+        """
+        self.scene = scene
+        self.RM.preloadRobot(self.scene)
+        self.LC.addRobotManager(self.RM)

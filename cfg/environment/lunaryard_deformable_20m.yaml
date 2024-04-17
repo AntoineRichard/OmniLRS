@@ -1,11 +1,11 @@
-name: LunaryardDeformable
+name: Lunaryard
 seed: 42
-init_with_robot: True # set to True to initialize the environment with a robot.
+init_with_robot: False  
 # Stage settings, only edit if you know what you are doing.
 lunaryard_settings:
   lab_length: 20.0
   lab_width: 20.0
-  resolution: 0.01
+  resolution: 0.025
   projector_path: /Lunaryard/Sun
   earth_path: /Lunaryard/Earth
 
@@ -30,7 +30,7 @@ rocks_settings:
           sampler:
             name: ThomasCluster
             randomization_space: 2
-            lambda_parent: 0.1
+            lambda_parent: 0.25
             lambda_daughter: 200
             sigma: 0.2
             seed: ${.......seed}
@@ -70,7 +70,7 @@ rocks_settings:
           layer:
             name: Line
             xmin: 1.0
-            xmax: 2.0
+            xmax: 1.0
           sampler:
             name: Uniform
             randomization_space: 1
@@ -95,8 +95,8 @@ rocks_settings:
             name: ThomasCluster
             randomization_space: 2
             lambda_parent: 0.25
-            lambda_daughter: 1
-            sigma: 0.4
+            lambda_daughter: 5
+            sigma: 0.05
             inherit_parents: True
             seed: ${.......seed}
 
@@ -134,8 +134,8 @@ rocks_settings:
           axes: ["xyz"]
           layer:
             name: Line
-            xmin: 5.0
-            xmax: 10.0
+            xmin: 2.0
+            xmax: 5.0
           sampler:
             name: Uniform
             randomization_space: 1
@@ -159,9 +159,9 @@ rocks_settings:
           sampler:
             name: ThomasCluster
             randomization_space: 2
-            lambda_parent: 0.3
-            lambda_daughter: 100
-            sigma: 0.5
+            lambda_parent: 0.5
+            lambda_daughter: 500
+            sigma: 0.3
             inherit_parents: True
             seed: ${.......seed}
 
@@ -230,15 +230,20 @@ terrain_manager:
       x_size: ${....lunaryard_settings.lab_length}
       y_size: ${....lunaryard_settings.lab_width}
       resolution: ${....lunaryard_settings.resolution}
-      max_elevation: 1.0
-      min_elevation: -1.0
+      max_elevation: 0.5
+      min_elevation: -0.5
       z_scale: 1.0
       seed: ${....seed}
     
     deformation_engine:
+      enable: True
+      deformFrequencyInv: 10
       terrain_width: ${....lunaryard_settings.lab_width}
       terrain_height: ${....lunaryard_settings.lab_length}
       terrain_resolution: ${....lunaryard_settings.resolution}
+      gravity: [0, 0, -9.8]
+      force_depth_slope: 0.00014
+      force_depth_intercept: 0.008
       wheel_params:
         wheel_width: 0.09
         wheel_radius: 0.1
@@ -251,13 +256,9 @@ terrain_manager:
       boundary_distribution: 
         distribution: trapezoidal
         angle_of_repose: 1.047
-      gravity_force: -50.49
-      force_depth_slope: 0.00014
-      force_depth_intercept: 0.008
 
     is_yard: True
     is_lab: False
-    deformable: True
 
   root_path: /Lunaryard
   texture_path: /Lunaryard/Looks/Basalt
@@ -271,3 +272,18 @@ terrain_manager:
   sim_length: ${..lunaryard_settings.lab_length}
   sim_width: ${..lunaryard_settings.lab_width}
   resolution: ${..lunaryard_settings.resolution}
+
+robots_settings:
+  use_nucleus: False
+  is_ROS2: False
+  max_Robots: 5
+  robots_root: "/Robots"
+  parameters:
+    robot1:
+      robot_name: ex1
+      usd_path: assets/USD_Assets/robots/ex1_camera.usd
+      pose:
+        position: [5.0, 5.0, 0.5]
+        orientation: [1, 0, 0, 0]
+      domain_id: 0
+      target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]

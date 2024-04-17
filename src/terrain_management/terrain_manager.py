@@ -18,7 +18,7 @@ from pxr import UsdGeom, Sdf
 import omni
 import warp as wp
 
-from src.terrain_management.terrain_generation import GenerateProceduralMoonYard, GenerateProceduralMoonYardwithDeformation
+from src.terrain_management.terrain_generation import GenerateProceduralMoonYard
 from src.configurations.procedural_terrain_confs import TerrainManagerConf
 from WorldBuilders import pxr_utils
 from assets import get_assets_path
@@ -37,12 +37,7 @@ class TerrainManager:
             **kwargs: additional arguments."""
 
         self._dems_path = os.path.join(get_assets_path(), cfg.dems_path)
-        if cfg.moon_yard.__class__.__name__ == "MoonYardConf":
-            self._G = GenerateProceduralMoonYard(cfg.moon_yard)
-        elif cfg.moon_yard.__class__.__name__ == "MoonYardWithDeformationConf":
-            self._G = GenerateProceduralMoonYardwithDeformation(cfg.moon_yard)
-        else:
-            raise ValueError("Invalid moon yard configuration")
+        self._G = GenerateProceduralMoonYard(cfg.moon_yard)
 
         self._stage = omni.usd.get_context().get_stage()
         self._texture_path = cfg.texture_path
@@ -289,30 +284,27 @@ class TerrainManager:
         Updates the terrain collider. This function should be called after the terrain mesh is updated.
         """
 
-        # pxr_utils.removeCollision(self._stage, self._mesh_path)
+        pxr_utils.removeCollision(self._stage, self._mesh_path)
         pxr_utils.addCollision(self._stage, self._mesh_path)
 
-    def update(self) -> None:
+    def update(self, update_collider=False) -> None:
         """
         Updates the terrain mesh. This function should be called after the DEM and mask are updated.
         """
-
-        pxr_utils.deletePrim(self._stage, self._mesh_path)
-        self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
-        with wp.ScopedTimer("mesh update"):
-            self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
-        self.updateTerrainCollider()
-        self.autoLabel()
-        pxr_utils.applyMaterialFromPath(
-            self._stage, self._mesh_path, self._texture_path
-        )
-    
-    def updateMesh(self)-> None:
-        """Updates the terrain mesh. Do not update collider and material.
-        """
-        self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
-        with wp.ScopedTimer("mesh update"):
-            self.updateVert(self._sim_verts, self._indices, self._sim_uvs)
+        if update_collider:
+            pxr_utils.deletePrim(self._stage, self._mesh_path)
+            self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
+            with wp.ScopedTimer("mesh update"):
+                self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
+            self.updateTerrainCollider()
+            self.autoLabel()
+            pxr_utils.applyMaterialFromPath(
+                self._stage, self._mesh_path, self._texture_path
+            )
+        else:
+            self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
+            with wp.ScopedTimer("mesh update"):
+                self.updateVert(self._sim_verts, self._indices, self._sim_uvs)
 
     def randomizeTerrain(self) -> None:
         """
@@ -320,7 +312,7 @@ class TerrainManager:
         """
 
         self._DEM, self._mask = self._G.randomize()
-        self.update()
+        self.update(update_collider=True)
     
     def deformTerrain(self, body_transforms:np.ndarray, contact_forces:np.ndarray) -> None:
         """
@@ -330,7 +322,7 @@ class TerrainManager:
             body_transforms (np.ndarray): the body transforms."""
 
         self._DEM, self._mask = self._G.deform(body_transforms, contact_forces)
-        self.updateMesh()
+        self.update(update_collider=False)
 
     def loadTerrainByName(self, name: str) -> None:
         """

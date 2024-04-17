@@ -12,6 +12,7 @@ __status__ = "development"
 from src.environments.lunaryard import LunaryardController
 from src.configurations.rendering_confs import FlaresConf
 from src.robots.robot import RobotManager
+from src.robots.robot_parameter import RobotManagerConf
 
 # Loads ROS1 dependent libraries
 import rospy
@@ -39,7 +40,7 @@ class ROS_LunaryardManager:
 
         self.LC = LunaryardController(**environment_cfg, flares_settings=flares_cfg)
         self.RM = RobotManager(
-            uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots"
+            environment_cfg["robots_settings"]
         )
         self.LC.load()
 
@@ -451,3 +452,14 @@ class ROS_LunaryardManager:
         for sub in self.robot_subs:
             sub.unregister()
         rospy.signal_shutdown("Shutting down")
+    
+    ### Non ROS function ####
+    def preloadAssets(self, scene):
+        """
+        Preload stage assets.
+        Args:
+            scene (Usd.stage): Usd stage scene.
+        """
+        self.scene = scene
+        self.RM.preloadRobot(self.scene)
+        self.LC.addRobotManager(self.RM)

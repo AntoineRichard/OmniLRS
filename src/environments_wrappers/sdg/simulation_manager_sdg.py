@@ -10,8 +10,6 @@ __status__ = "development"
 
 from src.environments_wrappers.sdg.lunaryard_sdg import SDG_Lunaryard
 from src.environments_wrappers.sdg.lunalab_sdg import SDG_Lunalab
-from src.environments_wrappers.sdg.lunalab_deformable_sdg import SDG_LunalabDeformable
-from src.environments_wrappers.sdg.lunaryard_deformable_sdg import SDG_LunaryardDeformable
 from src.configurations.auto_labeling_confs import AutoLabelingConf, CameraConf
 from src.labeling.auto_label import AutonomousLabeling
 
@@ -38,8 +36,6 @@ class SyntheticDataGeneration_LabManagerFactory:
 SDG_LMF = SyntheticDataGeneration_LabManagerFactory()
 SDG_LMF.register("Lunalab", SDG_Lunalab)
 SDG_LMF.register("Lunaryard", SDG_Lunaryard)
-SDG_LMF.register("LunalabDeformable", SDG_LunalabDeformable)
-SDG_LMF.register("LunaryardDeformable", SDG_LunaryardDeformable)
 
 
 class SDG_SimulationManager:
