@@ -35,6 +35,7 @@ class CraterData:
     crater_profile_id: int = 0
     xy_deformation_factor: Tuple[float, float] = (0, 0)
     rotation: float = 0
+    coord: Tuple[int, int] = (0, 0)
 
 
 class CraterGenerator:
@@ -240,7 +241,7 @@ class CraterGenerator:
         return crater_data
 
     def generateCrater(
-        self, size: int, index: int = -1, crater_data: CraterData = None
+        self, size: int = None, index: int = -1, crater_data: CraterData = None
     ) -> Tuple[np.ndarray, CraterData]:
         """
         Generates a crater DEM.
@@ -268,8 +269,12 @@ class CraterGenerator:
         return crater, crater_data
 
     def generateCraters(
-        self, DEM: np.ndarray, coords: np.ndarray, radius: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        self,
+        DEM: np.ndarray,
+        coords: np.ndarray = None,
+        radius: np.ndarray = None,
+        craters_data: List[CraterData] = None,
+    ) -> Tuple[np.ndarray, np.ndarray, List[CraterData]]:
         """
         Generates a DEM with craters.
 
@@ -280,6 +285,7 @@ class CraterGenerator:
         Returns:
             np.ndarray: unpadded DEM with craters, and matching mask."""
 
+        # Creates a padded DEM and mask
         DEM_padded = np.zeros(
             (self._pad_size * 2 + DEM.shape[0], self._pad_size * 2 + DEM.shape[1])
         )
@@ -287,21 +293,53 @@ class CraterGenerator:
         DEM_padded[
             self._pad_size : -self._pad_size, self._pad_size : -self._pad_size
         ] = DEM
-        craters_data = []
-        for coord, rad in zip(coords, radius):
-            rad = int(rad * 2 / self._resolution)
-            coord = coord / self._resolution
-            c, crater_data = self.generateCrater(int(rad))
-            coord2 = (coord + self._pad_size).astype(np.int64)
-            coord = (coord - crater_data.size / 2 + self._pad_size).astype(np.int64)
-            DEM_padded[
-                coord[0] : coord[0] + crater_data.size,
-                coord[1] : coord[1] + crater_data.size,
-            ] += c
-            mask_padded = cv2.circle(
-                mask_padded, (coord2[1], coord2[0]), int(crater_data.size / 4), 0, -1
-            )
-            craters_data.append(crater_data)
+
+        # Creates a cache to store craters data
+        if craters_data is None:
+            craters_data = []
+
+        # Adds the craters to the DEM
+        if len(craters_data) == 0:
+            for coord, rad in zip(coords, radius):
+                rad = int(rad * 2 / self._resolution)
+                coord_s = coord / self._resolution
+                c, crater_data = self.generateCrater(int(rad))
+                crater_data.coord = (coord[0], coord[1])
+                coord2 = (coord_s + self._pad_size).astype(np.int64)
+                coord = (coord_s - crater_data.size / 2 + self._pad_size).astype(
+                    np.int64
+                )
+                DEM_padded[
+                    coord[0] : coord[0] + crater_data.size,
+                    coord[1] : coord[1] + crater_data.size,
+                ] += c
+                mask_padded = cv2.circle(
+                    mask_padded,
+                    (coord2[1], coord2[0]),
+                    int(crater_data.size / 4),
+                    0,
+                    -1,
+                )
+                craters_data.append(crater_data)
+        else:
+            for crater_data in craters_data:
+                rad = int(crater_data.size * 2 / self._resolution)
+                coord = coord / self._resolution
+                c, crater_data = self.generateCrater(crater_data)
+                coord2 = (coord + self._pad_size).astype(np.int64)
+                coord = (coord - crater_data.size / 2 + self._pad_size).astype(np.int64)
+                DEM_padded[
+                    coord[0] : coord[0] + crater_data.size,
+                    coord[1] : coord[1] + crater_data.size,
+                ] += c
+                mask_padded = cv2.circle(
+                    mask_padded,
+                    (coord2[1], coord2[0]),
+                    int(crater_data.size / 4),
+                    0,
+                    -1,
+                )
+
         mask_padded[: self._pad_size + 1, :] = 0
         mask_padded[:, : self._pad_size + 1] = 0
         mask_padded[-self._pad_size - 1 :, :] = 0
@@ -313,6 +351,7 @@ class CraterGenerator:
             mask_padded[
                 self._pad_size : -self._pad_size, self._pad_size : -self._pad_size
             ],
+            craters_data,
         )
 
 
@@ -560,24 +599,25 @@ class GenerateProceduralMoonYard:
         self.is_lab = moon_yard.is_lab
         self.is_yard = moon_yard.is_yard
 
-    def randomize(self) -> np.ndarray:
+    def randomize(self) -> Tuple[np.ndarray, np.ndarray, List[CraterData]]:
         """
         Generates a random terrain DEM with craters.
 
         Returns:
-            np.ndarray: random terrain DEM with craters"""
+            tuple: random terrain DEM with craters, mask of the craters, and the data regarding the craters generation.
+        """
 
         DEM = self.T.generateRandomTerrain(is_lab=self.is_lab, is_yard=self.is_yard)
         coords, radius = self.D.run()
-        DEM, mask = self.G.generateCraters(DEM, coords, radius)
-        return DEM, mask
+        DEM, mask, craters_data = self.G.generateCraters(DEM, coords, radius)
+        return DEM, mask, craters_data
 
 
 if __name__ == "__main__":
     craters_profiles_path = "crater_spline_profiles.pkl"
     start = datetime.datetime.now()
     G = GenerateProceduralMoonYard(craters_profiles_path)
-    DEMs = [G.randomize() for i in range(4)]
+    DEMs, mask, craters_data = [G.randomize() for i in range(4)]
     end = datetime.datetime.now()
 
     print((end - start).total_seconds())

@@ -269,7 +269,7 @@ class TerrainManager:
         """
         Randomizes the terrain."""
 
-        self._DEM, self._mask = self._G.randomize()
+        self._DEM, self._mask, self._craters_data = self._G.randomize()
         self.update()
 
     def loadTerrainByName(self, name: str) -> None:
@@ -319,19 +319,20 @@ class TerrainManager:
         return self._mask
 
 
-# if __name__ == "__main__":
-#    from omni.isaac.core import World
-#    world = World(stage_units_in_meters=1.0)
-#    T =  TerrainManager()
-#
-#    j = 0
-#    while(True):
-#        T.randomizeTerrain()
-#        T.loadTerrainId(j)
-#        j += 1
-#        for i in range(2000):
-#            world.step(render=True)
-#
-# import omni
-# from omni.isaac.kit import SimulationApp
-# simulation_app = SimulationApp({"headless": False})
+if __name__ == "__main__":
+    import omni
+    from omni.isaac.kit import SimulationApp
+
+    simulation_app = SimulationApp({"headless": False})
+    from omni.isaac.core import World
+
+    world = World(stage_units_in_meters=1.0)
+    T = TerrainManager()
+
+    j = 0
+    while True:
+        T.randomizeTerrain()
+        T.loadTerrainId(j)
+        j += 1
+        for i in range(20):
+            world.step(render=True)
