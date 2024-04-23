@@ -89,12 +89,12 @@ def _bicubic_interpolation(
 
 @dataclasses.dataclass
 class GeoClipmapSpecs:
-    numMeshLODLevels: int = 7
-    meshBaseLODExtentHeightfieldTexels: int = 512
+    numMeshLODLevels: int = 9
+    meshBaseLODExtentHeightfieldTexels: int = 256
     meshBackBonePath: str = "terrain_mesh_backbone.npz"
     demPath: str = "40k_dem.npy"
     meters_per_pixel: float = 5.0
-    meters_per_texel: float = 5.0
+    meters_per_texel: float = 0.1
     z_scale: float = 1.0
 
 
@@ -325,30 +325,46 @@ class GeoClipmap:
         dx = wp.from_numpy(x - x2, dtype=float, device="cuda")
         dy = wp.from_numpy(y - y2, dtype=float, device="cuda")
 
+        # q11 = self.dem[x1, y1]
+        # q12 = self.dem[x1, y2]
+        # q13 = self.dem[x1, y3]
+        # q14 = self.dem[x1, y4]
         q11 = self.dem[x1, y1]
-        q12 = self.dem[x1, y2]
-        q13 = self.dem[x1, y3]
-        q14 = self.dem[x1, y4]
+        q12 = self.dem[x2, y1]
+        q13 = self.dem[x3, y1]
+        q14 = self.dem[x4, y1]
         q1 = wp.from_numpy(
             np.array([q11, q12, q13, q14]).T, dtype=wp.vec4f, device="cuda"
         )
-        q21 = self.dem[x2, y1]
+        # q21 = self.dem[x2, y1]
+        # q22 = self.dem[x2, y2]
+        # q23 = self.dem[x2, y3]
+        # q24 = self.dem[x2, y4]
+        q21 = self.dem[x1, y2]
         q22 = self.dem[x2, y2]
-        q23 = self.dem[x2, y3]
-        q24 = self.dem[x2, y4]
+        q23 = self.dem[x3, y2]
+        q24 = self.dem[x4, y2]
         q2 = wp.from_numpy(
             np.array([q21, q22, q23, q24]).T, dtype=wp.vec4f, device="cuda"
         )
-        q31 = self.dem[x2, y1]
-        q32 = self.dem[x2, y2]
+        # q31 = self.dem[x3, y1]
+        # q32 = self.dem[x3, y2]
+        # q33 = self.dem[x3, y3]
+        # q34 = self.dem[x3, y4]
+        q31 = self.dem[x1, y3]
+        q32 = self.dem[x2, y3]
         q33 = self.dem[x3, y3]
-        q34 = self.dem[x3, y4]
+        q34 = self.dem[x4, y3]
         q3 = wp.from_numpy(
             np.array([q31, q32, q33, q34]).T, dtype=wp.vec4f, device="cuda"
         )
-        q41 = self.dem[x4, y1]
-        q42 = self.dem[x4, y2]
-        q43 = self.dem[x4, y3]
+        # q41 = self.dem[x4, y1]
+        # q42 = self.dem[x4, y2]
+        # q43 = self.dem[x4, y3]
+        # q44 = self.dem[x4, y4]
+        q41 = self.dem[x1, y4]
+        q42 = self.dem[x2, y4]
+        q43 = self.dem[x3, y4]
         q44 = self.dem[x4, y4]
         q4 = wp.from_numpy(
             np.array([q41, q42, q43, q44]).T, dtype=wp.vec4f, device="cuda"
