@@ -36,7 +36,7 @@ def _linear_interpolation(
 
 
 @wp.func
-def _cubic_interpolation(
+def _cubic_interpolation_old(
     x: float,
     coeffs: wp.vec4f,
 ):
@@ -45,6 +45,19 @@ def _cubic_interpolation(
     coeffs[1] = ((a + 2.0) * x - (a + 3.0)) * x * x + 1.0
     coeffs[2] = ((a + 2.0) * (1.0 - x) - (a + 3.0)) * (1.0 - x) * (1.0 - x) + 1.0
     coeffs[3] = 1.0 - coeffs[0] - coeffs[1] - coeffs[2]
+    return coeffs
+
+
+@wp.func
+def _cubic_interpolation(
+    x: float,
+    coeffs: wp.vec4f,
+):
+    a = -0.75
+    coeffs[0] = a * (x * (1.0 - x * (2.0 - x)))
+    coeffs[1] = a * (-2.0 + x * x * (5.0 - 3.0 * x))
+    coeffs[2] = a * (x * (-1.0 + x * (-4.0 + 3.0 * x)))
+    coeffs[3] = a * (x * x * (1.0 - x))
     return coeffs
 
 
@@ -263,7 +276,7 @@ class GeoClipmap:
         x = np.maximum(x, 0)
         y = np.maximum(y, 0)
 
-        z = self.linear_interpolation(x, y)
+        z = self.bicubic_interpolation(x, y)
         # bicubic interpolation is broken
 
         self.points[:, 1] = self.points[:, -1]
