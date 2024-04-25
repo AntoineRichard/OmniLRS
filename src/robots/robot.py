@@ -333,17 +333,18 @@ class RobotRigidGroup:
 
     def initialize(self, world, scene)->None:
         world.reset()
-        for target_link in self.target_links:
-            rigid_prim = RigidPrim(
-                prim_path=os.path.join(self.root_path, self.robot_name, target_link), 
-                name=f"{self.robot_name}/{target_link}")
-            rigid_prim_view = RigidPrimView(prim_paths_expr=os.path.join(self.root_path, self.robot_name, target_link),
-                                            name=f"{self.robot_name}/{target_link}_view",
-                                            track_contact_forces=True,
-                                                   )
-            rigid_prim_view.initialize()
-            self.prims.append(rigid_prim)
-            self.prim_views.append(rigid_prim_view)
+        if len(self.target_links) > 0:
+            for target_link in self.target_links:
+                rigid_prim = RigidPrim(
+                    prim_path=os.path.join(self.root_path, self.robot_name, target_link), 
+                    name=f"{self.robot_name}/{target_link}")
+                rigid_prim_view = RigidPrimView(prim_paths_expr=os.path.join(self.root_path, self.robot_name, target_link),
+                                                name=f"{self.robot_name}/{target_link}_view",
+                                                track_contact_forces=True,
+                                                    )
+                rigid_prim_view.initialize()
+                self.prims.append(rigid_prim)
+                self.prim_views.append(rigid_prim_view)
         world.reset()
     
     def get_world_poses(self)->np.ndarray:
