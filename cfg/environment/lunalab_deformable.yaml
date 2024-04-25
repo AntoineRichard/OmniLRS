@@ -145,16 +145,16 @@ terrain_manager:
   resolution: ${..lunalab_settings.resolution}
 
 robots_settings:
-  use_nucleus: False
+  uses_nucleus: False
   is_ROS2: False
-  max_Robots: 5
+  max_robots: 5
   robots_root: "/Robots"
   parameters:
-    robot1:
+    -
       robot_name: ex1
       usd_path: assets/USD_Assets/robots/ex1_camera.usd
       pose:
-        position: [5.0, 5.0, 0.5]
+        position: [1.0, 1.0, 0.5]
         orientation: [1, 0, 0, 0]
       domain_id: 0
       target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]

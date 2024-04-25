@@ -558,12 +558,13 @@ class ROS_LunalabManager:
         rospy.signal_shutdown("Shutting down")
     
     ### Non ROS function ####
-    def preloadAssets(self, scene):
+    def preloadAssets(self, world, scene):
         """
         Preload stage assets.
         Args:
             scene (Usd.stage): Usd stage scene.
         """
+        self.world = world
         self.scene = scene
-        self.RM.preloadRobot(self.scene)
+        self.RM.preloadRobot(self.world, self.scene)
         self.LC.addRobotManager(self.RM)

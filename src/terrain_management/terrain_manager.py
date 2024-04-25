@@ -333,7 +333,7 @@ class TerrainManager:
 
         self.loadDEMAndMask(name)
         self._G.register_terrain(self._DEM, self._mask)
-        self.update()
+        self.update(update_collider=True)
 
     def loadTerrainId(self, idx: int) -> None:
         """

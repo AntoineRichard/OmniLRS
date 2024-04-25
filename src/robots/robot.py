@@ -61,7 +61,8 @@ class RobotManager:
     
     def preloadRobot(
         self, 
-        scene: Usd.stage,
+        world: Usd.Stage,
+        scene: Usd.Stage,
     ) -> None:
         if len(self.robot_parameters) > 0:
             for robot_parameter in self.robot_parameters:
@@ -75,7 +76,8 @@ class RobotManager:
                 self.addRRG(
                     robot_parameter.robot_name, 
                     robot_parameter.target_links, 
-                    scene, 
+                    world, 
+                    scene,
                 )
 
     def addRobot(
@@ -117,7 +119,8 @@ class RobotManager:
         self, 
         robot_name: str = None, 
         target_links: List[str] = None,
-        scene: Usd.stage=None, 
+        world=None, 
+        scene: Usd.Stage=None, 
     )-> None:
         """
         Add a robot rigid group to the scene.
@@ -125,13 +128,13 @@ class RobotManager:
         Args:
             robot_name (str): The name of the robot.
             target_links (List[str]): List of link names. 
-            scene (Usd.stage): usd stage scene."""
+            scene (Usd.Stage): usd stage scene."""
         rrg = RobotRigidGroup(
             self.robots_root, 
             robot_name, 
             target_links, 
         )
-        rrg.initialize(scene)
+        rrg.initialize(world, scene)
         self.robots_RG[robot_name] = rrg
 
     def resetRobots(self) -> None:
@@ -328,19 +331,20 @@ class RobotRigidGroup:
         self.prims = []
         self.prim_views = []
 
-    def initialize(self, scene)->None:
+    def initialize(self, world, scene)->None:
+        world.reset()
         for target_link in self.target_links:
             rigid_prim = RigidPrim(
                 prim_path=os.path.join(self.root_path, self.robot_name, target_link), 
                 name=f"{self.robot_name}/{target_link}")
             rigid_prim_view = RigidPrimView(prim_paths_expr=os.path.join(self.root_path, self.robot_name, target_link),
-                                            name=f"{self.robot_name}/{target_link}",
+                                            name=f"{self.robot_name}/{target_link}_view",
                                             track_contact_forces=True,
                                                    )
-            rigid_prim_view.initialize() 
-            scene.add(rigid_prim_view)
+            rigid_prim_view.initialize()
             self.prims.append(rigid_prim)
             self.prim_views.append(rigid_prim_view)
+        world.reset()
     
     def get_world_poses(self)->np.ndarray:
         """

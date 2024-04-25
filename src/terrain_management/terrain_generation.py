@@ -487,7 +487,6 @@ class DeformationEngine:
         self.boundary_distribution = deformation_engine.boundary_distribution
         self.force_depth_slope = deformation_engine.force_depth_slope
         self.force_depth_intercept = deformation_engine.force_depth_intercept
-        self.gravity_force = deformation_engine.gravity_force
 
         self.sim_width = self.terrain_width / self.terrain_resolution
         self.sim_height = self.terrain_height / self.terrain_resolution
