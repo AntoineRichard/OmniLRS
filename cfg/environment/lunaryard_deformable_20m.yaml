@@ -5,7 +5,7 @@ init_with_robot: False
 lunaryard_settings:
   lab_length: 20.0
   lab_width: 20.0
-  resolution: 0.025
+  resolution: 0.01
   projector_path: /Lunaryard/Sun
   earth_path: /Lunaryard/Earth
 
@@ -261,9 +261,9 @@ terrain_manager:
     is_lab: False
 
   root_path: /Lunaryard
-  # texture_path: /Lunaryard/Looks/Basalt
+  texture_path: /Lunaryard/Looks/Basalt
   # texture_path: /Lunaryard/Looks/Sand
-  texture_path: /Lunaryard/Looks/Regolith_footprint
+  # texture_path: /Lunaryard/Looks/Regolith_footprint
   # texture_path: /Lunaryard/Looks/Synthetic_Regolith_02
   dems_path: Terrains/Lunaryard
   mesh_position: [0, 0, 0]
@@ -300,7 +300,7 @@ robots_settings:
       robot_name: ex1_3
       usd_path: assets/USD_Assets/robots/ex1_camera.usd
       pose:
-        position: [15.0, 8.0, 0.5]
+        position: [15.0, 14.0, 0.5]
         orientation: [0.7, 0, 0, -0.7]
       domain_id: 0
       target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]

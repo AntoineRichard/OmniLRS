@@ -204,6 +204,7 @@ class TerrainManager:
         uvs: np.ndarray,
         colors=None,
         update_topology: bool = False,
+        update_default_op:bool = False, 
     ) -> None:
         """
         Creates or updates a mesh prim with the given points and indices.
@@ -216,7 +217,6 @@ class TerrainManager:
             update_topology (bool): whether to update the mesh topology."""
 
         mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
-        self._mesh_path = self._og_mesh_path + "_" + str(self._id)
         if not mesh:
             mesh = UsdGeom.Mesh.Define(self._stage, self._mesh_path)
             UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
@@ -241,43 +241,8 @@ class TerrainManager:
         if colors:
             mesh.GetDisplayColorAttr().Set(colors)
 
-        self._id += 1
-        pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
-    
-    def updateVert(
-        self,
-        points: np.ndarray,
-        indices: np.ndarray,
-        uvs: np.ndarray,
-        colors=None,
-        update_topology: bool = False,
-    ) -> None:
-        """
-        updates a mesh prim with the given points and indices.
-
-        Args:
-            points (np.ndarray): array of points to set as the mesh vertices.
-            indices (np.ndarray): array of indices to set as the mesh indices.
-            uvs (np.ndarray): array of uvs to set as the mesh uvs.
-            colors (np.ndarray): array of colors to set as the mesh colors.
-            update_topology (bool): whether to update the mesh topology."""
-
-        mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
-        mesh.GetPointsAttr().Set(points)
-
-        if update_topology:
-            idxs = np.array(indices).reshape(-1, 3)
-            mesh.GetFaceVertexIndicesAttr().Set(idxs)
-            mesh.GetFaceVertexCountsAttr().Set([3] * len(idxs))
-            UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
-            pv = UsdGeom.PrimvarsAPI(mesh.GetPrim()).CreatePrimvar(
-                "st", Sdf.ValueTypeNames.Float2Array
-            )
-            pv.Set(uvs)
-            pv.SetInterpolation("faceVarying")
-
-        if colors:
-            mesh.GetDisplayColorAttr().Set(colors)
+        if update_default_op:
+            pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
 
     def updateTerrainCollider(self):
         """
@@ -295,7 +260,7 @@ class TerrainManager:
             pxr_utils.deletePrim(self._stage, self._mesh_path)
             self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
             with wp.ScopedTimer("mesh update"):
-                self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
+                self.renderMesh(self._sim_verts, self._indices, self._sim_uvs, update_default_op=True)
             self.updateTerrainCollider()
             self.autoLabel()
             pxr_utils.applyMaterialFromPath(
@@ -304,7 +269,7 @@ class TerrainManager:
         else:
             self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
             with wp.ScopedTimer("mesh update"):
-                self.updateVert(self._sim_verts, self._indices, self._sim_uvs)
+                self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
 
     def randomizeTerrain(self) -> None:
         """

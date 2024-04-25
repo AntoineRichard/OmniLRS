@@ -652,54 +652,6 @@ class DeformationEngine:
             multipass[y, x] += 1
         return DEM, multipass
 
-# class GenerateProceduralMoonYard:
-#     """
-#     Generates a random terrain DEM with craters."""
-
-#     def __init__(
-#         self,
-#         moon_yard: MoonYardConf,
-#     ) -> None:
-#         """
-#         Args:
-#             crater_profiles_path (str): path to the pickle file containing the spline profiles.
-#             x_size (float, optional): size of the DEM in the x direction (in meters). Defaults to 10.
-#             y_size (float, optional): size of the DEM in the y direction (in meters). Defaults to 6.5.
-#             resolution (float, optional): resolution of the DEM (in meters per pixel). Defaults to 0.01.
-#             max_elevation (float, optional): maximum elevation of the DEM (in meters). Defaults to 0.25.
-#             min_elevation (float, optional): minimum elevation of the DEM (in meters). Defaults to -0.025.
-#             z_scale (float, optional): scale of the DEM. Defaults to 1.
-#             pad (int, optional): size of the padding to add to the DEM. Defaults to 500.
-#             num_repeat (float, optional): number of times to repeat the hardcore rejection. Defaults to 0.
-#             densities (float, optional): densities of the craters (in units per square meters). Defaults to [0.025,0.05,0.5].
-#             radius (list, optional): min and max radii of the craters (in meters). Defaults to [(1.5,2.5),(0.75,1.5),(0.25,0.5)].
-#             is_lab (bool, optional): whether the DEM is in a lab or not. Defaults to False.
-#             is_yard (bool, optional): whether the DEM is in a yard or not. Defaults to False.
-#             seed (int, optional): random seed. Defaults to 42."""
-
-#         self.T = BaseTerrainGenerator(moon_yard.base_terrain_generator)
-#         self.D = Distribute(moon_yard.crater_distribution)
-#         self.G = CraterGenerator(moon_yard.crater_generator)
-#         self.is_lab = moon_yard.is_lab
-#         self.is_yard = moon_yard.is_yard
-
-#     def randomize(self) -> np.ndarray:
-#         """
-#         Generates a random terrain DEM with craters.
-
-#         Returns:
-#             np.ndarray: random terrain DEM with craters"""
-
-#         DEM = self.T.generateRandomTerrain(is_lab=self.is_lab, is_yard=self.is_yard)
-#         coords, radius = self.D.run()
-#         DEM, mask = self.G.generateCraters(DEM, coords, radius)
-#         return DEM, mask
-    
-#     def register_terrain(self, DEM:np.ndarray, mask:np.ndarray):
-#         self._dem_init = DEM
-#         self._dem_delta = np.zeros_like(DEM)
-#         self._mask = mask
-
 class GenerateProceduralMoonYard:
     """
     Generates a random terrain DEM with craters."""
