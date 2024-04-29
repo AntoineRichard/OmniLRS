@@ -94,8 +94,11 @@ class ROS1_SimulationManager:
         # Penny for your thoughts "Josh".
         self.ROSLabManager = ROS1_LMF(cfg)
         self.render_deform_inv = cfg["environment"]["terrain_manager"].moon_yard.deformation_engine.render_deform_inv
-        self.ROSLabManager.preloadAssets(self.world, self.world.scene)
         self.world.reset()
+        
+        # Preload the assets
+        self.ROSLabManager.RM.preloadRobot(self.world)
+        self.ROSLabManager.LC.addRobotManager(self.ROSLabManager.RM)
 
     def run_simulation(self) -> None:
         """

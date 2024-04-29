@@ -21,9 +21,9 @@ class ROS_RobotManager(Node):
     """
     ROS2 node that manages the robots."""
 
-    def __init__(self) -> None:
+    def __init__(self, RM_conf:dict) -> None:
         super().__init__("Robot_spawn_manager_node")
-        self.RM = RobotManager(is_ROS2=True, robots_root="/Robots")
+        self.RM = RobotManager(RM_conf)
 
         self.create_subscription(
             PoseStamped, "/Lunalab/Robots/Spawn", self.spawnRobot, 1

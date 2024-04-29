@@ -62,7 +62,6 @@ class RobotManager:
     def preloadRobot(
         self, 
         world: Usd.Stage,
-        scene: Usd.Stage,
     ) -> None:
         if len(self.robot_parameters) > 0:
             for robot_parameter in self.robot_parameters:
@@ -76,8 +75,7 @@ class RobotManager:
                 self.addRRG(
                     robot_parameter.robot_name, 
                     robot_parameter.target_links, 
-                    world, 
-                    scene,
+                    world,
                 )
 
     def addRobot(
@@ -119,8 +117,7 @@ class RobotManager:
         self, 
         robot_name: str = None, 
         target_links: List[str] = None,
-        world=None, 
-        scene: Usd.Stage=None, 
+        world=None,
     )-> None:
         """
         Add a robot rigid group to the scene.
@@ -134,7 +131,7 @@ class RobotManager:
             robot_name, 
             target_links, 
         )
-        rrg.initialize(world, scene)
+        rrg.initialize(world)
         self.robots_RG[robot_name] = rrg
 
     def resetRobots(self) -> None:
@@ -331,7 +328,7 @@ class RobotRigidGroup:
         self.prims = []
         self.prim_views = []
 
-    def initialize(self, world, scene)->None:
+    def initialize(self, world)->None:
         world.reset()
         if len(self.target_links) > 0:
             for target_link in self.target_links:
