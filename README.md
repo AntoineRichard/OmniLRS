@@ -61,6 +61,11 @@ git submodule update
 Assets:
  - Download the assets from: https://drive.google.com/file/d/1NpgMdD__DaU_mogeA7D-GqObMkGJ5-fN/view?usp=sharing
  - Unzip the assets inside the git repository. (The directory should be as shown in [Directory Structure](#directory-structure)
+ - To download the lunar Southpole DEMs run the following lines:
+```bash
+./scripts/get_dems.sh
+./scripts/extract_dems.sh
+```
 
 </details>
 
