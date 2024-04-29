@@ -6,7 +6,7 @@ __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
-__status__ = "develop_ment"
+__status__ = "development"
 
 import datetime
 import pickle

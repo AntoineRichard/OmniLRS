@@ -99,7 +99,10 @@ class BaseTerrainGeneratorConf:
 @dataclasses.dataclass
 class WheelParams:
     """
-    Wheel parameters.
+    Wheel dimension parameters. 
+    Args:
+        wheel_width (float): Width of the wheel.
+        wheel_radius (float): Radius of the wheel.
     """
     wheel_width: float = 0.5
     wheel_radius: float = 0.25
@@ -114,6 +117,9 @@ class WheelParams:
 class DeformConstraintParam:
     """
     Deformation constrain parameters.
+    Args:
+        deform_offset (float): Offset betweem deformation center and contact point.
+        deform_decay_ratio (float): Decay ratio of the deformation.
     """
     deform_offset: float = 0.0
     deform_decay_ratio: float = 0.01
@@ -127,6 +133,9 @@ class DeformConstraintParam:
 class BoundaryDistributionParam:
     """
     Boundary distribution parameters.
+    Args:
+        distribution (str): Distribution of the boundary.
+        angle_of_repose (float): Angle of repose of the boundary.
     """
     distribution: str = "uniform"
     angle_of_repose: float = 1.047
@@ -140,6 +149,9 @@ class BoundaryDistributionParam:
 class ForceDistributionParam:
     """
     Force distribution parameters.
+    Args:
+        distribution (str): Distribution of the force.
+        wave_frequency (float): Frequency of the wave.
     """
     distribution: str = "uniform"
     wave_frequency: float = 1.0
@@ -151,8 +163,24 @@ class ForceDistributionParam:
 
 @dataclasses.dataclass
 class DeformationEngineConf:
+    """
+    Deformation engine parameters.
+    Args:
+        enable (bool): Enable deformation.
+        render_deform_inv (int): render_rate/deform_rate.
+        terrain_resolution (float): Resolution of the terrain.
+        terrain_width (float): Width of the terrain.
+        terrain_height (float): Height of the terrain.
+        force_depth_slope (float): Slope of the force depth.
+        force_depth_intercept (float): Intercept of the force depth.
+        gravity (list): Gravity vector.
+        wheel_params (dict): Wheel parameters.
+        deform_constraint (dict): Deformation constraint parameters.
+        force_distribution (dict): Force distribution parameters.
+        boundary_distribution (dict): Boundary distribution parameters.
+    """
     enable: bool = False
-    deformFrequencyInv: int = 10
+    render_deform_inv: int = 10
     terrain_resolution: float = dataclasses.field(default_factory=float)
     terrain_width: float = dataclasses.field(default_factory=float)
     terrain_height: float = dataclasses.field(default_factory=float)
@@ -165,14 +193,14 @@ class DeformationEngineConf:
     boundary_distribution: BoundaryDistributionParam = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
-        assert type(self.deformFrequencyInv) is int, "deformFrequenyInv must be an int"
+        assert type(self.render_deform_inv) is int, "render_deform_inv must be an int"
         assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
         assert type(self.terrain_width) is float, "terrain_width must be a float"
         assert type(self.terrain_height) is float, "terrain_height must be a float"
         assert type(self.force_depth_slope) is float, "force_depth_ratio must be a float"
         assert type(self.force_depth_intercept) is float, "force_depth_intercept must be a float"
         
-        assert self.deformFrequencyInv > 1, "deformFrequencyInv must be greater than 1"
+        assert self.render_deform_inv > 1, "render_deform_inv must be greater than 1"
         assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"
         assert self.terrain_width > 0, "terrain_width must be greater than 0"
         assert self.terrain_height > 0, "terrain_height must be greater than 0"

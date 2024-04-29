@@ -93,7 +93,7 @@ class ROS1_SimulationManager:
         # However, unlike ROS2, I have yet to find the limit of topics you can subscribe to.
         # Penny for your thoughts "Josh".
         self.ROSLabManager = ROS1_LMF(cfg)
-        self.deform_render_inv = cfg["environment"]["terrain_manager"].moon_yard.deformation_engine.deformFrequencyInv
+        self.render_deform_inv = cfg["environment"]["terrain_manager"].moon_yard.deformation_engine.render_deform_inv
         self.ROSLabManager.preloadAssets(self.world, self.world.scene)
         self.world.reset()
 
@@ -112,7 +112,7 @@ class ROS1_SimulationManager:
                     self.ROSLabManager.reset()
                 self.ROSLabManager.applyModifications()
                 if self.cfg["environment"]["terrain_manager"].moon_yard.deformation_engine.enable:
-                    if self.world.current_time_step_index % self.deform_render_inv == 0:
+                    if self.world.current_time_step_index % self.render_deform_inv == 0:
                         self.ROSLabManager.LC.deformTerrain()
                     # self.ROSLabManager.LC.applyTerramechanics()
 

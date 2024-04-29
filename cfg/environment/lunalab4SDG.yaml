@@ -112,7 +112,7 @@ terrain_manager:
     
     deformation_engine:
       enable: False
-      deformFrequencyInv: 10
+      render_deform_inv: 10
       terrain_width: ${....lunalab_settings.lab_width}
       terrain_height: ${....lunalab_settings.lab_length}
       terrain_resolution: ${....lunalab_settings.resolution}

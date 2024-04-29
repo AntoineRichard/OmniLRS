@@ -24,10 +24,10 @@ from omni.isaac.core.utils.rotations import quat_to_rot_matrix
 from omni.isaac.core.utils.nucleus import get_assets_root_path
 from omni.isaac.dynamic_control import _dynamic_control
 from omni.isaac.core.prims import RigidPrim, RigidPrimView
-from WorldBuilders.pxr_utils import createXform, createObject, setDefaultOps
 from pxr import Gf, UsdGeom, Usd
 
-from src.robots.robot_parameter import RobotManagerConf
+from WorldBuilders.pxr_utils import createXform, createObject, setDefaultOps
+from src.configurations.robot_confs import RobotManagerConf
 
 
 class RobotManager:

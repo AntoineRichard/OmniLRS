@@ -1,4 +1,4 @@
-__author__ = "Antoine Richard"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
 __copyright__ = (
     "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
@@ -12,7 +12,6 @@ __status__ = "development"
 from src.environments.lunaryard import LunaryardController
 from src.configurations.rendering_confs import FlaresConf
 from src.robots.robot import RobotManager
-from src.robots.robot_parameter import RobotManagerConf
 
 # Loads ROS1 dependent libraries
 import rospy

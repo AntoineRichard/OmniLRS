@@ -1,6 +1,5 @@
 name: Lunaryard
-seed: 42
-init_with_robot: False 
+seed: 42 
 # Stage settings, only edit if you know what you are doing.
 lunaryard_settings:
   lab_length: 80.0
@@ -108,7 +107,7 @@ terrain_manager:
     
     deformation_engine:
       enable: False
-      deformFrequencyInv: 10
+      render_deform_inv: 10
       terrain_width: ${....lunaryard_settings.lab_width}
       terrain_height: ${....lunaryard_settings.lab_length}
       terrain_resolution: ${....lunaryard_settings.resolution}
