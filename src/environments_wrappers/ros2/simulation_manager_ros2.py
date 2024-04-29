@@ -98,7 +98,7 @@ class ROS2_SimulationManager:
         self.exec1_thread = Thread(target=exec1.spin, daemon=True, args=())
         self.exec1_thread.start()
         # Robot manager thread
-        self.ROSRobotManager = ROS_RobotManager(cfg["robots_settings"])
+        self.ROSRobotManager = ROS_RobotManager(cfg["environment"]["robots_settings"])
         exec2 = Executor()
         exec2.add_node(self.ROSRobotManager)
         self.exec2_thread = Thread(target=exec2.spin, daemon=True, args=())

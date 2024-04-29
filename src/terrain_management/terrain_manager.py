@@ -217,6 +217,7 @@ class TerrainManager:
             update_topology (bool): whether to update the mesh topology."""
 
         mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
+        self._mesh_path = self._og_mesh_path + "_" + str(self._id)
         if not mesh:
             mesh = UsdGeom.Mesh.Define(self._stage, self._mesh_path)
             UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
@@ -242,6 +243,7 @@ class TerrainManager:
             mesh.GetDisplayColorAttr().Set(colors)
 
         if update_default_op:
+            self._id += 1
             pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
 
     def updateTerrainCollider(self):
