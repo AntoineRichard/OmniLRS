@@ -54,8 +54,8 @@ def get_center(line: str) -> Tuple[float, float]:
         tmp2_sign = -1 # if the direction is South, the sign is negative
 
     # Calculate the center coordinates
-    x_center = float((str(int(tmp1d)) + str(int(tmp1m)) + str(float(tmp1s)))) / 10000 * tmp1_sign
-    y_center = float((str(int(tmp2d)) + str(int(tmp2m)) + str(float(tmp2s)))) / 10000 * tmp2_sign
+    x_center = (float(tmp1d) + float(tmp1m)/60 + float(tmp1s)/3600) * tmp1_sign
+    y_center = (float(tmp2d) + float(tmp2m)/60 + float(tmp2s)/3600) * tmp2_sign
 
     return x_center, y_center
 
