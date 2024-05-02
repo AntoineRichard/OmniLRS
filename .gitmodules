@@ -1,4 +1,3 @@
 [submodule "WorldBuilders"]
 	path = WorldBuilders
 	url = git@github.com:AntoineRichard/WorldBuilders.git
-	branch = lsp_boulder
