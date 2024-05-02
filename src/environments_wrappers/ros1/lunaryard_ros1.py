@@ -190,6 +190,16 @@ class ROS_LunaryardManager:
 
         self.modifications = []
 
+    def periodicUpdate(self, dt: float) -> None:
+        """
+        Updates the lab.
+
+        Args:
+            dt (float): Time step.
+        """
+
+        self.modifications.append([self.LC.updateStellarEngine, dt])
+
     def clearModifications(self):
         """
         Clears the list of modifications to be applied to the lab."""
