@@ -1,75 +1,9 @@
+from src.configurations.stellar_engine_confs import StellarEngineConf
 from skyfield.api import PlanetaryConstants, load
-from skyfield.vectorlib import VectorSum
-from matplotlib import pyplot as plt
 from typing import Tuple
-import dataclasses
-import numpy as np
 import datetime
 import math
-import os
     
-@dataclasses.dataclass
-class Date:
-    year: int
-    month: int
-    day: int
-    hour: int
-    minute: int
-
-    def __post_init__(self):
-        self.year = int(self.year)
-        self.month = int(self.month)
-        self.day = int(self.day)
-        self.hour = int(self.hour)
-        self.minute = int(self.minute)
-
-        assert 1 <= self.month <= 12, "Month must be between 1 and 12."
-        assert 1 <= self.day <= 31, "Day must be between 1 and 31."
-        assert 0 <= self.hour <= 23, "Hour must be between 0 and 23."
-        assert 0 <= self.minute <= 59, "Minute must be between 0 and 59."
-        assert 1970 <= self.year <= 2050, "Year must be between 1970 and 2050."
-
-@dataclasses.dataclass
-class StellarEngineConfig:
-    start_date: datetime.datetime
-    time_scale: float
-    update_interval: int
-    distance_scale: float = 1e-3
-    ephemeris_path: str = "assets/Ephemeris"
-    ephemeris: str = "de421.bsp"
-    moon_pa: str = "moon_pa_de421_1900-2050.bpc"
-    moon_tf: str = "moon_080317.tf"
-    pck: str = "pck00008.tpc"
-    frame: str = "MOON_ME_DE421"
-
-    def __post_init__(self):
-        if isinstance(self.start_date, dict):
-            d = Date(**self.start_date)
-        else:
-            d = self.start_date
-        self.start_date = datetime.datetime(d.year, d.month, d.day, d.hour, d.minute, tzinfo=datetime.timezone.utc)
-
-        assert 0 < self.time_scale, "Time scale must be greater than 0."
-        assert 0 < self.update_interval, "Update interval must be greater than 0."
-        assert 0 < self.distance_scale, "Distance scale must be greater than 0."
-
-        assert self.ephemeris in ["de421.bsp"], "Ephemeris must be one of 'de421.bsp'."
-        assert self.moon_pa in ["moon_pa_de421_1900-2050.bpc"], "Moon PA must be one of 'moon_pa_de421_1900-2050.bpc'."
-        assert self.moon_tf in ["moon_080317.tf"], "Moon TF must be one of 'moon_080317.tf'."
-        assert self.pck in ["pck00008.tpc", "pck00011.tpc"], "PCK must be one of 'pck00008.tpc', 'pck00011.tpc'."
-        assert self.frame in ["MOON_ME_DE421"], "Frame must be one of 'MOON_ME_DE421'."
-
-        self.ephemeris = os.path.join(self.ephemeris_path, self.ephemeris)
-        self.moon_pa = os.path.join(self.ephemeris_path, self.moon_pa)
-        self.moon_tf = os.path.join(self.ephemeris_path, self.moon_tf)
-        self.pck = os.path.join(self.ephemeris_path, self.pck)
-
-        assert os.path.exists(self.ephemeris), f"Ephemeris file {self.ephemeris} does not exist."
-        assert os.path.exists(self.moon_pa), f"Moon PA file {self.moon_pa} does not exist."
-        assert os.path.exists(self.moon_tf), f"Moon TF file {self.moon_tf} does not exist."
-        assert os.path.exists(self.pck), f"PCK file {self.pck} does not exist."
-
-
 class StellarEngine:
     """
     StellarEngine class to compute the positions of celestial bodies.
@@ -78,7 +12,7 @@ class StellarEngine:
     Finally, use the get_altaz, get_radec, get_position, or get_local_position methods to get the position of a given body.
     """
 
-    def __init__(self, cfg: StellarEngineConfig)-> None:
+    def __init__(self, cfg: StellarEngineConf)-> None:
         """
         Initialize the StellarEngine.
 
@@ -100,6 +34,12 @@ class StellarEngine:
 
         self.eph = load(self.cfg.ephemeris)
         self.earth, self.moon, self.sun, self.venus = self.eph['earth'], self.eph['moon'], self.eph['sun'], self.eph['venus']
+        self.bodies = {
+            "earth": self.earth,
+            "moon": self.moon,
+            "sun": self.sun,
+            "venus": self.venus
+        }
         self.pc = PlanetaryConstants()
         self.pc.read_text(load(self.cfg.moon_tf))
         self.pc.read_text(load(self.cfg.pck))
@@ -117,7 +57,29 @@ class StellarEngine:
 
         self.observer = self.moon + self.pc.build_latlon_degrees(self.frame, lat, lon)
 
-    def get_altaz(self, body: VectorSum) -> Tuple[float, float, float]:
+    def set_time(self, date: float) -> None:
+        """
+        Set the current time of the observer.
+
+        Args:
+            date (float): The current time of the observer. The given is given in seconds in the UTC time zone.
+        """
+
+        self.current_time = datetime.datetime.fromtimestamp(date, datetime.timezone.utc)
+        self.t = self.ts.from_datetime(self.current_time)
+
+    def set_time_scale(self, time_scale: float) -> None:
+        """
+        Set the time scale of the observer.
+
+        Args:
+            time_scale (float): the time scale of the observer.
+        """
+
+        self.cfg.time_scale = time_scale
+
+
+    def get_altaz(self, body: str) -> Tuple[float, float, float]:
         """
         Get the altitude, azimuth, and distance of the body in the observer's frame.
 
@@ -128,11 +90,11 @@ class StellarEngine:
             Tuple[float, float, float]: the altitude, azimuth, and distance of the body in the observer's frame.
         """
 
-        apparent = self.observer.at(self.t).observe(body).apparent()
+        apparent = self.observer.at(self.t).observe(self.bodies[body]).apparent()
         alt, az, distance = apparent.altaz()
-        return alt.degrees, az.degrees, distance.m
+        return alt.degrees, az.degrees, distance.m*self.cfg.distance_scale
     
-    def get_radec(self, body: VectorSum) -> Tuple[float, float, float]:
+    def get_radec(self, body: str) -> Tuple[float, float, float]:
         """
         Get the ra, dec, and distance of the body in the observer's frame.
 
@@ -143,11 +105,11 @@ class StellarEngine:
             Tuple[float, float, float]: the ra, dec, and distance of the body in the observer's frame.
         """
 
-        apparent = self.observer.at(self.t).observe(body).apparent()
+        apparent = self.observer.at(self.t).observe(self.bodies[body]).apparent()
         ra, dec, distance = apparent.radec(epoch='date')
-        return ra, dec, distance
+        return ra, dec, distance.m*self.cfg.distance_scale
     
-    def get_position(self, body: VectorSum) -> Tuple[float, float, float]:
+    def get_position(self, body: str) -> Tuple[float, float, float]:
         """
         Get the position of the body in the observer's frame.
 
@@ -158,10 +120,10 @@ class StellarEngine:
             Tuple[float, float, float]: the x, y, z position of the body in the observer's frame.
         """
 
-        apparent = self.observer.at(self.t).observe(body).apparent()
-        return apparent.position.to('m').value
+        apparent = self.observer.at(self.t).observe(self.bodies[body]).apparent()
+        return apparent.position.to('m').value * self.cfg.distance_scale
     
-    def get_local_position(self, body: VectorSum) -> Tuple[float, float, float]:
+    def get_local_position(self, body: str) -> Tuple[float, float, float]:
         """
         Get the local position of the body in the observer's frame.
 
@@ -178,7 +140,7 @@ class StellarEngine:
                 dist * math.sin(math.radians(alt)))
         return xyz
     
-    def update(self, dt: float)  -> None:
+    def update(self, dt: float)  -> bool:
         """
         Update the current time by dt seconds.
         If the time since the last update is greater than the update interval, update stellar time.
@@ -186,18 +148,61 @@ class StellarEngine:
         
         Args:
             dt (float): time in seconds to update the current time.
+
+        Returns:
+            bool: True if the time was updated, False otherwise.
         """
         self.current_time += datetime.timedelta(seconds=dt * self.cfg.time_scale)
 
         time_delta = self.current_time - self.last_update
+        update = False
         if time_delta.total_seconds() >= self.cfg.update_interval:
             self.last_update = self.current_time
             self.t = self.ts.from_datetime(self.current_time)
+            update = True
 
+        return update
+
+    def convertAltAzToQuat(self, alt: float, az: float) -> Tuple[float, float, float, float]:
+        """
+        Convert the altitude and azimuth to a quaternion.
+        It is assumed that the default direction of the light is [0, 0, -1].
+        The computed quaternion will rotate the light to the given altitude and azimuth.
+
+        Args:
+            alt (float): the altitude in degrees.
+            az (float): the azimuth in degrees.
+
+        Returns:
+            Tuple[float, float, float, float]: the quaternion representing the altitude and azimuth.
+        """
+        alt = math.radians(alt)
+        az = math.radians(az)
+        alt = alt - math.pi/2 # Compensate for the default direction of the light
+
+        # Orientation
+        cr = math.cos(az * 0.5)
+        sr = math.sin(az * 0.5)
+        cp = 0
+        sp = 1
+        cy = math.cos(alt * 0.5)
+        sy = math.sin(alt * 0.5)
+
+        qw = sr * sp * sy
+        qx = - cr * sp * sy
+        qy = cr * sp * cy
+        qz = - sr * sp * cy
+
+        quat = (qw,qx,qy,qz)
+        return quat
 
 if __name__ == "__main__":
+    from src.configurations.stellar_engine_confs import Date
+    from matplotlib import pyplot as plt
+    import numpy as np
+
     date = Date(year=2024, month=5, day=1, hour=11, minute=50)
-    SEC = StellarEngineConfig(start_date=date, time_scale=25, update_interval=1)
+    SEC = StellarEngineConf(start_date=date, time_scale=1, update_interval=1)
     SC = StellarEngine(cfg=SEC)
     SC.set_latlon(-26.3, 46.8)
 
@@ -208,9 +213,9 @@ if __name__ == "__main__":
     venus_pos = []
     for i in range(10000):
         SC.update(600)
-        earth_pos.append(SC.get_position(SC.earth))
-        sun_pos.append(SC.get_position(SC.sun))
-        venus_pos.append(SC.get_position(SC.venus))
+        earth_pos.append(SC.get_position("earth"))
+        sun_pos.append(SC.get_position("sun"))
+        venus_pos.append(SC.get_position("venus"))
     end_time = datetime.datetime.now()
 
     print("Time taken:", (end_time - start_time).total_seconds(), "seconds")
@@ -228,7 +233,7 @@ if __name__ == "__main__":
     plt.legend()
 
     date = Date(year=2019, month=12, day=20, hour=11, minute=5)
-    SEC = StellarEngineConfig(start_date=date, time_scale=25, update_interval=1)
+    SEC = StellarEngineConf(start_date=date, time_scale=1, update_interval=1)
     SC = StellarEngine(cfg=SEC)
     SC.set_latlon(-26.3, 46.8)
 
@@ -239,9 +244,9 @@ if __name__ == "__main__":
     venus_altaz = []
     for i in range(10000):
         SC.update(600)
-        earth_altaz.append(SC.get_altaz(SC.earth))
-        sun_altaz.append(SC.get_altaz(SC.sun))
-        venus_altaz.append(SC.get_altaz(SC.venus))
+        earth_altaz.append(SC.get_altaz("earth"))
+        sun_altaz.append(SC.get_altaz("sun"))
+        venus_altaz.append(SC.get_altaz("venus"))
     end_time = datetime.datetime.now()
 
     print("Time taken:", (end_time - start_time).total_seconds(), "seconds")
@@ -265,7 +270,7 @@ if __name__ == "__main__":
     plt.legend()
 
     date = Date(year=2019, month=12, day=20, hour=11, minute=5)
-    SEC = StellarEngineConfig(start_date=date, time_scale=25, update_interval=1)
+    SEC = StellarEngineConf(start_date=date, time_scale=1, update_interval=1)
     SC = StellarEngine(cfg=SEC)
     SC.set_latlon(-26.3, 46.8)
 
@@ -276,9 +281,9 @@ if __name__ == "__main__":
     venus_pos = []
     for i in range(10000):
         SC.update(600)
-        earth_pos.append(SC.get_local_position(SC.earth))
-        sun_pos.append(SC.get_local_position(SC.sun))
-        venus_pos.append(SC.get_local_position(SC.venus))
+        earth_pos.append(SC.get_local_position("earth"))
+        sun_pos.append(SC.get_local_position("sun"))
+        venus_pos.append(SC.get_local_position("venus"))
     end_time = datetime.datetime.now()
 
     print("Time taken:", (end_time - start_time).total_seconds(), "seconds")

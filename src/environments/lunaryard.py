@@ -11,6 +11,7 @@ __status__ = "development"
 from typing import List, Tuple, Union, Dict
 import omni.kit.actions.core
 import numpy as np
+import math
 import omni
 import carb
 import cv2
@@ -21,17 +22,21 @@ from omni.isaac.core.utils.stage import add_reference_to_stage
 from pxr import UsdGeom, UsdLux, Gf, Usd
 
 from src.configurations.procedural_terrain_confs import TerrainManagerConf
+from src.configurations.stellar_engine_confs import StellarEngineConf
 from src.terrain_management.terrain_manager import TerrainManager
 from src.configurations.environments import LunaryardConf
 from src.configurations.rendering_confs import FlaresConf
 from src.environments.rock_manager import RockManager
+from src.stellar.stelar_engine import StellarEngine
 from WorldBuilders.pxr_utils import setDefaultOps
 from assets import get_assets_path
 
 
+
 class LunaryardController:
     """
-    This class is used to control the lab interactive elements."""
+    This class is used to control the lab interactive elements.
+    """
 
     def __init__(
         self,
@@ -39,6 +44,7 @@ class LunaryardController:
         rocks_settings: Dict = None,
         flares_settings: FlaresConf = None,
         terrain_manager: TerrainManagerConf = None,
+        stellar_engine_settings: StellarEngineConf = None,
         **kwargs
     ) -> None:
         """
@@ -53,11 +59,18 @@ class LunaryardController:
             rocks_settings (Dict): The settings of the rocks.
             flares_settings (FlaresConf): The settings of the flares.
             terrain_manager (TerrainManagerConf): The settings of the terrain manager.
-            **kwargs: Arbitrary keyword arguments."""
+            stellar_engine_settings (StellarEngineConf): The settings of the stellar engine.
+            **kwargs: Arbitrary keyword arguments.
+        """
 
         self.stage = omni.usd.get_context().get_stage()
         self.stage_settings = lunaryard_settings
         self.flare_settings = flares_settings
+        if stellar_engine_settings is not None:
+            self.SE = StellarEngine(stellar_engine_settings)
+            self.enable_stellar_engine = True
+        else:
+            self.enable_stellar_engine = False
         self.T = TerrainManager(terrain_manager)
         self.RM = RockManager(**rocks_settings)
         self.dem = None
@@ -67,7 +80,8 @@ class LunaryardController:
     def load(self) -> None:
         """
         Loads the lab interactive elements in the stage.
-        Creates the instancer for the rocks, and generates the terrain."""
+        Creates the instancer for the rocks, and generates the terrain.
+        """
 
         scene_path = get_assets_path() + "/USD_Assets/environments/Lunaryard.usd"
         # Loads the Lunalab
@@ -79,6 +93,8 @@ class LunaryardController:
         # Loads the DEM and the mask
         self.switchTerrain(-1)
         self.enableLensFlare(self.flare_settings.enable)
+        if self.enable_stellar_engine:
+            self.SE.set_latlon(self.stage_settings.coordinates.latitude, self.stage_settings.coordinates.longitude)
 
     def getLuxAssets(self, prim: "Usd.Prim") -> None:
         """
@@ -88,7 +104,8 @@ class LunaryardController:
             prim (Usd.Prim): The prim to be searched.
 
         Returns:
-            list: A list of UsdLux prims."""
+            list: A list of UsdLux prims.
+        """
 
         lights = []
         for prim in Usd.PrimRange(prim):
@@ -111,14 +128,16 @@ class LunaryardController:
         Args:
             prims (list): A list of prims.
             attr (str): The name of the attribute.
-            val (Union[float,int]): The value to be set."""
+            val (Union[float,int]): The value to be set.
+        """
 
         for prim in prims:
             prim.GetAttribute(attr).Set(val)
 
     def loadDEM(self) -> None:
         """
-        Loads the DEM and the mask from the TerrainManager."""
+        Loads the DEM and the mask from the TerrainManager.
+        """
 
         self.dem = self.T.getDEM()
         self.mask = self.T.getMask()
@@ -140,6 +159,80 @@ class LunaryardController:
         self._earth_xform = UsdGeom.Xformable(self._earth_prim)
 
     # ==============================================================================
+    # Stellar engine control
+    # ==============================================================================
+
+    def setCoordinates(self, latlong: Tuple[float, float]) -> None:
+        """
+        Sets the coordinates of the lab.
+
+        Args:
+            latlong (Tuple[float,float]): The latitude and longitude of the scene on the moon.
+        """
+
+        if self.enable_stellar_engine:
+            self.SE.set_latlon(latlong[1], latlong[0])
+
+    def setTime(self, time: float) -> None:
+        """
+        Sets the time of the stellar engine.
+
+        Args:
+            time (float): The time in seconds.
+        """
+
+        if self.enable_stellar_engine:
+            self.SE.set_time(time)
+
+    def setTimeScale(self, scale: float) -> None:
+        """
+        Sets the time scale of the stellar engine.
+
+        Args:
+            scale (float): The time scale.
+        """
+
+        if self.enable_stellar_engine:
+            self.SE.set_time_scale(scale)
+
+    def updateStellarEngine(self, dt:float) -> None:
+        """
+        Updates the sun and earth pose.
+
+        Args:
+            dt (float): The time step.
+        """
+
+        if self.enable_stellar_engine:
+            update = self.SE.update(dt)
+            if update:
+                earth_pos = self.SE.get_local_position("earth")
+                alt, az, dist = self.SE.get_altaz("sun")
+                quat = self.SE.convertAltAzToQuat(alt, az)
+
+                self.setSunPose(((0,0,0), quat))
+                self.setEarthPose((earth_pos, (0, 0, 0, 1)))
+
+    # ==============================================================================
+    # Earth control
+    # ==============================================================================
+
+    def setEarthPose(self, pose: Tuple[List[float], List[float]]) -> None:
+        """
+        Sets the pose of the earth.
+
+        Args:
+            pose (Tuple[List[float],List[float]]): The pose of the earth. The first element is the position, the second is the quaternion.
+                                                   The position is in meters, the quaternion is in (x,y,z,w) format.
+        """
+
+        position = pose[0]
+        quat = pose[1]
+        rotation = [quat[0], quat[1], quat[2], quat[3]]
+        position = [position[0], position[1], position[2]]
+        setDefaultOps(self._earth_xform, position, rotation, scale=(1, 1, 1))
+
+    # ==============================================================================
     # Sun control
     # ==============================================================================
     def setSunPose(self, pose: Tuple[List[float], List[float]]) -> None:
@@ -148,13 +241,13 @@ class LunaryardController:
 
         Args:
             pose (Tuple[List[float],List[float]]): The pose of the projector. The first element is the position, the second is the quaternion.
+                                                   The position is in meters, the quaternion is in (x,y,z,w) format.
         """
 
         position = pose[0]
         quat = pose[1]
         rotation = [quat[0], quat[1], quat[2], quat[3]]
         position = [position[0], position[1], position[2]]
-        print(self._projector_lux)
 
         setDefaultOps(self._projector_xform, position, rotation, scale=(1, 1, 1))
 
@@ -163,7 +256,8 @@ class LunaryardController:
         Sets the intensity of the sun.
 
         Args:
-            intensity (float): The intensity of the projector (arbitrary unit)."""
+            intensity (float): The intensity of the projector (arbitrary unit).
+        """
 
         self.setAttributeBatch(self._projector_lux, "intensity", intensity)
 
@@ -172,7 +266,8 @@ class LunaryardController:
         Sets the color of the projector.
 
         Args:
-            color (List[float]): The color of the projector (RGB)."""
+            color (List[float]): The color of the projector (RGB).
+        """
 
         color = Gf.Vec3d(color[0], color[1], color[2])
         self.setAttributeBatch(self._projector_lux, "color", color)
@@ -201,7 +296,8 @@ class LunaryardController:
         Turns the rocks on or off.
 
         Args:
-            flag (bool): True to turn the rocks on, False to turn them off."""
+            flag (bool): True to turn the rocks on, False to turn them off.
+        """
 
         self.RM.setVisible(flag)
 
@@ -210,7 +306,8 @@ class LunaryardController:
         Randomizes the placement of the rocks.
 
         Args:
-            num (int): The number of rocks to be placed."""
+            num (int): The number of rocks to be placed.
+        """
 
         num = int(num)
         if num == 0:
@@ -225,7 +322,8 @@ class LunaryardController:
         Enables the RTX real time renderer. The ray-traced render.
 
         Args:
-            data (int, optional): Not used. Defaults to 0."""
+            data (int, optional): Not used. Defaults to 0.
+        """
 
         action_registry = omni.kit.actions.core.get_action_registry()
         action = action_registry.get_action(
@@ -238,7 +336,8 @@ class LunaryardController:
         Enables the RTX interactive renderer. The path-traced render.
 
         Args:
-            data (int, optional): Not used. Defaults to 0."""
+            data (int, optional): Not used. Defaults to 0.
+        """
 
         action_registry = omni.kit.actions.core.get_action_registry()
         action = action_registry.get_action(
@@ -251,7 +350,8 @@ class LunaryardController:
         Enables the lens flare effect.
 
         Args:
-            data (bool): True to enable the lens flare, False to disable it."""
+            data (bool): True to enable the lens flare, False to disable it.
+        """
 
         settings = carb.settings.get_settings()
         if data:
@@ -271,7 +371,8 @@ class LunaryardController:
         Sets the scale of the lens flare.
 
         Args:
-            value (float): The scale of the lens flare."""
+            value (float): The scale of the lens flare.
+        """
 
         settings = carb.settings.get_settings()
         settings.set("/rtx/post/lensFlares/flareScale", value)
@@ -282,7 +383,8 @@ class LunaryardController:
         A small number will create sharp spikes, a large number will create a smooth circle.
 
         Args:
-            value (int): The number of blades of the lens flare."""
+            value (int): The number of blades of the lens flare.
+        """
 
         settings = carb.settings.get_settings()
         settings.set("/rtx/post/lensFlares/blades", int(value))
@@ -292,7 +394,8 @@ class LunaryardController:
         Sets the rotation of the lens flare.
 
         Args:
-            value (float): The rotation of the lens flare."""
+            value (float): The rotation of the lens flare.
+        """
 
         settings = carb.settings.get_settings()
         settings.set("/rtx/post/lensFlares/apertureRotation", value)
@@ -302,7 +405,8 @@ class LunaryardController:
         Sets the sensor diagonal of the lens flare.
 
         Args:
-            value (float): The sensor diagonal of the lens flare."""
+            value (float): The sensor diagonal of the lens flare.
+        """
 
         settings = carb.settings.get_settings()
         settings.set("/rtx/post/lensFlares/sensorDiagonal", value)
@@ -312,7 +416,8 @@ class LunaryardController:
         Sets the sensor aspect ratio of the lens flare.
 
         Args:
-            value (float): The sensor aspect ratio of the lens flare."""
+            value (float): The sensor aspect ratio of the lens flare.
+        """
 
         settings = carb.settings.get_settings()
         settings.set("/rtx/post/lensFlares/sensorAspectRatio", value)
@@ -322,7 +427,8 @@ class LunaryardController:
         Sets the f-stop of the lens flare.
 
         Args:
-            value (float): The f-stop of the lens flare."""
+            value (float): The f-stop of the lens flare.
+        """
 
         settings = carb.settings.get_settings()
         settings.set("/rtx/post/lensFlares/fNumber", value)
@@ -332,7 +438,8 @@ class LunaryardController:
         Sets the focal length of the lens flare.
 
         Args:
-            value (float): The focal length of the lens flare."""
+            value (float): The focal length of the lens flare.
+        """
 
         settings = carb.settings.get_settings()
         settings.set("/rtx/post/lensFlares/focalLength", value)
