@@ -33,6 +33,8 @@ RUN apt-get update && apt-get install -y \
     ros-humble-ros-core=0.10.0-1* \
     && rm -rf /var/lib/apt/lists/*
 
+RUN /isaac-sim/python.sh -m pip install skyfield
+
 # setup entrypoint
 COPY ./entrypoint.sh /
 
