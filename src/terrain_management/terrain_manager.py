@@ -1,4 +1,4 @@
-__author__ = "Antoine Richard"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
 __copyright__ = (
     "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
@@ -16,6 +16,7 @@ import os
 from semantics.schema.editor import PrimSemanticData
 from pxr import UsdGeom, Sdf
 import omni
+import warp as wp
 
 from src.terrain_management.terrain_generation import GenerateProceduralMoonYard
 from src.configurations.procedural_terrain_confs import TerrainManagerConf
@@ -203,6 +204,7 @@ class TerrainManager:
         uvs: np.ndarray,
         colors=None,
         update_topology: bool = False,
+        update_default_op:bool = False, 
     ) -> None:
         """
         Creates or updates a mesh prim with the given points and indices.
@@ -215,7 +217,8 @@ class TerrainManager:
             update_topology (bool): whether to update the mesh topology."""
 
         mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
-        self._mesh_path = self._og_mesh_path + "_" + str(self._id)
+        if update_default_op:
+            self._mesh_path = self._og_mesh_path + "_" + str(self._id)
         if not mesh:
             mesh = UsdGeom.Mesh.Define(self._stage, self._mesh_path)
             UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
@@ -240,37 +243,54 @@ class TerrainManager:
         if colors:
             mesh.GetDisplayColorAttr().Set(colors)
 
-        self._id += 1
-        pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
+        if update_default_op:
+            self._id += 1
+            pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
 
     def updateTerrainCollider(self):
         """
         Updates the terrain collider. This function should be called after the terrain mesh is updated.
         """
 
-        # pxr_utils.removeCollision(self._stage, self._mesh_path)
+        pxr_utils.removeCollision(self._stage, self._mesh_path)
         pxr_utils.addCollision(self._stage, self._mesh_path)
 
-    def update(self) -> None:
+    def update(self, update_collider=False) -> None:
         """
         Updates the terrain mesh. This function should be called after the DEM and mask are updated.
         """
-
-        pxr_utils.deletePrim(self._stage, self._mesh_path)
-        self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
-        self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
-        self.updateTerrainCollider()
-        self.autoLabel()
-        pxr_utils.applyMaterialFromPath(
-            self._stage, self._mesh_path, self._texture_path
-        )
+        if update_collider:
+            pxr_utils.deletePrim(self._stage, self._mesh_path)
+            self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
+            with wp.ScopedTimer("mesh update"):
+                self.renderMesh(self._sim_verts, self._indices, self._sim_uvs, update_default_op=True)
+            self.updateTerrainCollider()
+            self.autoLabel()
+            pxr_utils.applyMaterialFromPath(
+                self._stage, self._mesh_path, self._texture_path
+            )
+        else:
+            self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
+            with wp.ScopedTimer("mesh update"):
+                self.renderMesh(self._sim_verts, self._indices, self._sim_uvs)
 
     def randomizeTerrain(self) -> None:
         """
-        Randomizes the terrain."""
+        Randomizes the terrain (update mesh, collider, semantic).
+        """
 
         self._DEM, self._mask = self._G.randomize()
-        self.update()
+        self.update(update_collider=True)
+    
+    def deformTerrain(self, body_transforms:np.ndarray, contact_forces:np.ndarray) -> None:
+        """
+        Deforms the terrain based on the given body transforms.
+
+        Args:
+            body_transforms (np.ndarray): the body transforms."""
+
+        self._DEM, self._mask = self._G.deform(body_transforms, contact_forces)
+        self.update(update_collider=False)
 
     def loadTerrainByName(self, name: str) -> None:
         """
@@ -280,7 +300,8 @@ class TerrainManager:
             name (str): the name matching the dictionaty entry."""
 
         self.loadDEMAndMask(name)
-        self.update()
+        self._G.register_terrain(self._DEM, self._mask)
+        self.update(update_collider=True)
 
     def loadTerrainId(self, idx: int) -> None:
         """

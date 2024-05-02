@@ -9,7 +9,7 @@ __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
 import dataclasses
-from typing import Any
+from typing import Any, Union, List
 
 
 @dataclasses.dataclass
@@ -96,12 +96,126 @@ class BaseTerrainGeneratorConf:
         ), "max_elevation must be greater than min_elevation"
         assert self.z_scale > 0, "z_scale must be greater than 0"
 
+@dataclasses.dataclass
+class WheelParams:
+    """
+    Wheel dimension parameters. 
+    Args:
+        wheel_width (float): Width of the wheel.
+        wheel_radius (float): Radius of the wheel.
+    """
+    wheel_width: float = 0.5
+    wheel_radius: float = 0.25
+
+    def __post_init__(self):
+        assert type(self.wheel_width) is float, "wheel_width must be a float"
+        assert type(self.wheel_radius) is float, "wheel_radius must be a float"
+        assert self.wheel_width > 0, "wheel_width must be greater than 0"
+        assert self.wheel_radius > 0, "wheel_radius must be greater than 0"
+
+@dataclasses.dataclass
+class DeformConstraintParam:
+    """
+    Deformation constrain parameters.
+    Args:
+        deform_offset (float): Offset betweem deformation center and contact point.
+        deform_decay_ratio (float): Decay ratio of the deformation.
+    """
+    deform_offset: float = 0.0
+    deform_decay_ratio: float = 0.01
+
+    def __post_init__(self):
+        assert type(self.deform_offset) is float, "deform_offset must be a float"
+        assert type(self.deform_decay_ratio) is float, "deform_decay_ratio must be a float"
+        assert self.deform_decay_ratio > 0, "deform_decay_ratio must be greater than 0"
+
+@dataclasses.dataclass
+class BoundaryDistributionParam:
+    """
+    Boundary distribution parameters.
+    Args:
+        distribution (str): Distribution of the boundary.
+        angle_of_repose (float): Angle of repose of the boundary.
+    """
+    distribution: str = "uniform"
+    angle_of_repose: float = 1.047
+
+    def __post_init__(self):
+        assert type(self.distribution) is str, "distribution must be a string"
+        assert type(self.angle_of_repose) is float, "angle_of_repose must be a float"
+        assert self.angle_of_repose > 0, "angle_of_repose must be greater than 0"
+
+@dataclasses.dataclass
+class ForceDistributionParam:
+    """
+    Force distribution parameters.
+    Args:
+        distribution (str): Distribution of the force.
+        wave_frequency (float): Frequency of the wave.
+    """
+    distribution: str = "uniform"
+    wave_frequency: float = 1.0
+
+    def __post_init__(self):
+        assert type(self.distribution) is str, "distribution must be a string"
+        assert type(self.wave_frequency) is float, "wave_frequency must be a float"
+        assert self.wave_frequency > 0, "wave_frequency must be greater than 0"
+
+@dataclasses.dataclass
+class DeformationEngineConf:
+    """
+    Deformation engine parameters.
+    Args:
+        enable (bool): Enable deformation.
+        render_deform_inv (int): render_rate/deform_rate.
+        terrain_resolution (float): Resolution of the terrain.
+        terrain_width (float): Width of the terrain.
+        terrain_height (float): Height of the terrain.
+        force_depth_slope (float): Slope of the force depth.
+        force_depth_intercept (float): Intercept of the force depth.
+        gravity (list): Gravity vector.
+        wheel_params (dict): Wheel parameters.
+        deform_constraint (dict): Deformation constraint parameters.
+        force_distribution (dict): Force distribution parameters.
+        boundary_distribution (dict): Boundary distribution parameters.
+    """
+    enable: bool = False
+    render_deform_inv: int = 10
+    terrain_resolution: float = dataclasses.field(default_factory=float)
+    terrain_width: float = dataclasses.field(default_factory=float)
+    terrain_height: float = dataclasses.field(default_factory=float)
+    force_depth_slope: float = dataclasses.field(default_factory=float)
+    force_depth_intercept: float = dataclasses.field(default_factory=float)
+    gravity: List[float] = dataclasses.field(default_factory=list)
+    wheel_params: WheelParams = dataclasses.field(default_factory=dict)
+    deform_constraint: DeformConstraintParam = dataclasses.field(default_factory=dict)
+    force_distribution: ForceDistributionParam = dataclasses.field(default_factory=dict)
+    boundary_distribution: BoundaryDistributionParam = dataclasses.field(default_factory=dict)
+
+    def __post_init__(self):
+        assert type(self.render_deform_inv) is int, "render_deform_inv must be an int"
+        assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
+        assert type(self.terrain_width) is float, "terrain_width must be a float"
+        assert type(self.terrain_height) is float, "terrain_height must be a float"
+        assert type(self.force_depth_slope) is float, "force_depth_ratio must be a float"
+        assert type(self.force_depth_intercept) is float, "force_depth_intercept must be a float"
+        
+        assert self.render_deform_inv > 1, "render_deform_inv must be greater than 1"
+        assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"
+        assert self.terrain_width > 0, "terrain_width must be greater than 0"
+        assert self.terrain_height > 0, "terrain_height must be greater than 0"
+        
+        self.wheel_params = WheelParams(**self.wheel_params)
+        self.deform_constraint = DeformConstraintParam(**self.deform_constraint)
+        self.force_distribution = ForceDistributionParam(**self.force_distribution)
+        self.boundary_distribution = BoundaryDistributionParam(**self.boundary_distribution)
 
 @dataclasses.dataclass
 class MoonYardConf:
     crater_generator: CraterGeneratorConf = None
     crater_distribution: CraterDistributionConf = None
     base_terrain_generator: BaseTerrainGeneratorConf = None
+    deformation_engine: DeformationEngineConf = None
     is_yard: bool = dataclasses.field(default_factory=bool)
     is_lab: bool = dataclasses.field(default_factory=bool)
 
@@ -111,6 +225,7 @@ class MoonYardConf:
         self.base_terrain_generator = BaseTerrainGeneratorConf(
             **self.base_terrain_generator
         )
+        self.deformation_engine = DeformationEngineConf(**self.deformation_engine)
 
         assert type(self.is_yard) is bool, "is_yard must be a boolean"
         assert type(self.is_lab) is bool, "is_lab must be a boolean"

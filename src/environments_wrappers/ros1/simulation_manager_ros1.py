@@ -1,4 +1,4 @@
-__author__ = "Antoine Richard"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
 __copyright__ = (
     "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
@@ -80,7 +80,7 @@ class ROS1_SimulationManager:
         Args:
             cfg (dict): Configuration dictionary.
             simulation_app: Simulation application."""
-
+        self.cfg = cfg
         self.simulation_app = simulation_app
         # Setups the physics and acquires the different interfaces to talk with Isaac
         self.timeline = omni.timeline.get_timeline_interface()
@@ -93,11 +93,16 @@ class ROS1_SimulationManager:
         # However, unlike ROS2, I have yet to find the limit of topics you can subscribe to.
         # Penny for your thoughts "Josh".
         self.ROSLabManager = ROS1_LMF(cfg)
+        self.render_deform_inv = cfg["environment"]["terrain_manager"].moon_yard.deformation_engine.render_deform_inv
+        self.world.reset()
+        
+        # Preload the assets
+        self.ROSLabManager.RM.preloadRobot(self.world)
+        self.ROSLabManager.LC.addRobotManager(self.ROSLabManager.RM)
 
     def run_simulation(self) -> None:
         """
         Runs the simulation."""
-
         self.timeline.play()
         while self.simulation_app.is_running():
             self.world.step(render=True)
@@ -109,5 +114,9 @@ class ROS1_SimulationManager:
                     self.world.reset()
                     self.ROSLabManager.reset()
                 self.ROSLabManager.applyModifications()
+                if self.cfg["environment"]["terrain_manager"].moon_yard.deformation_engine.enable:
+                    if self.world.current_time_step_index % self.render_deform_inv == 0:
+                        self.ROSLabManager.LC.deformTerrain()
+                    # self.ROSLabManager.LC.applyTerramechanics()
 
         self.timeline.stop()

@@ -1,4 +1,4 @@
-__author__ = "Antoine Richard"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
 __copyright__ = (
     "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
@@ -39,7 +39,7 @@ class ROS_LunaryardManager:
 
         self.LC = LunaryardController(**environment_cfg, flares_settings=flares_cfg)
         self.RM = RobotManager(
-            uses_nucleus=False, is_ROS2=False, max_robots=5, robots_root="/Robots"
+            environment_cfg["robots_settings"]
         )
         self.LC.load()
 
@@ -187,7 +187,7 @@ class ROS_LunaryardManager:
                 "/Lunalab/Robots/ResetAll", Empty, self.resetRobots, queue_size=1
             )
         )
-
+        self.domain_id = 0
         self.modifications = []
 
     def clearModifications(self):
@@ -400,7 +400,7 @@ class ROS_LunaryardManager:
             data.pose.orientation.z,
             data.pose.orientation.x,
         ]
-        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q]])
+        self.modifications.append([self.RM.addRobot, [usd_path, robot_name, p, q, self.domain_id]])
 
     def teleportRobot(self, data: PoseStamped) -> None:
         """
