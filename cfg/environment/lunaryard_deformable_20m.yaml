@@ -240,7 +240,7 @@ terrain_manager:
       terrain_width: ${....lunaryard_settings.lab_width}
       terrain_height: ${....lunaryard_settings.lab_length}
       terrain_resolution: ${....lunaryard_settings.resolution}
-      gravity: [0, 0, -49.0]
+      gravity: [0, 0, -49.0] #mg
       force_depth_slope: 0.00014
       force_depth_intercept: 0.008
       wheel_params:
@@ -261,9 +261,6 @@ terrain_manager:
 
   root_path: /Lunaryard
   texture_path: /Lunaryard/Looks/Basalt
-  # texture_path: /Lunaryard/Looks/Sand
-  # texture_path: /Lunaryard/Looks/Regolith_footprint
-  # texture_path: /Lunaryard/Looks/Synthetic_Regolith_02
   dems_path: Terrains/Lunaryard
   mesh_position: [0, 0, 0]
   mesh_orientation: [0, 0, 0, 1] # Quaternion x,y,z,w
@@ -292,14 +289,5 @@ robots_settings:
       pose:
         position: [15.0, 5.0, 0.5]
         orientation: [0, 0, 0, 1]
-      domain_id: 0
-      target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
-    
-    -
-      robot_name: ex1_3
-      usd_path: assets/USD_Assets/robots/ex1_camera.usd
-      pose:
-        position: [15.0, 14.0, 0.5]
-        orientation: [0.7, 0, 0, -0.7]
       domain_id: 0
       target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
