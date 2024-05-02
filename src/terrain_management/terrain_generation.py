@@ -469,7 +469,7 @@ class BaseTerrainGenerator:
 class DeformationEngine:
     """
     Terrain deformation class. 
-    Idea is to deform the part of terrain where wheel contacted. 
+    Idea is to deform the part of terrain where the robot's foot contacts. 
     """
     def __init__(self, deformation_engine:DeformationEngineConf)-> None:
         """
@@ -597,10 +597,11 @@ class DeformationEngine:
         """
         Get x, y positions of profile in global coordinate.
         Args:
-            body_transforms (np.ndarray): body transform of rover's wheels (n, 4, 4)
-            n is the number of wheels.
+            body_transforms (np.ndarray): body transform of robot's links (n, 4, 4)
+            ---
+            n is the number of links.
         Returns:
-            projection_points (np.ndarray): projected pixel coordinates of rover's wheels (num_points, 2)
+            projection_points (np.ndarray): projected pixel coordinates of robot's links (num_points, 2)
             num_points = n * num_point_sample
         """
         projection_points = []
@@ -615,15 +616,24 @@ class DeformationEngine:
     
     @staticmethod
     def linear_func(force:np.ndarray, slope:float, intercept:float)-> np.ndarray:
+        """
+        Linear function.
+        Args:
+            force (np.ndarray): contact force (n,)
+            slope (float): slope of the linear function
+            intercept (float): intercept of the linear function
+        Returns:
+            depth (np.ndarray): deformation depth (n,)"""
         return slope * force + intercept
     
     def get_deformation_depth(self, normal_forces:np.ndarray, model:str="linear")-> np.ndarray:
         """
-        Calculate deformation depth (with sign) from force distribution.
+        Calculate deformation depth from force distribution.
         Args:
             normal_forces (np.ndarray): contact force fields (n,)
         Returns:
             depth (np.ndarray): deformation depth (num_points, 1)
+            ---
             num_points = n * num_point_sample
         """
         if model == "linear":
@@ -635,22 +645,26 @@ class DeformationEngine:
         else:
             raise ValueError("Unknown model")
     
-    def deform(self, DEM:np.ndarray, multipass:np.ndarray, body_transforms:np.ndarray, normal_forces:np.ndarray)-> np.ndarray:
+    def deform(self, DEM:np.ndarray, num_pass:np.ndarray, body_transforms:np.ndarray, normal_forces:np.ndarray)-> np.ndarray:
         """
         Args:
             DEM (np.ndarray): DEM to deform
-            body_transforms (np.ndarray): projected coordinates of rover's wheels (n, 4, 4)
-            normal_forces (np.ndarray): (dynamic) contact forces applied on rover's wheels (n, 3)
+            body_transforms (np.ndarray): projected coordinates of robot's link (n, 4, 4)
+            normal_forces (np.ndarray): (dynamic) contact forces applied on robot's link (n, 3)
+            ---
             n is the number of wheels.
+        Returns:
+            DEM (np.ndarray): deformed DEM
+            num_pass (np.ndarray): number of passes on each pixel
         """
         profile_points = self.get_profile_projection(body_transforms=body_transforms)
         deformation_depth = self.get_deformation_depth(normal_forces=normal_forces)
         for i, profile_point in enumerate(profile_points):
             x = int(profile_point[0]/self.terrain_resolution)
             y = int(self.sim_height - profile_point[1]/self.terrain_resolution)
-            DEM[y, x] += deformation_depth[i] * ((self.deform_decay_ratio)**multipass[y, x])
-            multipass[y, x] += 1
-        return DEM, multipass
+            DEM[y, x] += deformation_depth[i] * ((self.deform_decay_ratio)**num_pass[y, x])
+            num_pass[y, x] += 1
+        return DEM, num_pass
 
 class GenerateProceduralMoonYard:
     """
@@ -690,6 +704,12 @@ class GenerateProceduralMoonYard:
         self._multipass = None
     
     def randomize(self) -> np.ndarray:
+        """
+        Generates a random terrain DEM with craters.
+
+        Returns:
+            np.ndarray: random terrain DEM with craters
+        """
         DEM = self.T.generateRandomTerrain(is_lab=self.is_lab, is_yard=self.is_yard)
         mask = np.ones_like(DEM)
         coords, radius = self.D.run()
@@ -701,6 +721,9 @@ class GenerateProceduralMoonYard:
         return DEM, mask
     
     def register_terrain(self, DEM:np.ndarray, mask:np.ndarray):
+        """
+        Register dem and mask to instance variables.
+        """
         self._dem_init = DEM
         self._dem_delta = np.zeros_like(DEM)
         self._mask = mask
@@ -708,9 +731,10 @@ class GenerateProceduralMoonYard:
     
     def deform(self, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
         """
+        Add vertical deformation to terrain DEM.
         Args:
-            body_transforms(numpy.ndarray): body to world transform of rover's wheels (N, 4, 4)
-            contact_forces(numpy.ndarray): contact forces of rover's wheels (N, 3)
+            body_transforms(numpy.ndarray): body to world transform of robot links (N, 4, 4)
+            contact_forces(numpy.ndarray): contact forces on robot links (N, 3)
         """
         self._dem_delta, self._multipass = self.DE.deform(
             self._dem_delta, self._multipass, body_transforms, contact_forces[:, 2])
