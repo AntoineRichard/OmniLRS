@@ -5,9 +5,14 @@ In hydra cfg file (see `cfg/environment/**.yaml`), you have specific lines for t
 
 ```yaml
 deformation_engine:
+    enable: True
+    render_deform_inv: 10
     terrain_width: ${....lunaryard_settings.lab_width}
     terrain_height: ${....lunaryard_settings.lab_length}
     terrain_resolution: ${....lunaryard_settings.resolution}
+    gravity: [0, 0, -49.0] #mg
+    force_depth_slope: 0.00014
+    force_depth_intercept: 0.008
     wheel_params:
         wheel_width: 0.09
         wheel_radius: 0.1
@@ -20,9 +25,6 @@ deformation_engine:
     boundary_distribution: 
         distribution: trapezoidal
         angle_of_repose: 1.047
-    force_depth_slope: 0.00014
-    force_depth_intercept: 0.008
-    gravity_force: -50.49
 ```
 
 ### Wheel parameters
