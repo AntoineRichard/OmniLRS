@@ -12,8 +12,8 @@ import dataclasses
 
 @dataclasses.dataclass
 class Coordinates:
-    latitude: float
-    longitude: float
+    latitude: float = 46.8
+    longitude: float = -26.3
 
     def __post_init__(self):
         assert type(self.latitude) == float, "The latitude must be a float."
@@ -64,7 +64,7 @@ class LunaryardConf:
     resolution: float = 0.025
     projector_path: str = "/Lunaryard/Sun"
     earth_path: str = "/Lunaryard/Earth"
-    coordinates: Coordinates = dataclasses.field(default_factory=Coordinates)
+    coordinates: Coordinates = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
         assert type(self.lab_length) == float, "The lab length must be a float."

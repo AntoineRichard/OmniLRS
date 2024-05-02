@@ -25,7 +25,7 @@ class Date:
 
 @dataclasses.dataclass
 class StellarEngineConf:
-    start_date: datetime.datetime = dataclasses.field(default_factory=Date)
+    start_date: datetime.datetime = dataclasses.field(default_factory=dict)
     time_scale: float = 36000.0
     update_interval: int = 600.0
     distance_scale: float = 1e-3
