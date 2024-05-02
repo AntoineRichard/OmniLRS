@@ -217,7 +217,8 @@ class TerrainManager:
             update_topology (bool): whether to update the mesh topology."""
 
         mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
-        self._mesh_path = self._og_mesh_path + "_" + str(self._id)
+        if update_default_op:
+            self._mesh_path = self._og_mesh_path + "_" + str(self._id)
         if not mesh:
             mesh = UsdGeom.Mesh.Define(self._stage, self._mesh_path)
             UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
