@@ -28,7 +28,7 @@ Finally, we provide simple configurations for different renderers:
 
 ## Getting started:
 
-<details><summary><b>Installation & Requirements</b></summary>
+### Installation & Requirements 
 
 Software:
  - Ubuntu 20.04 or 22.04
@@ -66,8 +66,11 @@ Assets:
 ./scripts/get_dems.sh
 ./scripts/extract_dems.sh
 ```
+ - To use the stellar engine, a tool that precisely computes the position of the sun and the earth relatively to a position on the moon for a given time stamp, you will need to run the following script:
+```bash
+./scripts/get_ephemeris_data.sh
+```
 
-</details>
 
 <details><summary><b>Running the sim</b></summary>
 
