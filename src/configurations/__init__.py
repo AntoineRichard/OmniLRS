@@ -32,6 +32,7 @@ from src.configurations.procedural_terrain_confs import (
 from src.configurations.auto_labeling_confs import AutoLabelingConf, CameraConf
 from src.configurations.rendering_confs import FlaresConf, RendererConf
 from src.configurations.environments import LunalabConf, LunaryardConf
+from src.configurations.stellar_engine_confs import StellarEngineConf
 
 
 class ConfigFactory:
@@ -64,3 +65,5 @@ configFactory.registerConfig("lunaryard_settings", LunaryardConf)
 # Auto Labeling Configs
 configFactory.registerConfig("camera_settings", CameraConf)
 configFactory.registerConfig("generation_settings", AutoLabelingConf)
+# Stellar Engine Configs
+configFactory.registerConfig("stellar_engine_settings", StellarEngineConf)
