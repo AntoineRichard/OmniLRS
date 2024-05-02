@@ -81,7 +81,6 @@ samplerTypeFactory.register_type(
 )
 samplerTypeFactory.register_type("Image", ImageClipper_T)
 samplerTypeFactory.register_type("NormalMap", NormalMapClipper_T)
-# samplerTypeFactory.register_type("Geoclipmap", GeoclipmapClipper_T)
 
 attributeFactory = TypeFactory()
 attributeFactory.register_type("Position", Position_T)
