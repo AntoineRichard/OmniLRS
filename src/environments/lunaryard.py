@@ -94,7 +94,7 @@ class LunaryardController:
         self.switchTerrain(-1)
         self.enableLensFlare(self.flare_settings.enable)
         if self.enable_stellar_engine:
-            self.SE.set_latlon(self.stage_settings.coordinates.latitude, self.stage_settings.coordinates.longitude)
+            self.SE.setLatLon(self.stage_settings.coordinates.latitude, self.stage_settings.coordinates.longitude)
 
     def getLuxAssets(self, prim: "Usd.Prim") -> None:
         """
@@ -171,7 +171,7 @@ class LunaryardController:
         """
 
         if self.enable_stellar_engine:
-            self.SE.set_latlon(latlong[1], latlong[0])
+            self.SE.setLatLon(latlong[1], latlong[0])
 
     def setTime(self, time: float) -> None:
         """
@@ -182,7 +182,7 @@ class LunaryardController:
         """
 
         if self.enable_stellar_engine:
-            self.SE.set_time(time)
+            self.SE.setTime(time)
 
     def setTimeScale(self, scale: float) -> None:
         """
@@ -193,7 +193,7 @@ class LunaryardController:
         """
 
         if self.enable_stellar_engine:
-            self.SE.set_time_scale(scale)
+            self.SE.setTimeScale(scale)
 
     def updateStellarEngine(self, dt:float) -> None:
         """
@@ -206,8 +206,8 @@ class LunaryardController:
         if self.enable_stellar_engine:
             update = self.SE.update(dt)
             if update:
-                earth_pos = self.SE.get_local_position("earth")
-                alt, az, dist = self.SE.get_altaz("sun")
+                earth_pos = self.SE.getLocalPosition("earth")
+                alt, az, dist = self.SE.getAltAz("sun")
                 quat = self.SE.convertAltAzToQuat(alt, az)
 
                 self.setSunPose(((0,0,0), quat))
