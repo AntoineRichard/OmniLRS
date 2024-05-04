@@ -25,7 +25,18 @@ class GeoClipmapManagerConf:
 
 
 class GeoClipmapManager:
+    """
+    Class to manage the GeoClipmap and the terrain mesh.
+    """
+
     def __init__(self, cfg: GeoClipmapManagerConf):
+        """
+        Initializes the GeoClipmapManager.
+
+        Args:
+            cfg (GeoClipmapManagerConf): configuration of the GeoClipmapManager.
+        """
+
         self._stage = omni.usd.get_context().get_stage()
         self._geo_clipmap = GeoClipmap(cfg.geo_clipmap_specs)
         self._root_path = cfg.root_path
@@ -41,6 +52,13 @@ class GeoClipmapManager:
         self.update_topology = True
 
     def updateGeoClipmap(self, position: np.ndarray) -> None:
+        """
+        Updates the terrain mesh based on the given position.
+
+        Args:
+            position (np.ndarray): position of the camera in the world.
+        """
+        
         self._geo_clipmap.getElevation(position)
         with wp.ScopedTimer("mesh update"):
             self.renderMesh(
@@ -51,7 +69,11 @@ class GeoClipmapManager:
             )
         self.update_topology = False
 
-    def createXforms(self):
+    def createXforms(self) -> None:
+        """
+        Creates the xforms needed for the terrain mesh.
+        """
+
         pxr_utils.createXform(self._stage, self._root_path, add_default_op=True)
         pxr_utils.createXform(
             self._stage, self._root_path + "/Terrain", add_default_op=True

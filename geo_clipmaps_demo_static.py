@@ -18,6 +18,11 @@ if __name__ == "__main__":
     world = World(stage_units_in_meters=1.0)
     T = GeoClipmapManager(cfg)
     T.updateGeoClipmap(np.array([20000 * 5, 0, 20000 * 5]))
+    T.updateGeoClipmap(np.array([20000 * 5, 0, 20000 * 5]))
+    T.updateGeoClipmap(np.array([20000 * 5, 0, 20000 * 5]))
+    T.updateGeoClipmap(np.array([20000 * 5, 0, 20000 * 5]))
+    T.updateGeoClipmap(np.array([20000 * 5, 0, 20000 * 5]))
 
     while True:
         world.step(render=True)
+    

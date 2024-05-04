@@ -11,10 +11,12 @@ __status__ = "development"
 # This code is based on: https://github.com/morgan3d/misc/tree/master/terrain
 # Original author: Morgan McGuire, http://cs.williams.edu/~morgan
 
+from typing import Tuple
 from copy import copy
-import warp as wp
 import dataclasses
 import numpy as np
+import warp as wp
+import datetime
 import hashlib
 import os
 
@@ -29,30 +31,37 @@ def _linear_interpolation(
     q22: wp.array(dtype=float),
     out: wp.array(dtype=float),
 ):
+    """
+    Linear interpolation of the terrain at a given position.
+    
+    Args:
+        x (wp.array): x coordinate of the position.
+        y (wp.array): y coordinate of the position.
+        q11 (wp.array): elevation of the terrain at the position (x, y).
+        q12 (wp.array): elevation of the terrain at the position (x, y+1).
+        q21 (wp.array): elevation of the terrain at the position (x+1, y).
+        q22 (wp.array): elevation of the terrain at the position (x+1, y+1).
+        out (wp.array): the interpolated elevation.
+    """
+
     tid = wp.tid()
     out[tid] = ((1.0 - x[tid]) * q11[tid] + x[tid] * q21[tid]) * (1.0 - y[tid]) + (
         (1.0 - x[tid]) * q12[tid] + x[tid] * q22[tid]
     ) * y[tid]
-
-
-@wp.func
-def _cubic_interpolation_old(
-    x: float,
-    coeffs: wp.vec4f,
-):
-    a = -0.75
-    coeffs[0] = ((a * (x + 1.0) - 5.0 * a) * (x + 1.0) + 8.0) * a * (x + 1.0) - 4.0 * a
-    coeffs[1] = ((a + 2.0) * x - (a + 3.0)) * x * x + 1.0
-    coeffs[2] = ((a + 2.0) * (1.0 - x) - (a + 3.0)) * (1.0 - x) * (1.0 - x) + 1.0
-    coeffs[3] = 1.0 - coeffs[0] - coeffs[1] - coeffs[2]
-    return coeffs
-
 
 @wp.func
 def _cubic_interpolation(
     x: float,
     coeffs: wp.vec4f,
 ):
+    """
+    Cubic interpolation of the terrain at a given position.
+
+    Args:
+        x (float): the position to interpolate.
+        coeffs (wp.vec4f): the coefficients of the cubic interpolation.
+    """
+
     a = -0.75
     coeffs[0] = a * (x * (1.0 - x * (2.0 - x)))
     coeffs[1] = a * (-2.0 + x * x * (5.0 - 3.0 * x))
@@ -72,6 +81,20 @@ def _bicubic_interpolation(
     coeffs: wp.array(dtype=wp.vec4f),
     out: wp.array(dtype=float),
 ):
+    """
+    Bicubic interpolation of the terrain at a given position.
+
+    Args:
+        dx (wp.array): x coordinate of the position.
+        dy (wp.array): y coordinate of the position.
+        q1 (wp.array): elevation of the terrain at the position (x-1, y-1).
+        q2 (wp.array): elevation of the terrain at the position (x, y-1).
+        q3 (wp.array): elevation of the terrain at the position (x+1, y-1).
+        q4 (wp.array): elevation of the terrain at the position (x+2, y-1).
+        coeffs (wp.array): the coefficients of the cubic interpolation.
+        out (wp.array): the interpolated elevation.
+    """
+
     tid = wp.tid()
     coeffs[tid] = _cubic_interpolation(dx[tid], coeffs[tid])
     a0 = wp.dot(q1[tid], coeffs[tid])
@@ -92,18 +115,41 @@ class GeoClipmapSpecs:
     numMeshLODLevels: int = 12
     meshBaseLODExtentHeightfieldTexels: int = 384
     meshBackBonePath: str = "terrain_mesh_backbone.npz"
-    demPath: str = "40k_dem.npy"
+    demPath: str = "assets/Terrains/SouthPole/ldem_87s_5mpp/dem.npy"
     meters_per_pixel: float = 5.0
     meters_per_texel: float = 0.1
     z_scale: float = 1.0
 
 
-def Point3(x, y, z):
+def Point3(x:float, y:float, z:float) -> np.ndarray:
+    """
+    Create a 3D point.
+    
+    Args:
+        x (float): x coordinate of the point.
+        y (float): y coordinate of the point.
+        z (float): z coordinate of the point.
+
+    Returns:
+        np.ndarray: the 3D point.
+    """
+
     return np.array([x, y, z])
 
 
 class GeoClipmap:
+    """
+    GeoClipmap class.
+    """
+
     def __init__(self, specs: GeoClipmapSpecs):
+        """
+        Initializes the GeoClipmap.
+
+        Args:
+            specs (GeoClipmapSpecs): the specifications of the GeoClipmap.
+        """
+
         self.specs = specs
         self.index_count = 0
         self.prev_indices = {}
@@ -119,15 +165,33 @@ class GeoClipmap:
         self.initial_position = [0, 0]
 
     @staticmethod
-    def gridIndex(x: int, y: int, stride: int) -> int:
-        return y * stride + x
-
-    @staticmethod
     def compute_hash(specs: GeoClipmapSpecs) -> str:
-        return hashlib.sha256(str(specs).encode("utf-8")).hexdigest()
+        """
+        Compute a hash of the specs to be used as a key for the mesh cache.
+
+        Args:
+            specs (GeoClipmapSpecs): the specs to hash.
+        
+        Returns:
+            str: the hash of the specs.
+        """
+
+        specs_ = specs.__dict__
+        specs_.pop("demPath")
+        return hashlib.sha256(str(specs_).encode("utf-8")).hexdigest()
 
     def querryPointIndex(self, point: np.ndarray) -> int:
-        hash = str(point[::2])
+        """
+        Querry the index of a point in the mesh. If the point is not in the mesh, add it.
+
+        Args:
+            point (np.ndarray): the point to querry.
+        
+        Returns:
+            int: the index of the point in the mesh.
+        """
+
+        hash = str(point[:2])
         if hash in self.prev_indices.keys():
             index = self.prev_indices[hash]
         elif hash in self.new_indices.keys():
@@ -140,17 +204,30 @@ class GeoClipmap:
         return index
 
     def addTriangle(self, A: np.ndarray, B: np.ndarray, C: np.ndarray) -> None:
+        """
+        Add a triangle to the mesh.
+
+        Args:
+            A (np.ndarray): the first point of the triangle.
+            B (np.ndarray): the second point of the triangle.
+            C (np.ndarray): the third point of the triangle.
+        """
+
         A_idx = self.querryPointIndex(A)
         B_idx = self.querryPointIndex(B)
         C_idx = self.querryPointIndex(C)
         self.indices.append(A_idx)
         self.indices.append(B_idx)
         self.indices.append(C_idx)
-        self.uvs.append(A[::2])
-        self.uvs.append(B[::2])
-        self.uvs.append(C[::2])
+        self.uvs.append(A[:2])
+        self.uvs.append(B[:2])
+        self.uvs.append(C[:2])
 
     def buildMesh(self) -> None:
+        """
+        Build the mesh backbone.
+        """
+
         print("Building the mesh backbone, this may take time...")
         for level in range(0, self.specs.numMeshLODLevels):
             print(
@@ -173,9 +250,9 @@ class GeoClipmap:
             # Pad by one element to hide the gap to the next level
             pad = 0
             radius = int(step * (g + pad))
-            for z in range(-radius, radius, step):
+            for y in range(-radius, radius, step):
                 for x in range(-radius, radius, step):
-                    if max(abs(x + halfStep), abs(z + halfStep)) >= g * prevStep:
+                    if max(abs(x + halfStep), abs(y + halfStep)) >= g * prevStep:
                         # Cleared the cutout from the previous level. Tessellate the
                         # square.
 
@@ -187,10 +264,10 @@ class GeoClipmap:
                         #   | /   |   \ |
                         #   G-----H-----I
 
-                        A = Point3(float(x), L, float(z))
-                        C = Point3(float(x + step), L, A[-1])
-                        G = Point3(A[0], L, float(z + step))
-                        I = Point3(C[0], L, G[-1])
+                        A = Point3(float(x), float(y), L)
+                        C = Point3(float(x + step), A[1], L)
+                        G = Point3(A[0], float(y + step), L)
+                        I = Point3(C[0], G[1], L)
 
                         B = (A + C) * 0.5
                         D = (A + G) * 0.5
@@ -214,7 +291,7 @@ class GeoClipmap:
                             self.addTriangle(E, A, D)
                             self.addTriangle(E, D, G)
 
-                        if z == (radius - step):
+                        if y == (radius - step):
                             self.addTriangle(E, G, I)
                         else:
                             self.addTriangle(E, G, H)
@@ -226,7 +303,7 @@ class GeoClipmap:
                             self.addTriangle(E, I, F)
                             self.addTriangle(E, F, C)
 
-                        if z == -radius:
+                        if y == -radius:
                             self.addTriangle(E, C, A)
                         else:
                             self.addTriangle(E, C, B)
@@ -238,6 +315,10 @@ class GeoClipmap:
         self.indices = np.array(self.indices)
 
     def saveMesh(self) -> None:
+        """
+        Save the mesh to the disk.
+        """
+
         np.savez_compressed(
             self.specs.meshBackBonePath,
             points=self.points,
@@ -247,6 +328,11 @@ class GeoClipmap:
         )
 
     def loadMesh(self) -> None:
+        """
+        Load the mesh from the disk.
+        Checks if the specs have changed since the last build, if so, rebuild the mesh.
+        """
+
         data = np.load(self.specs.meshBackBonePath)
         if data["specs_hash"] != self.specs_hash:
             self.buildMesh()
@@ -257,6 +343,11 @@ class GeoClipmap:
             self.uvs = data["uvs"]
 
     def initMesh(self) -> None:
+        """
+        Initialize the mesh.
+        Checks if the mesh backbone is already built, if not, build it.
+        """
+
         # Cache the mesh backbone between runs because it is expensive to generate
         if os.path.exists(self.specs.meshBackBonePath):
             self.loadMesh()
@@ -265,25 +356,46 @@ class GeoClipmap:
             self.saveMesh()
 
     def loadDEM(self) -> None:
+        """
+        Load the Digital Elevation Model (DEM) from the disk.
+        """
+
         self.dem = np.load(self.specs.demPath) * self.specs.z_scale
         self.dem_size = self.dem.shape
 
-    def getElevation(self, position) -> None:
+    def getElevation(self, position: Tuple[float, float, float]) -> None:
+        """
+        Get the elevation of the terrain at a given position.
+
+        Args:
+            position (np.ndarray): the position to get the elevation from.
+        """
+
         position_in_pixel = position * (1.0 / self.specs.meters_per_pixel)
         x = (self.points[:, 0] / self.specs.meters_per_pixel) + position_in_pixel[0]
-        y = (self.points[:, 2] / self.specs.meters_per_pixel) + position_in_pixel[2]
+        y = (self.points[:, 1] / self.specs.meters_per_pixel) + position_in_pixel[2]
         x = np.minimum(x, self.dem.shape[0] - 1)
         y = np.minimum(y, self.dem.shape[1] - 1)
         x = np.maximum(x, 0)
         y = np.maximum(y, 0)
 
-        z = self.bicubic_interpolation(x, y)
-        # bicubic interpolation is broken
+        with wp.ScopedTimer("full interpolation", active=True):
+            z = self.bicubic_interpolation(x, y)
 
-        self.points[:, 1] = self.points[:, -1]
         self.points[:, -1] = z.numpy()
 
     def linear_interpolation(self, x: int, y: int) -> wp.array:
+        """
+        Linear interpolation of the terrain at a given position.
+        
+        Args:
+            x (int): x coordinate of the position.
+            y (int): y coordinate of the position.
+            
+        Returns:
+            wp.array: the interpolated elevation.
+        """
+
         x1 = np.trunc(x).astype(int)
         y1 = np.trunc(y).astype(int)
 
@@ -315,6 +427,17 @@ class GeoClipmap:
         return z
 
     def bicubic_interpolation(self, x: int, y:int) -> wp.array:
+        """
+        Bicubic interpolation of the terrain at a given position.
+
+        Args:
+            x (int): x coordinate of the position.
+            y (int): y coordinate of the position.
+        
+        Returns:
+            wp.array: the interpolated elevation.
+        """
+
         x1 = np.maximum(np.trunc(x).astype(int) - 1, 0)
         y1 = np.maximum(np.trunc(y).astype(int) - 1, 0)
         x2 = np.minimum(x1 + 1, self.dem_size[0] - 1)
@@ -376,9 +499,6 @@ if __name__ == "__main__":
     with wp.ScopedTimer("render", active=True):
         clipmap.getElevation(np.array([8192 * 1, 0, 8192 * 1]))
 
-    print(clipmap.points.shape)
-    print(clipmap.indices.shape)
-    print(clipmap.uvs.shape)
     ax = plt.figure().add_subplot(projection="3d")
     ax.scatter(clipmap.points[:, 0], clipmap.points[:, 1], clipmap.points[:, 2])
     # plt.scatter(points[:,0], points[:,2])
