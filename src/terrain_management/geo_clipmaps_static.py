@@ -118,14 +118,15 @@ class GeoClipmap:
         self.loadDEM()
         self.initial_position = [0, 0]
 
-    def gridIndex(self, x, y, stride):
+    @staticmethod
+    def gridIndex(x: int, y: int, stride: int) -> int:
         return y * stride + x
 
     @staticmethod
-    def compute_hash(specs):
+    def compute_hash(specs: GeoClipmapSpecs) -> str:
         return hashlib.sha256(str(specs).encode("utf-8")).hexdigest()
 
-    def querryPointIndex(self, point):
+    def querryPointIndex(self, point: np.ndarray) -> int:
         hash = str(point[::2])
         if hash in self.prev_indices.keys():
             index = self.prev_indices[hash]
@@ -138,7 +139,7 @@ class GeoClipmap:
             self.index_count += 1
         return index
 
-    def addTriangle(self, A, B, C):
+    def addTriangle(self, A: np.ndarray, B: np.ndarray, C: np.ndarray) -> None:
         A_idx = self.querryPointIndex(A)
         B_idx = self.querryPointIndex(B)
         C_idx = self.querryPointIndex(C)
@@ -149,7 +150,7 @@ class GeoClipmap:
         self.uvs.append(B[::2])
         self.uvs.append(C[::2])
 
-    def buildMesh(self):
+    def buildMesh(self) -> None:
         print("Building the mesh backbone, this may take time...")
         for level in range(0, self.specs.numMeshLODLevels):
             print(
@@ -236,7 +237,7 @@ class GeoClipmap:
         self.uvs = np.array(self.uvs) * 2 * self.specs.meters_per_texel
         self.indices = np.array(self.indices)
 
-    def saveMesh(self):
+    def saveMesh(self) -> None:
         np.savez_compressed(
             self.specs.meshBackBonePath,
             points=self.points,
@@ -245,7 +246,7 @@ class GeoClipmap:
             specs_hash=self.specs_hash,
         )
 
-    def loadMesh(self):
+    def loadMesh(self) -> None:
         data = np.load(self.specs.meshBackBonePath)
         if data["specs_hash"] != self.specs_hash:
             self.buildMesh()
@@ -255,7 +256,7 @@ class GeoClipmap:
             self.indices = data["indices"]
             self.uvs = data["uvs"]
 
-    def initMesh(self):
+    def initMesh(self) -> None:
         # Cache the mesh backbone between runs because it is expensive to generate
         if os.path.exists(self.specs.meshBackBonePath):
             self.loadMesh()
@@ -263,11 +264,11 @@ class GeoClipmap:
             self.buildMesh()
             self.saveMesh()
 
-    def loadDEM(self):
+    def loadDEM(self) -> None:
         self.dem = np.load(self.specs.demPath) * self.specs.z_scale
         self.dem_size = self.dem.shape
 
-    def getElevation(self, position):
+    def getElevation(self, position) -> None:
         position_in_pixel = position * (1.0 / self.specs.meters_per_pixel)
         x = (self.points[:, 0] / self.specs.meters_per_pixel) + position_in_pixel[0]
         y = (self.points[:, 2] / self.specs.meters_per_pixel) + position_in_pixel[2]
@@ -282,7 +283,7 @@ class GeoClipmap:
         self.points[:, 1] = self.points[:, -1]
         self.points[:, -1] = z.numpy()
 
-    def linear_interpolation(self, x, y):
+    def linear_interpolation(self, x: int, y: int) -> wp.array:
         x1 = np.trunc(x).astype(int)
         y1 = np.trunc(y).astype(int)
 
@@ -313,7 +314,7 @@ class GeoClipmap:
             )
         return z
 
-    def bicubic_interpolation(self, x, y):
+    def bicubic_interpolation(self, x: int, y:int) -> wp.array:
         x1 = np.maximum(np.trunc(x).astype(int) - 1, 0)
         y1 = np.maximum(np.trunc(y).astype(int) - 1, 0)
         x2 = np.minimum(x1 + 1, self.dem_size[0] - 1)
