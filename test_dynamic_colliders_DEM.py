@@ -38,9 +38,6 @@ if __name__ == "__main__":
     np.flip(DEM, axis=0) # Flip Y axis to match the real world.
     DEM_offset = (DEM.shape[0]//2, DEM.shape[1]//2)
 
-    print("max:", np.max(DEM))
-    print("min:", np.min(DEM))
-
     CM.update_DEM_data(DEM, DEM_offset)
 
     UsdLux.DistantLight.Define(stage, "/sun")

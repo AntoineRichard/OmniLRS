@@ -47,6 +47,7 @@ class CollidersManager:
         self.DEM = None
         self.DEM_offset = (0, 0)
 
+        self._cfg = cfg
         # Block mesh parameters
         self._sim_width = int(cfg.sim_width / cfg.resolution) + 1
         self._sim_length = int(cfg.sim_length / cfg.resolution) + 1
@@ -184,15 +185,15 @@ class CollidersManager:
         xmin_remove = x - self.remove_radius
         ymin_remove = y - self.remove_radius
 
-        xi_max_build = math.floor(xmax_build / 50.)
-        yi_max_build = math.floor(ymax_build / 50.)
-        xi_min_build = math.floor(xmin_build / 50.)
-        yi_min_build = math.floor(ymin_build / 50.)
+        xi_max_build = math.floor(xmax_build / self._cfg.sim_length)
+        yi_max_build = math.floor(ymax_build / self._cfg.sim_width)
+        xi_min_build = math.floor(xmin_build / self._cfg.sim_length)
+        yi_min_build = math.floor(ymin_build / self._cfg.sim_width)
 
-        xi_max_remove = math.floor(xmax_remove / 50.)
-        yi_max_remove = math.floor(ymax_remove / 50.)
-        xi_min_remove = math.floor(xmin_remove / 50.)
-        yi_min_remove = math.floor(ymin_remove / 50.)
+        xi_max_remove = math.floor(xmax_remove / self._cfg.sim_length)
+        yi_max_remove = math.floor(ymax_remove / self._cfg.sim_width)
+        xi_min_remove = math.floor(xmin_remove / self._cfg.sim_length)
+        yi_min_remove = math.floor(ymin_remove / self._cfg.sim_width)
 
         # Check if there are duplicates
         if xi_max_build != xi_min_build:
@@ -222,10 +223,11 @@ class CollidersManager:
                 for j in y_build:
                     id = hashu(str(i) + "_" + str(j))
                     if (id not in self.active_ids):
-                        self.build_block(((i) * 50, (j) * 50, 0), id)
+                        self.build_block(((i * self._cfg.sim_length), (j * self._cfg.sim_width), 0), id)
 
         # If the remove blocks are different from the last remove blocks then remove the old blocks
         if self.last_remove != (x_remove, y_remove):
+            self.last_remove = (x_remove, y_remove)
             id_to_keep = []
             for i in x_remove:
                 for j in y_remove:
@@ -292,7 +294,7 @@ class CollidersManager:
                     uvs.append((x - 1, y))
                     uvs.append((x - 1, y - 1))
 
-        self._sim_grid = np.zeros((self._sim_width) * (self._sim_length), dtype=np.float32)
+        self._sim_grid = np.zeros(self._sim_width * self._sim_length, dtype=np.float32)
         self._sim_verts = np.array(vertices, dtype=np.float32)
         self._sim_uvs = np.array(uvs, dtype=np.float32)
         self._sim_uvs = self._sim_uvs * self._grid_size
@@ -351,7 +353,7 @@ class CollidersManager:
         pxr_utils.setDefaultOps(mesh, mesh_pos, mesh_rot, mesh_scale)
 
         # Make the colliders invisible
-        #self._stage.GetPrimAtPath(mesh_path).GetAttribute("visibility").Set("invisible")
+        self._stage.GetPrimAtPath(mesh_path).GetAttribute("visibility").Set("invisible")
         return mesh_path
 
     def updateTerrainCollider(self, mesh_path: str) -> None:
@@ -414,8 +416,6 @@ if __name__ == "__main__":
 
     world = World(stage_units_in_meters=1.0)
     stage = omni.usd.get_context().get_stage()    
-
-    #TM.build_initial_block()
 
     UsdLux.DistantLight.Define(stage, "/sun")
     UsdGeom.Sphere.Define(stage, "/sphere")
