@@ -147,3 +147,30 @@ class TerrainManagerConf:
         assert self.sim_length > 0, "sim_length must be greater than 0"
         assert self.sim_width > 0, "sim_width must be greater than 0"
         assert self.resolution > 0, "resolution must be greater than 0"
+
+@dataclasses.dataclass
+class CollidersManagerConf:
+    root_path: str = dataclasses.field(default_factory=str)
+    sim_length: int = dataclasses.field(default_factory=int)
+    sim_width: int = dataclasses.field(default_factory=int)
+    resolution: float = dataclasses.field(default_factory=float)
+    build_radius: float = dataclasses.field(default_factory=float)
+    remove_radius: float = dataclasses.field(default_factory=float)
+    max_cache_size: int = dataclasses.field(default_factory=int)
+
+    def __post_init__(self):
+        assert type(self.root_path) is str, "root_path must be a string"
+        assert type(self.sim_length) is float, "sim_length must be a float"
+        assert type(self.sim_width) is float, "sim_width must be a float"
+        assert type(self.resolution) is float, "resolution must be a float"
+        assert type(self.build_radius) is float, "build_radius must be a float"
+        assert type(self.remove_radius) is float, "remove_radius must be a float"
+        assert type(self.max_cache_size) is int, "max_cache_size must be an integer"
+
+        assert self.sim_length > 0, "sim_length must be greater than 0"
+        assert self.sim_width > 0, "sim_width must be greater than 0"
+        assert self.resolution > 0, "resolution must be greater than 0"
+        assert self.build_radius > 0, "build_radius must be greater than 0"
+        assert self.remove_radius > 0, "remove_radius must be greater than 0"
+        assert self.max_cache_size >= 4, "max_cache_size must be greater or equal to 4"
+        assert self.remove_radius > self.build_radius, "remove_radius must be greater than build_radius"
