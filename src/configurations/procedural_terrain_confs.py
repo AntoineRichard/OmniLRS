@@ -97,45 +97,51 @@ class BaseTerrainGeneratorConf:
         assert self.z_scale > 0, "z_scale must be greater than 0"
 
 @dataclasses.dataclass
-class WheelParams:
+class FootprintConf:
     """
-    Wheel dimension parameters. 
+    Footprint dimension parameters. 
+    We use FLU (Front, Left, Up) coordinate system for the footprint.
     Args:
-        wheel_width (float): Width of the wheel.
-        wheel_radius (float): Radius of the wheel.
+        width (float): Width of the footprint.
+        height (float): Height of the footprint.
+        shape (str): Shape of the footprint.
     """
-    wheel_width: float = 0.5
-    wheel_radius: float = 0.25
+    width: float = 0.5
+    height: float = 0.25
+    shape: str = "rectangle"
 
     def __post_init__(self):
-        assert type(self.wheel_width) is float, "wheel_width must be a float"
-        assert type(self.wheel_radius) is float, "wheel_radius must be a float"
-        assert self.wheel_width > 0, "wheel_width must be greater than 0"
-        assert self.wheel_radius > 0, "wheel_radius must be greater than 0"
+        assert type(self.width) is float, "wheel_width must be a float"
+        assert type(self.height) is float, "wheel_radius must be a float"
+        assert type(self.shape) is str, "shape must be a string"
+        assert self.width > 0, "wheel_width must be greater than 0"
+        assert self.height > 0, "wheel_radius must be greater than 0"
 
 @dataclasses.dataclass
-class DeformConstraintParam:
+class DeformConstrainConf:
     """
     Deformation constrain parameters.
     Args:
         deform_offset (float): Offset betweem deformation center and contact point.
         deform_decay_ratio (float): Decay ratio of the deformation.
     """
-    deform_offset: float = 0.0
+    horizontal_deform_offset: float = 0.0
+    vertical_deform_offset: float = 0.0
     deform_decay_ratio: float = 0.01
 
     def __post_init__(self):
-        assert type(self.deform_offset) is float, "deform_offset must be a float"
+        assert type(self.horizontal_deform_offset) is float, "deform_offset must be a float"
+        assert type(self.vertical_deform_offset) is float, "deform_offset must be a float"
         assert type(self.deform_decay_ratio) is float, "deform_decay_ratio must be a float"
         assert self.deform_decay_ratio > 0, "deform_decay_ratio must be greater than 0"
 
 @dataclasses.dataclass
-class BoundaryDistributionParam:
+class BoundaryDistributionConf:
     """
     Boundary distribution parameters.
     Args:
         distribution (str): Distribution of the boundary.
-        angle_of_repose (float): Angle of repose of the boundary.
+        angle_of_repose (float): Angle of repose of the boundary (only used for trapezoidal distribution)
     """
     distribution: str = "uniform"
     angle_of_repose: float = 1.047
@@ -146,12 +152,13 @@ class BoundaryDistributionParam:
         assert self.angle_of_repose > 0, "angle_of_repose must be greater than 0"
 
 @dataclasses.dataclass
-class ForceDistributionParam:
+class DepthDistributionConf:
     """
-    Force distribution parameters.
+    Deformation depth distribution parameters.
     Args:
         distribution (str): Distribution of the force.
         wave_frequency (float): Frequency of the wave.
+        vertical_offset (float): Vertical offset of the wave.
     """
     distribution: str = "uniform"
     wave_frequency: float = 1.0
@@ -160,6 +167,22 @@ class ForceDistributionParam:
         assert type(self.distribution) is str, "distribution must be a string"
         assert type(self.wave_frequency) is float, "wave_frequency must be a float"
         assert self.wave_frequency > 0, "wave_frequency must be greater than 0"
+
+@dataclasses.dataclass
+class ForceDepthRegressionConf:
+    """
+    Force depth regression parameters.
+    For now, linear regression.
+    Args:
+        slope (float): Slope of the regression.
+        intercept (float): Intercept of the regression.
+    """
+    slope: float = 1.0
+    intercept: float = 0.0
+
+    def __post_init__(self):
+        assert type(self.slope) is float, "slope must be a float"
+        assert type(self.intercept) is float, "intercept must be a float"
 
 @dataclasses.dataclass
 class DeformationEngineConf:
@@ -171,44 +194,41 @@ class DeformationEngineConf:
         terrain_resolution (float): Resolution of the terrain.
         terrain_width (float): Width of the terrain.
         terrain_height (float): Height of the terrain.
-        force_depth_slope (float): Slope of the force depth.
-        force_depth_intercept (float): Intercept of the force depth.
         gravity (list): Gravity vector.
-        wheel_params (dict): Wheel parameters.
-        deform_constraint (dict): Deformation constraint parameters.
-        force_distribution (dict): Force distribution parameters.
+        footprint (dict): Footprint parameters.
+        deform_constrain (dict): Deformation constrain parameters.
         boundary_distribution (dict): Boundary distribution parameters.
+        depth_distribution (dict): Deformation depth distribution parameters.
+        force_depth_regression (dict): Force depth regression parameters.
     """
     enable: bool = False
     render_deform_inv: int = 10
     terrain_resolution: float = dataclasses.field(default_factory=float)
     terrain_width: float = dataclasses.field(default_factory=float)
     terrain_height: float = dataclasses.field(default_factory=float)
-    force_depth_slope: float = dataclasses.field(default_factory=float)
-    force_depth_intercept: float = dataclasses.field(default_factory=float)
     gravity: List[float] = dataclasses.field(default_factory=list)
-    wheel_params: WheelParams = dataclasses.field(default_factory=dict)
-    deform_constraint: DeformConstraintParam = dataclasses.field(default_factory=dict)
-    force_distribution: ForceDistributionParam = dataclasses.field(default_factory=dict)
-    boundary_distribution: BoundaryDistributionParam = dataclasses.field(default_factory=dict)
+    footprint: FootprintConf = dataclasses.field(default_factory=dict)
+    deform_constrain: DeformConstrainConf = dataclasses.field(default_factory=dict)
+    boundary_distribution: BoundaryDistributionConf = dataclasses.field(default_factory=dict)
+    depth_distribution: DepthDistributionConf = dataclasses.field(default_factory=dict)
+    force_depth_regression: ForceDepthRegressionConf = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
         assert type(self.render_deform_inv) is int, "render_deform_inv must be an int"
         assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
         assert type(self.terrain_width) is float, "terrain_width must be a float"
         assert type(self.terrain_height) is float, "terrain_height must be a float"
-        assert type(self.force_depth_slope) is float, "force_depth_ratio must be a float"
-        assert type(self.force_depth_intercept) is float, "force_depth_intercept must be a float"
         
         assert self.render_deform_inv > 1, "render_deform_inv must be greater than 1"
         assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"
         assert self.terrain_width > 0, "terrain_width must be greater than 0"
         assert self.terrain_height > 0, "terrain_height must be greater than 0"
         
-        self.wheel_params = WheelParams(**self.wheel_params)
-        self.deform_constraint = DeformConstraintParam(**self.deform_constraint)
-        self.force_distribution = ForceDistributionParam(**self.force_distribution)
-        self.boundary_distribution = BoundaryDistributionParam(**self.boundary_distribution)
+        self.footprint = FootprintConf(**self.footprint)
+        self.deform_constrain = DeformConstrainConf(**self.deform_constrain)
+        self.boundary_distribution = BoundaryDistributionConf(**self.boundary_distribution)
+        self.depth_distribution = DepthDistributionConf(**self.depth_distribution)
+        self.force_depth_regression = ForceDepthRegressionConf(**self.force_depth_regression)
 
 @dataclasses.dataclass
 class MoonYardConf:

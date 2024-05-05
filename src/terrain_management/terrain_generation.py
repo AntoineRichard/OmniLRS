@@ -27,6 +27,7 @@ from src.configurations.procedural_terrain_confs import (
     MoonYardConf,
 )
 
+from src.terrain_management.deformation_engine import DeformationEngine
 
 class CraterGenerator:
     """
@@ -466,206 +467,6 @@ class BaseTerrainGenerator:
         # self._DEM = self._DEM * (self._max_elevation - self._min_elevation) + self._min_elevation
         return self._DEM * self._z_scale
 
-class DeformationEngine:
-    """
-    Terrain deformation class. 
-    Idea is to deform the part of terrain where the robot's foot contacts. 
-    """
-    def __init__(self, deformation_engine:DeformationEngineConf)-> None:
-        """
-        Args:
-            deformation_engine (DeformationEngineConf): deformation engine configuration.
-        """
-        self.terrain_resolution = deformation_engine.terrain_resolution
-        self.terrain_width = deformation_engine.terrain_width
-        self.terrain_height = deformation_engine.terrain_height
-        self.wheel_width = deformation_engine.wheel_params.wheel_width
-        self.wheel_radius = deformation_engine.wheel_params.wheel_radius
-        self.deform_offset = deformation_engine.deform_constraint.deform_offset
-        self.deform_decay_ratio = deformation_engine.deform_constraint.deform_decay_ratio
-        self.force_distribution = deformation_engine.force_distribution
-        self.boundary_distribution = deformation_engine.boundary_distribution
-        self.force_depth_slope = deformation_engine.force_depth_slope
-        self.force_depth_intercept = deformation_engine.force_depth_intercept
-
-        self.sim_width = self.terrain_width / self.terrain_resolution
-        self.sim_height = self.terrain_height / self.terrain_resolution
-        
-        # create null variable
-        self.profile = None
-        self.force_dist = None
-        self.boundary_dist = None
-
-        self.create_profile()
-        self.get_force_distribution()
-        self.get_boundary_distribution()
-
-    def create_profile(self):
-        """
-        Create a profile of trace in wheel frame (FLU)
-        Returns:
-            profile (np.ndarray): profile of wheel deformation (num_point_sample, 2)
-        """
-        xs = np.linspace(-self.wheel_radius, self.wheel_radius, int(2*self.wheel_radius/self.terrain_resolution)+1) + self.deform_offset
-        ys = np.linspace(-self.wheel_width/2, self.wheel_width/2, int(self.wheel_width/self.terrain_resolution)+1)
-        X, Y = np.meshgrid(xs, ys)
-        self.profile = np.column_stack([X.flatten(), Y.flatten()])
-        self.profile_width = X.shape[0]
-        self.profile_height = X.shape[1]
-    
-    def get_force_distribution(self)-> None:
-        """
-        Get force distribution over profile from single contact force.
-            uniform: force is uniformly distributed over profile.
-            sinusoidal: force is distributed sinusoidally over profile.
-        force_dist (np.ndarray): force distribution over profile (num_point_sample, 1)
-        """
-        if self.force_distribution.distribution == "uniform":
-            self.force_dist = self.uniform_force_generator()
-        elif self.force_distribution.distribution == "sinusoidal":
-            self.force_dist = self.sinusoidal_force_generator()
-    
-    ### Force distribution functions ###
-    def uniform_force_generator(self)-> np.ndarray:
-        """
-        Generate uniform force distribution over profile.
-        Return: 
-            force_dist (np.ndarray): force distribution over profile (num_point_sample,)
-        """
-        force_dist = np.ones(self.profile.shape[0], dtype=np.float32)
-        return force_dist
-    
-    def sinusoidal_force_generator(self)-> np.ndarray:
-        """
-        Generate sinusoidal force distribution over profile.
-        Return: 
-            force_dist (np.ndarray): force distribution over profile (num_point_sample,)
-        """
-        force_dist_x = np.cos(2*self.force_distribution.wave_frequency*np.pi * np.linspace(-1, 1, self.profile_height)) # create force distribution on x axis
-        force_dist = force_dist_x[None, :].repeat(self.profile_width, axis=0).reshape(-1) # clone force_x to y axis
-        return force_dist
-    
-    ### Boundary distribution functions ###
-    def get_boundary_distribution(self)->None:
-        """
-        Get boundary distribution over profile.
-            uniform: boundary distribution is uniformly distributed over profile.
-            parabolic: boundary distribution is parabolically distributed over profile.
-        boundary_dist (np.ndarray): boundary distribution over profile (num_point_sample, )
-        """
-        if self.boundary_distribution.distribution == "uniform":
-            self.boundary_dist = self.uniform_boundary_generator()
-        elif self.boundary_distribution.distribution == "parabolic":
-            self.boundary_dist = self.parabolic_boundary_generator()
-        elif self.boundary_distribution.distribution == "trapezoidal":
-            self.boundary_dist = self.trapezoidal_boundary_generator()
-    
-    def uniform_boundary_generator(self):
-        """
-        Generate uniform boundary distribution over profile.
-        Return: 
-            boundary_dist (np.ndarray): boundary distribution over profile (num_point_sample, )
-        """
-        boundary_dist = np.ones(self.profile.shape[0])
-        return boundary_dist
-    
-    def parabolic_boundary_generator(self):
-        """
-        Generate parabolic boundary distribution over profile.
-        Return: 
-            boundary_dist (np.ndarray): boundary distribution over profile (num_point_sample, )
-        """
-        y = np.linspace(-1, 1, self.profile_width)
-        boundary_dist_y = y**2 - 1
-        boundary_dist = boundary_dist_y[None, :].repeat(self.profile_height, axis=1).reshape(-1)
-        return boundary_dist
-    
-    def trapezoidal_boundary_generator(self):
-        """
-        Generate trapezoidal boundary distribution over profile.
-        Return: 
-            boundary_dist (np.ndarray): boundary distribution over profile (num_point_sample, )
-        """
-        tan = np.tan(self.boundary_distribution.angle_of_repose)
-        y = np.linspace(-1, 1, self.profile_width)
-        mask = (np.abs(y) >= 1 - (1/tan)).astype(np.float32)
-        boundary_dist_y = mask * (tan * np.abs(y) - tan + 1) - 1
-        boundary_dist = boundary_dist_y[None, :].repeat(self.profile_height, axis=1).reshape(-1)
-        return boundary_dist
-
-    def get_profile_projection(self, body_transforms:np.ndarray)-> np.ndarray:
-        """
-        Get x, y positions of profile in global coordinate.
-        Args:
-            body_transforms (np.ndarray): body transform of robot's links (n, 4, 4)
-            ---
-            n is the number of links.
-        Returns:
-            projection_points (np.ndarray): projected pixel coordinates of robot's links (num_points, 2)
-            num_points = n * num_point_sample
-        """
-        projection_points = []
-        for i in range(body_transforms.shape[0]):
-            body_transform = body_transforms[i]
-            heading = R.from_matrix(body_transform[:3, :3]).as_euler("zyx")[0]
-            projection_point = np.array(
-                [self.profile[:, 0]*np.cos(heading) - self.profile[:, 1]*np.sin(heading), 
-                self.profile[:, 0]*np.sin(heading) + self.profile[:, 1]*np.cos(heading)]).T + body_transform[:2, 3]
-            projection_points.append(projection_point)
-        return np.concatenate(projection_points)
-    
-    @staticmethod
-    def linear_func(force:np.ndarray, slope:float, intercept:float)-> np.ndarray:
-        """
-        Linear function.
-        Args:
-            force (np.ndarray): contact force (n,)
-            slope (float): slope of the linear function
-            intercept (float): intercept of the linear function
-        Returns:
-            depth (np.ndarray): deformation depth (n,)"""
-        return slope * force + intercept
-    
-    def get_deformation_depth(self, normal_forces:np.ndarray, model:str="linear")-> np.ndarray:
-        """
-        Calculate deformation depth from force distribution.
-        Args:
-            normal_forces (np.ndarray): contact force fields (n,)
-        Returns:
-            depth (np.ndarray): deformation depth (num_points, 1)
-            ---
-            num_points = n * num_point_sample
-        """
-        if model == "linear":
-            forces = np.concatenate(
-                [self.linear_func(
-                    normal_force, self.force_depth_slope, self.force_depth_intercept
-                    ) * self.boundary_dist * self.force_dist for normal_force in normal_forces])
-            return forces
-        else:
-            raise ValueError("Unknown model")
-    
-    def deform(self, DEM:np.ndarray, num_pass:np.ndarray, body_transforms:np.ndarray, normal_forces:np.ndarray)-> np.ndarray:
-        """
-        Args:
-            DEM (np.ndarray): DEM to deform
-            body_transforms (np.ndarray): projected coordinates of robot's link (n, 4, 4)
-            normal_forces (np.ndarray): (dynamic) contact forces applied on robot's link (n, 3)
-            ---
-            n is the number of wheels.
-        Returns:
-            DEM (np.ndarray): deformed DEM
-            num_pass (np.ndarray): number of passes on each pixel
-        """
-        profile_points = self.get_profile_projection(body_transforms=body_transforms)
-        deformation_depth = self.get_deformation_depth(normal_forces=normal_forces)
-        for i, profile_point in enumerate(profile_points):
-            x = int(profile_point[0]/self.terrain_resolution)
-            y = int(self.sim_height - profile_point[1]/self.terrain_resolution)
-            DEM[y, x] += deformation_depth[i] * ((self.deform_decay_ratio)**num_pass[y, x])
-            num_pass[y, x] += 1
-        return DEM, num_pass
-
 class GenerateProceduralMoonYard:
     """
     Generates a random terrain DEM with craters."""
@@ -701,7 +502,7 @@ class GenerateProceduralMoonYard:
         self._dem_init = None
         self._mask = None
         self._dem_delta = None
-        self._multipass = None
+        self._num_pass = None
     
     def randomize(self) -> np.ndarray:
         """
@@ -717,7 +518,7 @@ class GenerateProceduralMoonYard:
         self._dem_init = DEM
         self._dem_delta = np.zeros_like(DEM)
         self._mask = mask
-        self._multipass = np.zeros_like(mask)
+        self._num_pass = np.zeros_like(mask)
         return DEM, mask
     
     def register_terrain(self, DEM:np.ndarray, mask:np.ndarray):
@@ -727,7 +528,7 @@ class GenerateProceduralMoonYard:
         self._dem_init = DEM
         self._dem_delta = np.zeros_like(DEM)
         self._mask = mask
-        self._multipass = np.zeros_like(mask)
+        self._num_pass = np.zeros_like(mask)
     
     def deform(self, body_transforms:np.ndarray, contact_forces:np.ndarray)-> np.ndarray:
         """
@@ -736,8 +537,8 @@ class GenerateProceduralMoonYard:
             body_transforms(numpy.ndarray): body to world transform of robot links (N, 4, 4)
             contact_forces(numpy.ndarray): contact forces on robot links (N, 3)
         """
-        self._dem_delta, self._multipass = self.DE.deform(
-            self._dem_delta, self._multipass, body_transforms, contact_forces[:, 2])
+        self._dem_delta, self._num_pass = self.DE.deform(
+            self._dem_delta, self._num_pass, body_transforms, contact_forces[:, 2])
         return self._dem_init + self._dem_delta, self._mask
 
 
