@@ -248,10 +248,10 @@ terrain_manager:
         deform_decay_ratio: 0.01
       boundary_distribution: 
         distribution: trapezoidal
-        angle_of_repose: 1.047
+        angle_of_repose: 1.047 #pi/3
       depth_distribution: 
         distribution: sinusoidal
-        wave_frequency: 2.0
+        wave_frequency: 4.14 # num_grouser/pi (no slip)
       force_depth_regression:
         slope: 0.00014
         intercept: 0.008
@@ -275,14 +275,14 @@ robots_settings:
   max_robots: 5
   robots_root: "/Robots"
   parameters:
-    # -
-    #   robot_name: ex1
-    #   usd_path: assets/USD_Assets/robots/ex1_camera.usd
-    #   pose:
-    #     position: [5.0, 5.0, 0.5]
-    #     orientation: [1, 0, 0, 0]
-    #   domain_id: 0
-    #   target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
+    -
+      robot_name: ex1
+      usd_path: assets/USD_Assets/robots/ex1_camera.usd
+      pose:
+        position: [5.0, 5.0, 0.5]
+        orientation: [1, 0, 0, 0]
+      domain_id: 0
+      target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
     -
       robot_name: hero3
       usd_path: assets/USD_Assets/robots/hero3.usd

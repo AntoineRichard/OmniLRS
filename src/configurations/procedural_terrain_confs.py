@@ -157,8 +157,7 @@ class DepthDistributionConf:
     Deformation depth distribution parameters.
     Args:
         distribution (str): Distribution of the force.
-        wave_frequency (float): Frequency of the wave.
-        vertical_offset (float): Vertical offset of the wave.
+        wave_frequency (float): Frequency of the wave. Under no slip condition, this is num_grouser/pi
     """
     distribution: str = "uniform"
     wave_frequency: float = 1.0
