@@ -39,7 +39,7 @@ class FootprintProfileGenerator:
         self.profile = None
 
     def create_profile(self)->Tuple[np.ndarray, int, int]:
-        x = np.linspace(-self.profile_height, self.profile_height, int(2*self.profile_height/self.terrain_resolution)+1) + self.horizontal_deform_offset
+        x = np.linspace(-self.profile_height/2, self.profile_height/2, int(self.profile_height/self.terrain_resolution)+1) + self.horizontal_deform_offset
         y = np.linspace(-self.profile_width/2, self.profile_width/2, int(self.profile_width/self.terrain_resolution)+1)
         xx, yy = np.meshgrid(x, y)
         self.profile = np.column_stack([xx.flatten(), yy.flatten()])
@@ -52,17 +52,18 @@ class FootprintProfileGenerator:
         plt.xlabel("x")
         plt.ylabel("y")
         plt.title("Footprint Profile in local frame.")
-        plt.show()
 
 ### Depth Distribution Generators ###
 class DepthDistributionGenerator:
     def __init__(
             self, 
             depth_distribution:DepthDistributionConf,
+            footprint: FootprintConf,
             footprint_profile_width:int,
             footprint_profile_height:int,
             )-> None:
         self.depth_distribution = depth_distribution
+        self.footprint = footprint
         self.footprint_profile_width = footprint_profile_width
         self.footprint_profile_height = footprint_profile_height
     
@@ -79,10 +80,11 @@ class UniformDepthDistributionGenerator(DepthDistributionGenerator):
     def __init__(
             self, 
             depth_distribution:DepthDistributionConf,
+            footprint: FootprintConf,
             footprint_profile_width:int,
             footprint_profile_height:int,
             )-> None:
-        super().__init__(depth_distribution, footprint_profile_width, footprint_profile_height)
+        super().__init__(depth_distribution, footprint, footprint_profile_width, footprint_profile_height)
     
     def get_depth_distribution_yslice(self)-> np.ndarray:
         return np.ones(self.footprint_profile_height, dtype=np.float32)
@@ -94,21 +96,22 @@ class UniformDepthDistributionGenerator(DepthDistributionGenerator):
         return depth_dist
     
     def plot_depth_distribution(self):
-        x = np.linspace(-1, 1, self.footprint_profile_height)
+        x = (self.footprint.height/2) * np.linspace(-1, 1, self.footprint_profile_height)
         y = self.get_depth_distribution_yslice()
         plt.plot(x, y)
-        plt.xlabel("x")
-        plt.ylabel("depth")
-        plt.title("XZ cross section of depth distribution")
+        plt.xlabel("x [m]")
+        plt.ylabel("depth mask")
+        plt.title("XZ cross section distribution")
 
 class SinusoidalDepthDistributionGenerator(DepthDistributionGenerator):
     def __init__(
             self, 
             depth_distribution:DepthDistributionConf,
+            footprint: FootprintConf,
             footprint_profile_width:int,
             footprint_profile_height:int,
             )-> None:
-        super().__init__(depth_distribution, footprint_profile_width, footprint_profile_height)
+        super().__init__(depth_distribution, footprint, footprint_profile_width, footprint_profile_height)
     
     def get_depth_distribution_yslice(self)-> np.ndarray:
         return np.cos(self.depth_distribution.wave_frequency*np.pi * np.linspace(-1, 1, self.footprint_profile_height)) # create depth distribution on x axis
@@ -120,24 +123,56 @@ class SinusoidalDepthDistributionGenerator(DepthDistributionGenerator):
         return depth_dist
     
     def plot_depth_distribution(self):
-        x = np.linspace(-1, 1, self.footprint_profile_height)
+        x = (self.footprint.height/2) * np.linspace(-1, 1, self.footprint_profile_height)
         y = self.get_depth_distribution_yslice()
         plt.plot(x, y)
-        plt.xlabel("x")
-        plt.ylabel("depth")
-        plt.title("XZ cross section of depth distribution")
+        plt.xlabel("x [m]")
+        plt.ylabel("depth mask")
+        plt.title("XZ cross section distribution")
 
 class TrapezoidalDepthDistributionGenerator(DepthDistributionGenerator):
     def __init__(
             self, 
             depth_distribution:DepthDistributionConf,
+            footprint: FootprintConf,
             footprint_profile_width:int,
             footprint_profile_height:int,
             )-> None:
-        super().__init__(depth_distribution, footprint_profile_width, footprint_profile_height)
+        super().__init__(depth_distribution, footprint, footprint_profile_width, footprint_profile_height)
     
+    def trapezoid_wave(self, period=1, amplitude=1):
+        t = np.linspace(-1, 1, self.footprint_profile_height)
+        # Calculate segments based on the period
+        rise_time = 0.25 * period
+        high_time = 0.25 * period
+        fall_time = 0.25 * period
+        low_time = 0.25 * period
+
+        # Shift t by half a period to center the waveform around x=0
+        t_shifted = t + 0.5 * period
+        
+        # Initialize the waveform value
+        y = np.zeros_like(t_shifted)
+        
+        # Compute the waveform
+        for i, ti in enumerate(t_shifted):
+            if ti % period < rise_time:
+                # Rising edge
+                y[i] = (ti % period) / rise_time * amplitude
+            elif ti % period < rise_time + high_time:
+                # High level
+                y[i] = amplitude
+            elif ti % period < rise_time + high_time + fall_time:
+                # Falling edge
+                y[i] = amplitude - ((ti % period - rise_time - high_time) / fall_time * amplitude)
+            else:
+                # Low level
+                y[i] = 0
+                
+        return y
+   
     def get_depth_distribution_yslice(self)-> np.ndarray:
-        return np.cos(self.depth_distribution.wave_frequency*np.pi * np.linspace(-1, 1, self.footprint_profile_height)) # create depth distribution on x axis
+        return -1 + self.trapezoid_wave(2/self.depth_distribution.wave_frequency, 2) # create depth distribution on x axis
     
     def get_depth_distribution(self) -> np.ndarray:
         depth_dist_x = self.get_depth_distribution_yslice()
@@ -146,11 +181,11 @@ class TrapezoidalDepthDistributionGenerator(DepthDistributionGenerator):
         return depth_dist
     
     def plot_depth_distribution(self):
-        x = np.linspace(-1, 1, self.footprint_profile_height)
+        x = (self.footprint.height/2) * np.linspace(-1, 1, self.footprint_profile_height)
         y = self.get_depth_distribution_yslice()
         plt.plot(x, y)
-        plt.xlabel("x")
-        plt.ylabel("depth")
+        plt.xlabel("x [m]")
+        plt.ylabel("depth mask")
         plt.title("XZ cross section of depth distribution")
 
 ### Boundary Distribution Generators ###
@@ -159,10 +194,12 @@ class BoundaryDistributionGenerator:
     def __init__(
             self, 
             boundary_distribution:BoundaryDistributionConf,
+            footprint: FootprintConf, 
             footprint_profile_width:int,
             footprint_profile_height:int,
             )-> None:
         self.boundary_distribution = boundary_distribution
+        self.footprint = footprint
         self.footprint_profile_width = footprint_profile_width
         self.footprint_profile_height = footprint_profile_height
     
@@ -179,13 +216,14 @@ class UniformBoundaryDistributionGenerator(BoundaryDistributionGenerator):
     def __init__(
             self, 
             boundary_distribution:BoundaryDistributionConf,
+            footprint: FootprintConf,
             footprint_profile_width:int,
             footprint_profile_height:int,
             )-> None:
-        super().__init__(boundary_distribution, footprint_profile_width, footprint_profile_height)
+        super().__init__(boundary_distribution, footprint, footprint_profile_width, footprint_profile_height)
     
     def get_boundary_distribution_xslice(self)-> np.ndarray:
-        return np.ones(self.footprint_profile_width, dtype=np.float32)
+        return -np.ones(self.footprint_profile_width, dtype=np.float32)
     
     def get_boundary_distribution(self) -> np.ndarray:
         boundary_dist_y = self.get_boundary_distribution_xslice()
@@ -194,21 +232,22 @@ class UniformBoundaryDistributionGenerator(BoundaryDistributionGenerator):
         return boundary_dist
     
     def plot_boundary_distribution(self):
-        x = np.linspace(-1, 1, self.footprint_profile_width)
+        x = (self.footprint.width/2) * np.linspace(-1, 1, self.footprint_profile_width)
         y = self.get_boundary_distribution_xslice()
         plt.plot(x, y)
-        plt.xlabel("y")
-        plt.ylabel("boundary")
-        plt.title("YZ cross section of boundary distribution")
+        plt.xlabel("y [m]")
+        plt.ylabel("depth mask")
+        plt.title("YZ cross section distribution")
 
 class ParabolicBoundaryDistributionGenerator(BoundaryDistributionGenerator):
     def __init__(
             self, 
             boundary_distribution:BoundaryDistributionConf,
+            footprint: FootprintConf,
             footprint_profile_width:int,
             footprint_profile_height:int,
             )-> None:
-        super().__init__(boundary_distribution, footprint_profile_width, footprint_profile_height)
+        super().__init__(boundary_distribution, footprint, footprint_profile_width, footprint_profile_height)
     
     def get_boundary_distribution_xslice(self)-> np.ndarray:
         y = np.linspace(-1, 1, self.footprint_profile_width)
@@ -221,21 +260,22 @@ class ParabolicBoundaryDistributionGenerator(BoundaryDistributionGenerator):
         return boundary_dist
     
     def plot_boundary_distribution(self):
-        x = np.linspace(-1, 1, self.footprint_profile_width)
+        x = (self.footprint.width/2) * np.linspace(-1, 1, self.footprint_profile_width)
         y = self.get_boundary_distribution_xslice()
         plt.plot(x, y)
-        plt.xlabel("y")
-        plt.ylabel("boundary")
-        plt.title("YZ cross section of boundary distribution")
+        plt.xlabel("y [m]")
+        plt.ylabel("depth mask")
+        plt.title("YZ cross section distribution")
 
 class TrapezoidalBoundaryDistributionGenerator(BoundaryDistributionGenerator):
     def __init__(
             self, 
             boundary_distribution:BoundaryDistributionConf,
+            footprint: FootprintConf,
             footprint_profile_width:int,
             footprint_profile_height:int,
             )-> None:
-        super().__init__(boundary_distribution, footprint_profile_width, footprint_profile_height)
+        super().__init__(boundary_distribution, footprint, footprint_profile_width, footprint_profile_height)
     
     def get_boundary_distribution_xslice(self)-> np.ndarray:
         tan = np.tan(self.boundary_distribution.angle_of_repose)
@@ -250,12 +290,12 @@ class TrapezoidalBoundaryDistributionGenerator(BoundaryDistributionGenerator):
         return boundary_dist
     
     def plot_boundary_distribution(self):
-        x = np.linspace(-1, 1, self.footprint_profile_width)
+        x = (self.footprint.width/2) * np.linspace(-1, 1, self.footprint_profile_width)
         y = self.get_boundary_distribution_xslice()
         plt.plot(x, y)
-        plt.xlabel("y")
-        plt.ylabel("boundary")
-        plt.title("YZ cross section of boundary distribution")
+        plt.xlabel("y [m]")
+        plt.ylabel("depth mask")
+        plt.title("YZ cross section distribution")
 
 class DeformationEngine:
     """
@@ -272,7 +312,8 @@ class DeformationEngine:
         self.terrain_height = deformation_engine.terrain_height
         self.sim_width = self.terrain_width / self.terrain_resolution
         self.sim_height = self.terrain_height / self.terrain_resolution
-
+        
+        self.footprint = deformation_engine.footprint
         self.deform_constrain = deformation_engine.deform_constrain
         self.depth_distribution = deformation_engine.depth_distribution
         self.boundary_distribution = deformation_engine.boundary_distribution
@@ -290,6 +331,7 @@ class DeformationEngine:
         if self.depth_distribution.distribution == "uniform":
             self.depth_distribution_generator = UniformDepthDistributionGenerator(
                 depth_distribution=self.depth_distribution,
+                footprint=self.footprint, 
                 footprint_profile_width=self.footprint_profile_width,
                 footprint_profile_height=self.footprint_profile_height
             )
@@ -298,6 +340,7 @@ class DeformationEngine:
         elif self.depth_distribution.distribution == "sinusoidal":
             self.depth_distribution_generator = SinusoidalDepthDistributionGenerator(
                 depth_distribution=self.depth_distribution,
+                footprint=self.footprint,
                 footprint_profile_width=self.footprint_profile_width,
                 footprint_profile_height=self.footprint_profile_height
             )
@@ -306,6 +349,7 @@ class DeformationEngine:
         elif self.depth_distribution.distribution == "trapezoidal":
             self.depth_distribution_generator = TrapezoidalDepthDistributionGenerator(
                 depth_distribution=self.depth_distribution,
+                footprint=self.footprint,
                 footprint_profile_width=self.footprint_profile_width,
                 footprint_profile_height=self.footprint_profile_height
             )
@@ -315,6 +359,7 @@ class DeformationEngine:
         if self.boundary_distribution.distribution == "uniform":
             self.boundary_distribution_generator = UniformBoundaryDistributionGenerator(
                 boundary_distribution=self.boundary_distribution,
+                footprint=self.footprint,
                 footprint_profile_width=self.footprint_profile_width,
                 footprint_profile_height=self.footprint_profile_height
             )
@@ -323,6 +368,7 @@ class DeformationEngine:
         elif self.boundary_distribution.distribution == "parabolic":
             self.boundary_distribution_generator = ParabolicBoundaryDistributionGenerator(
                 boundary_distribution=self.boundary_distribution,
+                footprint=self.footprint,
                 footprint_profile_width=self.footprint_profile_width,
                 footprint_profile_height=self.footprint_profile_height
             )
@@ -331,6 +377,7 @@ class DeformationEngine:
         elif self.boundary_distribution.distribution == "trapezoidal":
             self.boundary_distribution_generator = TrapezoidalBoundaryDistributionGenerator(
                 boundary_distribution=self.boundary_distribution,
+                footprint=self.footprint,
                 footprint_profile_width=self.footprint_profile_width,
                 footprint_profile_height=self.footprint_profile_height
             )
@@ -363,10 +410,14 @@ class DeformationEngine:
         Args:
             normal_forces (np.ndarray): contact force fields (n,)
         Returns:
-            max_depth (np.ndarray): maximum deformation depth (n,)
+            amplitude (np.ndarray): deformation depth amplitude (n,)
+            mean_value (np.ndarray): mean deformation depth (n,)
         """
-        max_depth = self.force_depth_regression.slope * normal_forces + self.force_depth_regression.intercept
-        return max_depth
+        amplitude = self.force_depth_regression.amplitude_slope * normal_forces + \
+            self.force_depth_regression.amplitude_intercept
+        mean_value = self.force_depth_regression.mean_slope * normal_forces + \
+            self.force_depth_regression.mean_intercept
+        return amplitude, mean_value
     
     def get_deformation_depth(self, normal_forces:np.ndarray)-> np.ndarray:
         """
@@ -378,11 +429,13 @@ class DeformationEngine:
             ---
             num_points = n * num_point_sample
         """
-        depth = np.concatenate(
-            [
-                self.force_depth_regression_model(normal_force) \
-                    * self.boundary_dist * self.depth_dist - self.deform_constrain.vertical_deform_offset for normal_force in normal_forces
-            ])
+        depth = []
+        for normal_force in normal_forces:
+            amplitude, mean_value = self.force_depth_regression_model(normal_force)
+            depth.append(
+                self.boundary_dist * (amplitude * self.depth_dist - mean_value)
+            )
+        depth = np.concatenate(depth)
         return depth
     
     def deform(self, DEM:np.ndarray, num_pass:np.ndarray, body_transforms:np.ndarray, normal_forces:np.ndarray)-> np.ndarray:
@@ -405,3 +458,89 @@ class DeformationEngine:
             DEM[y, x] += deformation_depth[i] * ((self.deform_constrain.deform_decay_ratio)**num_pass[y, x])
             num_pass[y, x] += 1
         return DEM, num_pass
+
+if __name__ == '__main__':
+    # Confs
+    footprint_conf = FootprintConf(width=0.1, height=0.18)
+    deform_constrain_conf = DeformConstrainConf(
+        horizontal_deform_offset=0., 
+        vertical_deform_offset=0.0, 
+        deform_decay_ratio=0.01
+    )
+    depth_distribution_conf = DepthDistributionConf(
+        distribution="sinusoidal",
+        wave_frequency=4.14
+    )
+    boundary_distribution_conf = BoundaryDistributionConf(
+        distribution="trapezoidal",
+        angle_of_repose=1.047
+    )
+    
+    # Objects
+    footprint = FootprintProfileGenerator(
+        footprint_conf, 
+        deform_constrain_conf, 
+        0.001)
+    
+    footprint_profile, footprint_width, footprint_height = footprint.create_profile()
+    
+    # Depth distribution
+    uniform_depth_distribution = UniformDepthDistributionGenerator(
+        depth_distribution_conf,
+        footprint_conf, 
+        footprint_width,
+        footprint_height
+    )
+    sinusoidal_depth_distribution = SinusoidalDepthDistributionGenerator(
+        depth_distribution_conf,
+        footprint_conf, 
+        footprint_width,
+        footprint_height
+    )
+    trapezoidal_depth_distribution = TrapezoidalDepthDistributionGenerator(
+        depth_distribution_conf,
+        footprint_conf, 
+        footprint_width,
+        footprint_height
+    )
+    
+    # Boundary distribution
+    uniform_boundary_distribution = UniformBoundaryDistributionGenerator(
+        boundary_distribution_conf,
+        footprint_conf, 
+        footprint_width,
+        footprint_height
+    )
+    
+    parabolic_boundary_distribution = ParabolicBoundaryDistributionGenerator(
+        boundary_distribution_conf,
+        footprint_conf, 
+        footprint_width,
+        footprint_height
+    )
+    
+    trapezoidal_boundary_distribution = TrapezoidalBoundaryDistributionGenerator(
+        boundary_distribution_conf,
+        footprint_conf, 
+        footprint_width,
+        footprint_height
+    )
+    
+    # # Plot footprint
+    # footprint.plot_profile()
+    
+    # Plot depth distribution
+    plt.figure(figsize=(10, 5))
+    uniform_depth_distribution.plot_depth_distribution()
+    sinusoidal_depth_distribution.plot_depth_distribution()
+    trapezoidal_depth_distribution.plot_depth_distribution()
+    plt.legend(["uniform", "sinusoidal", "trapezoidal"], loc="best")
+    plt.show()
+    
+    # Plot boundary distribution 
+    plt.figure(figsize=(10, 5))
+    uniform_boundary_distribution.plot_boundary_distribution()
+    parabolic_boundary_distribution.plot_boundary_distribution()
+    trapezoidal_boundary_distribution.plot_boundary_distribution()
+    plt.legend(["uniform", "parabolic", "trapezoidal"], loc="best")
+    plt.show()

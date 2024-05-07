@@ -164,7 +164,6 @@ class DepthDistributionConf:
 
     def __post_init__(self):
         assert type(self.distribution) is str, "distribution must be a string"
-        assert type(self.wave_frequency) is float, "wave_frequency must be a float"
         assert self.wave_frequency > 0, "wave_frequency must be greater than 0"
 
 @dataclasses.dataclass
@@ -173,15 +172,21 @@ class ForceDepthRegressionConf:
     Force depth regression parameters.
     For now, linear regression.
     Args:
-        slope (float): Slope of the regression.
-        intercept (float): Intercept of the regression.
+        amplitude_slope (float): Slope of the amplitude.
+        amplitude_intercept (float): Intercept of the amplitude.
+        mean_slope (float): Slope of the mean.
+        mean_intercept (float): Intercept of the mean.
     """
-    slope: float = 1.0
-    intercept: float = 0.0
+    amplitude_slope: float = 1.0
+    amplitude_intercept: float = 0.0
+    mean_slope: float = 1.0
+    mean_intercept: float = 0.0
 
     def __post_init__(self):
-        assert type(self.slope) is float, "slope must be a float"
-        assert type(self.intercept) is float, "intercept must be a float"
+        assert type(self.amplitude_slope) is float, "slope must be a float"
+        assert type(self.amplitude_intercept) is float, "intercept must be a float"
+        assert type(self.mean_slope) is float, "slope must be a float"
+        assert type(self.mean_intercept) is float, "intercept must be a float"
 
 @dataclasses.dataclass
 class DeformationEngineConf:
@@ -215,8 +220,6 @@ class DeformationEngineConf:
     def __post_init__(self):
         assert type(self.render_deform_inv) is int, "render_deform_inv must be an int"
         assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
-        assert type(self.terrain_width) is float, "terrain_width must be a float"
-        assert type(self.terrain_height) is float, "terrain_height must be a float"
         
         assert self.render_deform_inv > 1, "render_deform_inv must be greater than 1"
         assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"

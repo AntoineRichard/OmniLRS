@@ -242,7 +242,7 @@ terrain_manager:
       terrain_resolution: ${....lunaryard_settings.resolution}
       footprint:
         width: 0.09
-        height: 0.1
+        height: 0.2
       deform_constrain:
         horizontal_deform_offset: 0.0
         deform_decay_ratio: 0.01
