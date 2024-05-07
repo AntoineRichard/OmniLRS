@@ -28,6 +28,7 @@ from src.configurations.procedural_terrain_confs import (
     CraterGeneratorConf,
     CraterDistributionConf,
     BaseTerrainGeneratorConf,
+    DeformationEngineConf,
 )
 from src.configurations.auto_labeling_confs import AutoLabelingConf, CameraConf
 from src.configurations.rendering_confs import FlaresConf, RendererConf
@@ -55,6 +56,7 @@ configFactory.registerConfig("moon_yard", MoonYardConf)
 configFactory.registerConfig("crater_generator", CraterGeneratorConf)
 configFactory.registerConfig("crater_distribution", CraterDistributionConf)
 configFactory.registerConfig("base_terrain_generator", BaseTerrainGeneratorConf)
+configFactory.registerConfig("deformation_engine", DeformationEngineConf)
 # Rendering Configs
 configFactory.registerConfig("lens_flares", FlaresConf)
 configFactory.registerConfig("renderer", RendererConf)

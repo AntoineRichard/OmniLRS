@@ -474,11 +474,6 @@ class LunalabController:
         world_poses = np.concatenate(world_poses, axis=0)
         contact_forces = np.concatenate(contact_forces, axis=0)
         
-        gravity = np.zeros_like(contact_forces)
-        gravity[:, -1] = self.deformation_conf.gravity[-1]
-        gravity = self.transform_to_local(gravity, world_poses)
-        contact_forces -= gravity # compensate for gravity
-        
         self.T.deformTerrain(body_transforms=world_poses, contact_forces=contact_forces)
         self.loadDEM()
         self.RM.updateImageData(self.dem, self.mask)
@@ -491,17 +486,17 @@ class LunalabController:
             rrg.apply_force_torque(force, torque)
         
     
-    @staticmethod
-    def transform_to_local(vec:np.ndarray, world_poses:np.ndarray)->np.ndarray:
-        """
-        Returns the contact forces in world frame.
+    # @staticmethod
+    # def transform_to_local(vec:np.ndarray, world_poses:np.ndarray)->np.ndarray:
+    #     """
+    #     Returns the contact forces in world frame.
 
-        Args:
-            vec (np.ndarray): vector in world coordinate.
-            world_poses (np.ndarray): The world poses of the contact points.
+    #     Args:
+    #         vec (np.ndarray): vector in world coordinate.
+    #         world_poses (np.ndarray): The world poses of the contact points.
 
-        Returns:
-            np.ndarray: vector in local coordinate.
-        """
-        transform = world_poses.transpose(0, 2, 1)
-        return np.matmul(transform[:, :3, :3], vec[:, :, None]).squeeze()
+    #     Returns:
+    #         np.ndarray: vector in local coordinate.
+    #     """
+    #     transform = world_poses.transpose(0, 2, 1)
+    #     return np.matmul(transform[:, :3, :3], vec[:, :, None]).squeeze()

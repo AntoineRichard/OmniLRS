@@ -110,7 +110,9 @@ class ROS2_SimulationManager:
         # Keep it in mind if you want to go crazy with the ROS2 calls to modify the sim...
         self.world.reset()
         
-        self.render_deform_inv = cfg["environment"]["terrain_manager"].moon_yard.deformation_engine.render_deform_inv
+        self.terrain_manager_conf = cfg["environment"]["terrain_manager"]
+        self.render_deform_inv = self.terrain_manager_conf.moon_yard.deformation_engine.render_deform_inv
+        self.enable_deformation = self.terrain_manager_conf.moon_yard.deformation_engine.enable
         
         # Preload the assets
         self.ROSRobotManager.RM.preloadRobot(self.world)
@@ -136,7 +138,7 @@ class ROS2_SimulationManager:
                     self.ROSRobotManager.reset()
                     self.ROSLabManager.trigger_reset = False
                 self.ROSRobotManager.applyModifications()
-                if self.cfg["environment"]["terrain_manager"].moon_yard.deformation_engine.enable:
+                if self.enable_deformation:
                     if self.world.current_time_step_index % self.render_deform_inv == 0:
                         self.ROSLabManager.LC.deformTerrain()
                     # self.ROSLabManager.LC.applyTerramechanics()
