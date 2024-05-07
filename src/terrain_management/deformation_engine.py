@@ -433,7 +433,7 @@ class DeformationEngine:
         for normal_force in normal_forces:
             amplitude, mean_value = self.force_depth_regression_model(normal_force)
             depth.append(
-                self.boundary_dist * (amplitude * self.depth_dist - mean_value)
+                self.boundary_dist * (amplitude * self.depth_dist + mean_value)
             )
         depth = np.concatenate(depth)
         return depth

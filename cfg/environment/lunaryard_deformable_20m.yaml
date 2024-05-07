@@ -250,11 +250,13 @@ terrain_manager:
         distribution: trapezoidal
         angle_of_repose: 1.047 #pi/3
       depth_distribution: 
-        distribution: sinusoidal
+        distribution: trapezoidal
         wave_frequency: 4.14 # num_grouser/pi (no slip)
       force_depth_regression:
-        slope: 0.00014
-        intercept: 0.008
+        amplitude_slope: 0.00006
+        amplitude_intercept: 0.008
+        mean_slope: -0.00046
+        mean_intercept: -0.0013
 
     is_yard: True
     is_lab: False
