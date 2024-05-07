@@ -108,6 +108,31 @@ terrain_manager:
       min_elevation: -0.025
       z_scale: 1.0
       seed: ${....seed}
+    
+    deformation_engine:
+      enable: False
+      render_deform_inv: 10
+      terrain_width: ${....lunalab_settings.lab_width}
+      terrain_height: ${....lunalab_settings.lab_length}
+      terrain_resolution: ${....lunalab_settings.resolution}
+      footprint:
+        width: 0.09
+        height: 0.2
+      deform_constrain:
+        x_deform_offset: 0.0
+        y_deform_offset: 0.0
+        deform_decay_ratio: 0.01
+      boundary_distribution: 
+        distribution: trapezoidal
+        angle_of_repose: 1.047 #pi/3
+      depth_distribution: 
+        distribution: trapezoidal
+        wave_frequency: 4.14 # num_grouser/pi (no slip)
+      force_depth_regression:
+        amplitude_slope: 0.00006
+        amplitude_intercept: 0.008
+        mean_slope: -0.00046
+        mean_intercept: -0.0013
 
     is_yard: False
     is_lab: True
@@ -121,3 +146,18 @@ terrain_manager:
   sim_length: ${..lunalab_settings.lab_length}
   sim_width: ${..lunalab_settings.lab_width}
   resolution: ${..lunalab_settings.resolution}
+
+robots_settings:
+  uses_nucleus: False
+  is_ROS2: False
+  max_robots: 5
+  robots_root: "/Robots"
+  parameters:
+    -
+      robot_name: ex1
+      usd_path: assets/USD_Assets/robots/ex1_camera.usd
+      pose:
+        position: [1.0, 1.0, 0.5]
+        orientation: [1, 0, 0, 0]
+      domain_id: 0
+      target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]

@@ -1,4 +1,4 @@
-__author__ = "Antoine Richard"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
 __copyright__ = (
     "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
@@ -76,8 +76,11 @@ samplerTypeFactory.register_type("ThomasCluster", ThomasClusterSampler_T)
 samplerTypeFactory.register_type(
     "HardCoreThomasCluster", HardCoreThomasClusterSampler_T
 )
+samplerTypeFactory.register_type(
+    "DeterministicSampler", DeterministicSampler_T
+)
 samplerTypeFactory.register_type("Image", ImageClipper_T)
-samplerTypeFactory.register_type("Normal", NormalMapClipper_T)
+samplerTypeFactory.register_type("NormalMap", NormalMapClipper_T)
 
 attributeFactory = TypeFactory()
 attributeFactory.register_type("Position", Position_T)
@@ -116,7 +119,7 @@ def addImageData(requests: dict, image: np.ndarray, mask: np.ndarray = None):
     for name in requests.keys():
         if requests[name]["layer"]["name"] == "Image":
             requests[name]["layer"]["data"] = mask
-        if requests[name]["sampler"]["name"] == "Image":
+        if requests[name]["sampler"]["name"] in ["Image", "ClipMap", "Geoclipmap"]:
             requests[name]["sampler"]["data"] = image
             requests[name]["sampler"]["resolution"] = image.shape[:2]
     return requests

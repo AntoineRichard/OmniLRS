@@ -11,11 +11,8 @@ __status__ = "development"
 from typing import List, Tuple, Union, Dict
 import omni.kit.actions.core
 import numpy as np
-import dataclasses
 import omni
 import carb
-import cv2
-import os
 
 from omni.isaac.core.utils.stage import open_stage, add_reference_to_stage
 from pxr import UsdGeom, Sdf, UsdLux, Gf, UsdShade, Usd
@@ -25,6 +22,8 @@ from src.terrain_management.terrain_manager import TerrainManager
 from src.configurations.environments import LunalabConf
 from src.configurations.rendering_confs import FlaresConf
 from src.environments.rock_manager import RockManager
+from src.physics.terramechanics_parameters import RobotParameter, TerrainMechanicalParameter
+from src.physics.terramechanics_solver import TerramechanicsSolver
 from WorldBuilders.pxr_utils import setDefaultOps
 from assets import get_assets_path
 
@@ -62,9 +61,14 @@ class LunalabController:
         self.flare_settings = flares_settings
         self.T = TerrainManager(terrain_manager)
         self.RM = RockManager(**rocks_settings)
+        self.TS = TerramechanicsSolver(
+            robot_param=RobotParameter(),
+            terrain_param=TerrainMechanicalParameter(),
+        )
         self.dem = None
         self.mask = None
         self.scene_name = "/Lunalab"
+        self.deformation_conf = terrain_manager.moon_yard.deformation_engine
 
     def load(self) -> None:
         """
@@ -80,6 +84,9 @@ class LunalabController:
         # Loads the DEM and the mask
         self.switchTerrain(0)
         self.enableLensFlare(self.flare_settings.enable)
+    
+    def addRobotManager(self, robotManager):
+        self.robotManager = robotManager
 
     def getLuxAssets(self, prim: "Usd.Prim") -> None:
         """
@@ -451,3 +458,45 @@ class LunalabController:
 
         settings = carb.settings.get_settings()
         settings.set("/rtx/post/lensFlares/focalLength", value)
+    
+    def deformTerrain(self) -> None:
+        """
+        Deforms the terrain.
+        Args:
+            world_poses (np.ndarray): The world poses of the contact points.
+            contact_forces (np.ndarray): The contact forces in local frame reported by rigidprimview.
+        """
+        world_poses = []
+        contact_forces = []
+        for rrg in self.robotManager.robots_RG.values():
+            world_poses.append(rrg.get_world_poses())
+            contact_forces.append(rrg.get_net_contact_forces())
+        world_poses = np.concatenate(world_poses, axis=0)
+        contact_forces = np.concatenate(contact_forces, axis=0)
+        
+        self.T.deformTerrain(body_transforms=world_poses, contact_forces=contact_forces)
+        self.loadDEM()
+        self.RM.updateImageData(self.dem, self.mask)
+        
+    def applyTerramechanics(self) -> None:
+        for rrg in self.robotManager.robots_RG.values():
+            linear_velocities, angular_velocities = rrg.get_velocities()
+            sinkages = np.zeros((linear_velocities.shape[0],))
+            force, torque = self.TS.compute_force_and_torque(linear_velocities, angular_velocities, sinkages)
+            rrg.apply_force_torque(force, torque)
+        
+    
+    # @staticmethod
+    # def transform_to_local(vec:np.ndarray, world_poses:np.ndarray)->np.ndarray:
+    #     """
+    #     Returns the contact forces in world frame.
+
+    #     Args:
+    #         vec (np.ndarray): vector in world coordinate.
+    #         world_poses (np.ndarray): The world poses of the contact points.
+
+    #     Returns:
+    #         np.ndarray: vector in local coordinate.
+    #     """
+    #     transform = world_poses.transpose(0, 2, 1)
+    #     return np.matmul(transform[:, :3, :3], vec[:, :, None]).squeeze()

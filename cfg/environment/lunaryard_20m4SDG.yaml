@@ -1,5 +1,5 @@
 name: Lunaryard
-seed: 42  
+seed: 42
 # Stage settings, only edit if you know what you are doing.
 lunaryard_settings:
   lab_length: 20.0
@@ -234,6 +234,31 @@ terrain_manager:
       min_elevation: -0.5
       z_scale: 1.0
       seed: ${....seed}
+    
+    deformation_engine:
+      enable: False
+      render_deform_inv: 10
+      terrain_width: ${....lunaryard_settings.lab_width}
+      terrain_height: ${....lunaryard_settings.lab_length}
+      terrain_resolution: ${....lunaryard_settings.resolution}
+      footprint:
+        width: 0.09
+        height: 0.2
+      deform_constrain:
+        x_deform_offset: 0.0
+        y_deform_offset: 0.0
+        deform_decay_ratio: 0.01
+      boundary_distribution: 
+        distribution: trapezoidal
+        angle_of_repose: 1.047 #pi/3
+      depth_distribution: 
+        distribution: trapezoidal
+        wave_frequency: 4.14 # num_grouser/pi (no slip)
+      force_depth_regression:
+        amplitude_slope: 0.00006
+        amplitude_intercept: 0.008
+        mean_slope: -0.00046
+        mean_intercept: -0.0013
 
     is_yard: False
     is_lab: True

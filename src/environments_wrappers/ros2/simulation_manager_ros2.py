@@ -84,7 +84,7 @@ class ROS2_SimulationManager:
         Args:
             cfg (dict): Configuration dictionary.
             simulation_app (SimulationApp): SimulationApp instance."""
-
+        self.cfg  = cfg
         self.simulation_app = simulation_app
         # Setups the physics and acquires the different interfaces to talk with Isaac
         self.timeline = omni.timeline.get_timeline_interface()
@@ -98,7 +98,7 @@ class ROS2_SimulationManager:
         self.exec1_thread = Thread(target=exec1.spin, daemon=True, args=())
         self.exec1_thread.start()
         # Robot manager thread
-        self.ROSRobotManager = ROS_RobotManager()
+        self.ROSRobotManager = ROS_RobotManager(cfg["environment"]["robots_settings"])
         exec2 = Executor()
         exec2.add_node(self.ROSRobotManager)
         self.exec2_thread = Thread(target=exec2.spin, daemon=True, args=())
@@ -109,6 +109,14 @@ class ROS2_SimulationManager:
         # 24 topics. More than that and you won't reveive any messages.
         # Keep it in mind if you want to go crazy with the ROS2 calls to modify the sim...
         self.world.reset()
+        
+        self.terrain_manager_conf = cfg["environment"]["terrain_manager"]
+        self.render_deform_inv = self.terrain_manager_conf.moon_yard.deformation_engine.render_deform_inv
+        self.enable_deformation = self.terrain_manager_conf.moon_yard.deformation_engine.enable
+        
+        # Preload the assets
+        self.ROSRobotManager.RM.preloadRobot(self.world)
+        self.ROSLabManager.LC.addRobotManager(self.ROSRobotManager.RM)
 
     def run_simulation(self) -> None:
         """
@@ -131,5 +139,9 @@ class ROS2_SimulationManager:
                     self.ROSRobotManager.reset()
                     self.ROSLabManager.trigger_reset = False
                 self.ROSRobotManager.applyModifications()
+                if self.enable_deformation:
+                    if self.world.current_time_step_index % self.render_deform_inv == 0:
+                        self.ROSLabManager.LC.deformTerrain()
+                    # self.ROSLabManager.LC.applyTerramechanics()
 
         self.timeline.stop()
