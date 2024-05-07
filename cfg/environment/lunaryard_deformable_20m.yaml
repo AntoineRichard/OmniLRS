@@ -29,9 +29,9 @@ rocks_settings:
           sampler:
             name: ThomasCluster
             randomization_space: 2
-            lambda_parent: 0.25
-            lambda_daughter: 200
-            sigma: 0.2
+            lambda_parent: 0.3
+            lambda_daughter: 50
+            sigma: 0.3
             seed: ${.......seed}
 
         req_pos_z:
@@ -241,10 +241,11 @@ terrain_manager:
       terrain_height: ${....lunaryard_settings.lab_length}
       terrain_resolution: ${....lunaryard_settings.resolution}
       footprint:
-        width: 0.09
-        height: 0.2
+        width: 0.12
+        height: 0.20
       deform_constrain:
-        horizontal_deform_offset: 0.0
+        x_deform_offset: 0.0
+        y_deform_offset: 0.1
         deform_decay_ratio: 0.01
       boundary_distribution: 
         distribution: trapezoidal
@@ -277,14 +278,14 @@ robots_settings:
   max_robots: 5
   robots_root: "/Robots"
   parameters:
-    -
-      robot_name: ex1
-      usd_path: assets/USD_Assets/robots/ex1_camera.usd
-      pose:
-        position: [5.0, 5.0, 0.5]
-        orientation: [1, 0, 0, 0]
-      domain_id: 0
-      target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
+    # -
+    #   robot_name: ex1
+    #   usd_path: assets/USD_Assets/robots/ex1_camera.usd
+    #   pose:
+    #     position: [5.0, 5.0, 0.5]
+    #     orientation: [1, 0, 0, 0]
+    #   domain_id: 0
+    #   target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
     -
       robot_name: hero3
       usd_path: assets/USD_Assets/robots/hero3.usd

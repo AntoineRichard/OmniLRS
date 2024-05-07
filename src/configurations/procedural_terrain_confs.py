@@ -122,16 +122,17 @@ class DeformConstrainConf:
     """
     Deformation constrain parameters.
     Args:
-        deform_offset (float): Offset betweem deformation center and contact point.
+        x_deform_offset (float): X offset betweem deformation center and contact point.
+        y_deform_offset (float): Y offset betweem deformation center and contact point.
         deform_decay_ratio (float): Decay ratio of the deformation.
     """
-    horizontal_deform_offset: float = 0.0
-    vertical_deform_offset: float = 0.0
+    x_deform_offset: float = 0.0
+    y_deform_offset: float = 0.0
     deform_decay_ratio: float = 0.01
 
     def __post_init__(self):
-        assert type(self.horizontal_deform_offset) is float, "deform_offset must be a float"
-        assert type(self.vertical_deform_offset) is float, "deform_offset must be a float"
+        assert type(self.x_deform_offset) is float, "deform_offset must be a float"
+        assert type(self.y_deform_offset) is float, "deform_offset must be a float"
         assert type(self.deform_decay_ratio) is float, "deform_decay_ratio must be a float"
         assert self.deform_decay_ratio > 0, "deform_decay_ratio must be greater than 0"
 

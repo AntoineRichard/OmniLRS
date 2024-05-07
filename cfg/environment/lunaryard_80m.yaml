@@ -113,19 +113,22 @@ terrain_manager:
       terrain_resolution: ${....lunaryard_settings.resolution}
       footprint:
         width: 0.09
-        height: 0.1
+        height: 0.2
       deform_constrain:
-        horizontal_deform_offset: 0.0
+        x_deform_offset: 0.0
+        y_deform_offset: 0.0
         deform_decay_ratio: 0.01
       boundary_distribution: 
         distribution: trapezoidal
-        angle_of_repose: 1.047
+        angle_of_repose: 1.047 #pi/3
       depth_distribution: 
-        distribution: sinusoidal
-        wave_frequency: 2.0
+        distribution: trapezoidal
+        wave_frequency: 4.14 # num_grouser/pi (no slip)
       force_depth_regression:
-        slope: 0.00014
-        intercept: 0.008
+        amplitude_slope: 0.00006
+        amplitude_intercept: 0.008
+        mean_slope: -0.00046
+        mean_intercept: -0.0013
 
     is_yard: False
     is_lab: True

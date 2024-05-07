@@ -35,12 +35,13 @@ class FootprintProfileGenerator:
         self.terrain_resolution = terrain_resolution
         self.profile_width = footprint_conf.width
         self.profile_height = footprint_conf.height
-        self.horizontal_deform_offset = deform_constrain_conf.horizontal_deform_offset
+        self.x_deform_offset = deform_constrain_conf.x_deform_offset
+        self.y_deform_offset = deform_constrain_conf.x_deform_offset
         self.profile = None
 
     def create_profile(self)->Tuple[np.ndarray, int, int]:
-        x = np.linspace(-self.profile_height/2, self.profile_height/2, int(self.profile_height/self.terrain_resolution)+1) + self.horizontal_deform_offset
-        y = np.linspace(-self.profile_width/2, self.profile_width/2, int(self.profile_width/self.terrain_resolution)+1)
+        x = np.linspace(-self.profile_height/2, self.profile_height/2, int(self.profile_height/self.terrain_resolution)+1) + self.x_deform_offset
+        y = np.linspace(-self.profile_width/2, self.profile_width/2, int(self.profile_width/self.terrain_resolution)+1) + self.y_deform_offset
         xx, yy = np.meshgrid(x, y)
         self.profile = np.column_stack([xx.flatten(), yy.flatten()])
         self.profile_px_width = xx.shape[0]
@@ -433,7 +434,7 @@ class DeformationEngine:
         for normal_force in normal_forces:
             amplitude, mean_value = self.force_depth_regression_model(normal_force)
             depth.append(
-                self.boundary_dist * (amplitude * self.depth_dist + mean_value)
+                self.boundary_dist * (amplitude * self.depth_dist - mean_value)
             )
         depth = np.concatenate(depth)
         return depth
