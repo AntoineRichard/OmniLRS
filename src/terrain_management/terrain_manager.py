@@ -279,7 +279,7 @@ class TerrainManager:
         Randomizes the terrain (update mesh, collider, semantic).
         """
 
-        self._DEM, self._mask = self._G.randomize()
+        self._DEM, self._mask, self._craters_data = self._G.randomize()
         self.update(update_collider=True)
     
     def deformTerrain(self, body_transforms:np.ndarray, contact_forces:np.ndarray) -> None:

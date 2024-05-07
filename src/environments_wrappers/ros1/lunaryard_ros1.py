@@ -193,7 +193,7 @@ class ROS_LunaryardManager:
             dt (float): Time step.
         """
 
-        self.modifications.append([self.LC.updateStellarEngine, dt])
+        self.modifications.append([self.LC.updateStellarEngine, [dt]])
 
     def clearModifications(self):
         """

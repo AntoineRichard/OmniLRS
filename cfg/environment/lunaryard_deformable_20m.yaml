@@ -4,7 +4,7 @@ seed: 42
 lunaryard_settings:
   lab_length: 20.0
   lab_width: 20.0
-  resolution: 0.025
+  resolution: 0.015
   projector_path: /Lunaryard/Sun
   earth_path: /Lunaryard/Earth
   coordinates:
@@ -44,7 +44,7 @@ rocks_settings:
             name: ThomasCluster
             randomization_space: 2
             lambda_parent: 0.3
-            lambda_daughter: 50
+            lambda_daughter: 10
             sigma: 0.3
             seed: ${.......seed}
 
@@ -255,11 +255,11 @@ terrain_manager:
       terrain_height: ${....lunaryard_settings.lab_length}
       terrain_resolution: ${....lunaryard_settings.resolution}
       footprint:
-        width: 0.12
-        height: 0.20
+        width: 0.105
+        height: 0.35
       deform_constrain:
         x_deform_offset: 0.0
-        y_deform_offset: 0.1
+        y_deform_offset: 0.05
         deform_decay_ratio: 0.01
       boundary_distribution: 
         distribution: trapezoidal
@@ -292,19 +292,19 @@ robots_settings:
   max_robots: 5
   robots_root: "/Robots"
   parameters:
-    # -
-    #   robot_name: ex1
-    #   usd_path: assets/USD_Assets/robots/ex1_camera.usd
-    #   pose:
-    #     position: [5.0, 5.0, 0.5]
-    #     orientation: [1, 0, 0, 0]
-    #   domain_id: 0
-    #   target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
     -
-      robot_name: hero3
-      usd_path: assets/USD_Assets/robots/hero3.usd
+      robot_name: ex1
+      usd_path: assets/USD_Assets/robots/ex1_camera.usd
       pose:
-        position: [17.0, 10.0, 0.5]
-        orientation: [0, 0, 0, 1]
+        position: [5.0, 5.0, 0.5]
+        orientation: [1, 0, 0, 0]
       domain_id: 0
-      target_links: ["Leg1_Wheel1_2", "Leg1_Wheel2_2", "Leg2_Wheel1_2", "Leg2_Wheel2_2", "Leg3_Wheel1_2", "Leg3_Wheel2_2"]
+      target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
+    -
+      # robot_name: hero3
+      # usd_path: assets/USD_Assets/robots/hero3.usd
+      # pose:
+      #   position: [15.0, 10.0, 0.5]
+      #   orientation: [0, 0, 0, 1]
+      # domain_id: 0
+      # target_links: ["Leg1_Wheel1_2", "Leg1_Wheel2_2", "Leg2_Wheel1_2", "Leg2_Wheel2_2", "Leg3_Wheel1_2", "Leg3_Wheel2_2"]
