@@ -110,7 +110,7 @@ terrain_manager:
       seed: ${....seed}
     
     deformation_engine:
-      enable: False
+      enable: True
       render_deform_inv: 10
       terrain_width: ${....lunalab_settings.lab_width}
       terrain_height: ${....lunalab_settings.lab_length}
