@@ -59,7 +59,7 @@ git submodule update
 ```
 
 Assets:
- - Download the assets from: https://drive.google.com/file/d/1s9I63yFJo5MViXJ2CQEhuwMZNsf5XdUk/view?usp=sharing
+ - Download the assets from: https://drive.google.com/file/d/1ArLEKcSKplgveiHVBWAlP_FOMgIACdVU/view?usp=drive_link
  - Unzip the assets inside the git repository. (The directory should be as shown in [Directory Structure](#directory-structure)
 
 </details>
