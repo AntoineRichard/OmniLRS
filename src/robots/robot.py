@@ -41,10 +41,7 @@ class RobotManager:
     ) -> None:
         """
         Args:
-            uses_nucleus (bool, optional): Whether the robots are loaded from the nucleus or not. Defaults to False.
-            is_ROS2 (bool, optional): Whether the robots are ROS2 enabled or not. Defaults to False.
-            max_robots (int, optional): Maximum number of robots that can be spawned. Defaults to 5.
-            robots_root (str, optional): The root path of the robots. Defaults to "/Robots".
+            RM_conf (RobotManagerConf): The configuration of the robot manager.
         """
 
         self.stage = omni.usd.get_context().get_stage()
@@ -63,6 +60,11 @@ class RobotManager:
         self, 
         world: Usd.Stage,
     ) -> None:
+        """
+        Preload the robots in the scene.
+        Args:
+            world (Usd.Stage): The usd stage scene.
+        """
         if len(self.robot_parameters) > 0:
             for robot_parameter in self.robot_parameters:
                 self.addRobot(
@@ -92,7 +94,10 @@ class RobotManager:
         Args:
             usd_path (str): The path of the robot's usd file.
             robot_name (str): The name of the robot.
-            domain_id (int): The domain id of the robot."""
+            p (Tuple[float, float, float]): The position of the robot.
+            q (Tuple[float, float, float, float]): The orientation of the robot.
+            domain_id (int): The domain id of the robot.
+        """
 
         if robot_name[0] != "/":
             robot_name = "/" + robot_name
@@ -125,7 +130,8 @@ class RobotManager:
         Args:
             robot_name (str): The name of the robot.
             target_links (List[str]): List of link names. 
-            scene (Usd.Stage): usd stage scene."""
+            scene (Usd.Stage): usd stage scene.
+        """
         rrg = RobotRigidGroup(
             self.robots_root, 
             robot_name, 
@@ -136,7 +142,8 @@ class RobotManager:
 
     def resetRobots(self) -> None:
         """
-        Reset all the robots to their original position."""
+        Reset all the robots to their original position.
+        """
 
         for robot in self.robots.keys():
             self.robots[robot].reset()
@@ -146,7 +153,8 @@ class RobotManager:
         Reset a specific robot to its original position.
 
         Args:
-            robot_name (str): The name of the robot."""
+            robot_name (str): The name of the robot.
+        """
 
         if robot_name in self.robots.keys():
             self.robots[robot_name].reset()
@@ -160,7 +168,8 @@ class RobotManager:
         Teleport a specific robot to a specific position and orientation.
 
         Args:
-            robot_name (str): The name of the robot."""
+            robot_name (str): The name of the robot.
+        """
         if robot_name in self.robots.keys():
             self.robots[robot_name].teleport(position, orienation)
         else:
@@ -171,7 +180,8 @@ class Robot:
     """
     Robot class.
     It allows to spawn, reset, teleport a robot. It also allows to automatically add namespaces to topics,
-    and tfs to enable multi-robot operation."""
+    and tfs to enable multi-robot operation.
+    """
 
     def __init__(
         self,
@@ -204,14 +214,16 @@ class Robot:
 
     def getRootRigidBodyPath(self) -> None:
         """
-        Get the root rigid body path of the robot."""
+        Get the root rigid body path of the robot.
+        """
 
         art = self.dc.get_articulation(self.robot_path)
         self.root_body_id = self.dc.get_articulation_root_body(art)
 
     def editGraphs(self) -> None:
         """
-        Edit the graphs of the robot to add namespaces to topics and tfs."""
+        Edit the graphs of the robot to add namespaces to topics and tfs.
+        """
 
         selected_paths = []
         for prim in Usd.PrimRange(self.stage.GetPrimAtPath(self.robot_path)):
@@ -235,7 +247,8 @@ class Robot:
 
         Args:
             position (np.ndarray): The position of the robot.
-            orientation (np.ndarray): The orientation of the robot."""
+            orientation (np.ndarray): The orientation of the robot.
+        """
 
         self.stage = omni.usd.get_context().get_stage()
         self.setResetPose(position, orientation)
@@ -254,7 +267,10 @@ class Robot:
 
     def getPose(self) -> List[float]:
         """
-        Get the pose of the robot."""
+        Get the pose of the robot.
+        Returns:
+            List[float]: The pose of the robot. (x, y, z, w, qx, qy, qz)
+        """
 
         source_prim = UsdGeom.Xformable(
             self.stage.GetPrimAtPath(self._robot_base_link_path)
@@ -278,7 +294,8 @@ class Robot:
 
         Args:
             position (np.ndarray): The position of the robot.
-            orientation (np.ndarray): The orientation of the robot."""
+            orientation (np.ndarray): The orientation of the robot.
+        """
 
         self.reset_position = position
         self.reset_orientation = orientation
@@ -289,7 +306,8 @@ class Robot:
 
         Args:
             p (list): The position of the robot.
-            q (list): The orientation of the robot."""
+            q (list): The orientation of the robot.
+        """
 
         self.getRootRigidBodyPath()
         transform = _dynamic_control.Transform(p, q)
@@ -299,7 +317,8 @@ class Robot:
 
     def reset(self) -> None:
         """
-        Reset the robot to its original position and orientation."""
+        Reset the robot to its original position and orientation.
+        """
 
         # w = self.reset_orientation.GetReal()
         # xyz = self.reset_orientation.GetImaginary()
@@ -322,6 +341,12 @@ class RobotRigidGroup:
                  root_path:str="/Robots", 
                  robot_name:str=None, 
                  target_links:List[str]=None):
+        """
+        Args:
+            root_path (str): The root path of the robots.
+            robot_name (str): The name of the robot.
+            target_links (List[str]): List of link names.
+        """
         self.root_path = root_path
         self.robot_name = robot_name
         self.target_links = target_links
@@ -329,6 +354,12 @@ class RobotRigidGroup:
         self.prim_views = []
 
     def initialize(self, world)->None:
+        """
+        Initialize the rigidprims and rigidprimviews of the robot.
+
+        Args:
+            world (Usd.Stage): The usd stage scene.
+        """
         world.reset()
         if len(self.target_links) > 0:
             for target_link in self.target_links:
@@ -347,6 +378,9 @@ class RobotRigidGroup:
     def get_world_poses(self)->np.ndarray:
         """
         Returns the world pose matrix of target links.
+
+        Returns:
+            pose (np.ndarray): The world pose matrix of target links.
         """
         n_links = len(self.target_links)
         pose = np.zeros((n_links, 4, 4))
@@ -358,9 +392,27 @@ class RobotRigidGroup:
             pose[i, :3, 3] = position
         return pose
     
+    def get_orientations(self)->np.ndarray:
+        """
+        Returns the orientation of target links.
+
+        Returns:
+            orientations (np.ndarray): The orientation of target links. (w, x, y, z)
+        """
+        n_links = len(self.target_links)
+        orientations = np.zeros((n_links, 4))
+        for i, prim in enumerate(self.prims):
+            _, orientation = prim.get_world_pose()
+            orientations[i, :] = orientation
+        return orientations
+    
     def get_velocities(self)->Tuple[np.ndarray, np.ndarray]:
         """
         Returns the linear/angular velocity of target links.
+
+        Returns:
+            linear_velocities (np.ndarray): The linear velocity of target links.
+            angular_velocities (np.ndarray): The angular velocity of target links.
         """
         n_links = len(self.target_links)
         linear_velocities = np.zeros((n_links, 3))
@@ -374,6 +426,9 @@ class RobotRigidGroup:
     def get_net_contact_forces(self)->np.ndarray:
         """
         Returns net contact forces on each target link.
+
+        Returns:
+            contact_forces (np.ndarray): The net contact forces on each target link.
         """
         n_links = len(self.target_links)
         contact_forces = np.zeros((n_links, 3))
@@ -385,6 +440,7 @@ class RobotRigidGroup:
     def apply_force_torque(self, forces:np.ndarray, torques:np.ndarray)->None:
         """
         Apply force and torque (defined in local body frame) to body frame of the four wheels.
+        
         Args:
             forces (np.ndarray): The forces to apply to the body origin of the four wheels.
                                  (Fx, Fy, Fz) = (F_DP, F_S, F_N)
