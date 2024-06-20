@@ -96,7 +96,7 @@ class LunaryardController:
         # Generates the instancer for the rocks
         self.RM.build(self.dem, self.mask)
         # Loads the DEM and the mask
-        self.switchTerrain(-1)
+        self.switchTerrain(self.stage_settings.terrain_id)
         self.enableLensFlare(self.flare_settings.enable)
         if self.enable_stellar_engine:
             self.SE.setLatLon(self.stage_settings.coordinates.latitude, self.stage_settings.coordinates.longitude)

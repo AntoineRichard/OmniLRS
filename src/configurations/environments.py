@@ -64,6 +64,7 @@ class LunaryardConf:
     resolution: float = 0.025
     projector_path: str = "/Lunaryard/Sun"
     earth_path: str = "/Lunaryard/Earth"
+    terrain_id: int = -1
     coordinates: Coordinates = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
