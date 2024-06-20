@@ -129,6 +129,7 @@ class ROS2_SimulationManager:
                 # Apply modifications to the lab only once the simulation step is finished
                 # This is extremely important as modifying the stage during a simulation step
                 # will lead to a crash.
+                self.ROSLabManager.periodicUpdate(dt=self.world.get_physics_dt())
                 if self.world.current_time_step_index == 0:
                     self.world.reset()
                     self.ROSLabManager.reset()

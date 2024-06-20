@@ -10,6 +10,16 @@ __status__ = "development"
 
 import dataclasses
 
+@dataclasses.dataclass
+class Coordinates:
+    latitude: float = 46.8
+    longitude: float = -26.3
+
+    def __post_init__(self):
+        assert type(self.latitude) == float, "The latitude must be a float."
+        assert type(self.longitude) == float, "The longitude must be a float."
+        assert self.latitude >= -90.0 and self.latitude <= 90.0, "The latitude must be between -90 and 90 degrees."
+        assert self.longitude >= -180.0 and self.longitude <= 180.0, "The longitude must be between -180 and 180 degrees."
 
 @dataclasses.dataclass
 class LunalabConf:
@@ -54,6 +64,7 @@ class LunaryardConf:
     resolution: float = 0.025
     projector_path: str = "/Lunaryard/Sun"
     earth_path: str = "/Lunaryard/Earth"
+    coordinates: Coordinates = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
         assert type(self.lab_length) == float, "The lab length must be a float."
@@ -65,3 +76,5 @@ class LunaryardConf:
         assert self.lab_width > 0.0, "The lab width must be greater than 0."
         assert self.resolution > 0.0, "The resolution must be greater than 0."
         assert self.projector_path != "", "The projector path must not be empty."
+
+        self.coordinates = Coordinates(**self.coordinates)

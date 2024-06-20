@@ -122,6 +122,9 @@ class ROS_LunalabManager(Node):
 
         self.modifications = []
 
+    def periodicUpdate(self, dt: float) -> None:
+        pass
+
     def clearModifications(self) -> None:
         """
         Clears the list of modifications to be applied to the lab."""

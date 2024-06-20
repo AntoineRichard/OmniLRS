@@ -8,6 +8,12 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
+from scipy.interpolate import CubicSpline
+from matplotlib import pyplot as plt
+from scipy.ndimage import rotate
+from typing import List, Tuple
+import dataclasses
+import numpy as np
 import datetime
 import pickle
 import cv2
@@ -28,6 +34,18 @@ from src.configurations.procedural_terrain_confs import (
 )
 
 from src.terrain_management.deformation_engine import DeformationEngine
+
+@dataclasses.dataclass
+class CraterData:
+    deformation_spline: CubicSpline = None
+    marks_spline: CubicSpline = None
+    marks_intensity: float = 0
+    size: int = 0
+    crater_profile_id: int = 0
+    xy_deformation_factor: Tuple[float, float] = (0, 0)
+    rotation: float = 0
+    coord: Tuple[int, int] = (0, 0)
+
 
 class CraterGenerator:
     """
@@ -92,7 +110,7 @@ class CraterGenerator:
         x = x.reshape(shape)
         return x
 
-    def centeredDistanceMatrix(self, n: int) -> Tuple[np.ndarray, int]:
+    def centeredDistanceMatrix(self, crater_data: CraterData) -> np.ndarray:
         """
         Generates a distance matrix centered at the center of the matrix.
 
@@ -100,120 +118,172 @@ class CraterGenerator:
             n (int): size of the matrix
 
         Returns:
-            tuple: distance matrix, size of the matrix."""
-
-        # Makes sure the matrix size is odd
-        n = n + ((n % 2) == 0)
-
-        # Generates a profile to deform the crater
-        tmp_y = self._rng.uniform(0.95, 1, 9)
-        tmp_y = np.concatenate([tmp_y, [tmp_y[0]]], axis=0)
-        tmp_x = np.linspace(0, 1, tmp_y.shape[0])
-        s = CubicSpline(tmp_x, tmp_y, bc_type=((1, 0.0), (1, 0.0)))
-
-        # Generates a profile to add marks that converges toward the center of the crater
-        tmp_y = self._rng.uniform(0.0, 0.01, 45)
-        tmp_y = np.concatenate([tmp_y, [tmp_y[0]]], axis=0)
-        tmp_x = np.linspace(0, 1, tmp_y.shape[0])
-        s2 = CubicSpline(tmp_x, tmp_y, bc_type=((1, 0.0), (1, 0.0)))
+            np.ndarry: distance matrix."""
 
         # Generates the deformation matrix
-        m = np.zeros([n, n])
-        x, y = np.meshgrid(np.linspace(-1, 1, n), np.linspace(-1, 1, n))
+        m = np.zeros([crater_data.size, crater_data.size])
+        x, y = np.meshgrid(
+            np.linspace(-1, 1, crater_data.size), np.linspace(-1, 1, crater_data.size)
+        )
         theta = np.arctan2(y, x)
-        fac = s(theta / (2 * np.pi) + 0.5)
+        fac = crater_data.deformation_spline(theta / (2 * np.pi) + 0.5)
+
         # Generates the marks matrix
-        marks = s2(theta / (2 * np.pi) + 0.5) * n / 2 * self._rng.uniform(0, 1)
+        marks = (
+            crater_data.marks_spline(theta / (2 * np.pi) + 0.5)
+            * crater_data.size
+            / 2
+            * crater_data.marks_intensity
+        )
 
         # Generates the distance matrix
-        sx = self._rng.uniform(self._min_xy_ratio, self._max_xy_ratio)
-        sy = 1.0
-        x, y = np.meshgrid(range(n), range(n))
+        x, y = np.meshgrid(range(crater_data.size), range(crater_data.size))
         m = np.sqrt(
-            ((x - (n / 2) + 1) * 1 / sx) ** 2 + ((y - (n / 2) + 1) * 1 / sy) ** 2
+            (
+                (x - (crater_data.size / 2) + 1)
+                * 1
+                / crater_data.xy_deformation_factor[0]
+            )
+            ** 2
+            + (
+                (y - (crater_data.size / 2) + 1)
+                * 1
+                / crater_data.xy_deformation_factor[1]
+            )
+            ** 2
         )
 
         # Deforms the distance matrix
         m = m * fac
 
         # Smoothes the marks such that they are not present on the outer edge of the crater
-        sat = self.sat_gaussian(m, 0.15 * n / 2, 0.45 * n / 2, 0.05 * n / 2)
+        sat = self.sat_gaussian(
+            m,
+            0.15 * crater_data.size / 2,
+            0.45 * crater_data.size / 2,
+            0.05 * crater_data.size / 2,
+        )
         sat = (sat - sat.min()) / (sat.max() - sat.min())
 
         # Adds the marks to the distance matrix
         m = m + marks * sat
 
         # Rotate the matrix
-        theta = int(self._rng.uniform(0, 360))
-        m = rotate(m, theta, reshape=False, cval=n / 2)
+        m = rotate(m, crater_data.rotation, reshape=False, cval=crater_data.size / 2)
 
         # Saturate the matrix such that the distance is not greater than the radius of the crater
-        m[m > n / 2] = n / 2
-        return m, n
+        m[m > crater_data.size / 2] = crater_data.size / 2
 
-    def applyProfile(
-        self, profile: CubicSpline, distance: np.ndarray, size: int
-    ) -> np.ndarray:
+        return m
+
+    def applyProfile(self, distance: np.ndarray, crater_data: CraterData) -> np.ndarray:
         """
         Applies a profile to the distance matrix.
 
         Args:
-            profile (CubicSpline): profile to apply.
+            index (int): index of the profile to apply.
             distance (np.ndarray): distance matrix.
             size (int): size of the matrix.
 
         Returns:
             np.ndarray: crater DEM."""
 
-        crater = profile(2 * distance / size)
+        crater = self._profiles[crater_data.crater_profile_id](
+            2 * distance / crater_data.size
+        )
         return crater
 
-    def getProfile(self, index: int) -> CubicSpline:
+    def randomizeCraterParameters(self, index: int, size: int) -> CraterData:
         """
-        Gets a random profile from the list of profiles.
+        Randomizes the parameters of a crater.
 
         Args:
-            index (int): index of the profile to get.
+            index (int): index of the profile to use.
+            size (int): size of the crater.
 
         Returns:
-            CubicSpline: profile."""
+            CraterData: data regarding the crater generation."""
 
-        profile = None
-        if index < -1:
-            raise ValueError("Unknown profile")
-        elif index == -1:
-            profile = self._rng.choice(self._profiles)
+        # Generates the metadata for a random crater
+        crater_data = CraterData()
+
+        # Makes sure the matrix size is odd
+        size = size + ((size % 2) == 0)
+        crater_data.size = size
+
+        # Generates a profile to deform the crater
+        deformation_profile = self._rng.uniform(0.95, 1, 9)
+        deformation_profile = np.concatenate(
+            [deformation_profile, [deformation_profile[0]]], axis=0
+        )
+        tmp_x = np.linspace(0, 1, deformation_profile.shape[0])
+        crater_data.deformation_spline = CubicSpline(
+            tmp_x, deformation_profile, bc_type=((1, 0.0), (1, 0.0))
+        )
+
+        # Generates a profile to add marks that converges toward the center of the crater
+        marks_profile = self._rng.uniform(0.0, 0.01, 45)
+        marks_profile = np.concatenate([marks_profile, [marks_profile[0]]], axis=0)
+        tmp_x = np.linspace(0, 1, marks_profile.shape[0])
+        crater_data.marks_spline = CubicSpline(
+            tmp_x, marks_profile, bc_type=((1, 0.0), (1, 0.0))
+        )
+        crater_data.marks_intensity = self._rng.uniform(0, 1)
+
+        # XY deformation factor
+        sx = self._rng.uniform(self._min_xy_ratio, self._max_xy_ratio)
+        sy = 1.0
+        crater_data.xy_deformation_factor = (sx, sy)
+
+        # Random rotation
+        crater_data.rotation = int(self._rng.uniform(0, 360))
+
+        # Index of the profile
+        if index == -1:
+            index = self._rng.integers(0, len(self._profiles), 1)[0]
+            pass
         elif index < len(self._profiles):
-            profile = self._profiles[i]
+            pass
         else:
             raise ValueError("Unknown profile")
-        return profile
+        crater_data.crater_profile_id = index
+        return crater_data
 
-    def generateCrater(self, size: int, s_index: int = -1) -> Tuple[np.ndarray, int]:
+    def generateCrater(
+        self, size: int = None, index: int = -1, crater_data: CraterData = None
+    ) -> Tuple[np.ndarray, CraterData]:
         """
         Generates a crater DEM.
 
         Args:
             size (float): size of the crater.
-            s_index (int): index of the profile to use.
+            index (int): index of the profile to use.
 
         Returns:
-            tuple: crater DEM, size of the crater."""
+            tuple: crater DEM, the whole the of the data regarding the crater generation.
+        """
 
-        distance, size = self.centeredDistanceMatrix(size)
-        profile = self.getProfile(s_index)
+        if crater_data is None:
+            crater_data = self.randomizeCraterParameters(index, size)
+
+        distance = self.centeredDistanceMatrix(crater_data)
+
         crater = (
-            self.applyProfile(profile, distance, size)
-            * size
+            self.applyProfile(distance, crater_data)
+            * crater_data.size
             / 2.0
             * self._z_scale
             * self._resolution
         )
-        return crater, size
+        return crater, crater_data
 
     def generateCraters(
-        self, DEM: np.ndarray, coords: np.ndarray, radius: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        self,
+        DEM: np.ndarray,
+        coords: np.ndarray = None,
+        radius: np.ndarray = None,
+        craters_data: List[CraterData] = None,
+    ) -> Tuple[np.ndarray, np.ndarray, List[CraterData]]:
         """
         Generates a DEM with craters.
 
@@ -224,6 +294,7 @@ class CraterGenerator:
         Returns:
             np.ndarray: unpadded DEM with craters, and matching mask."""
 
+        # Creates a padded DEM and mask
         DEM_padded = np.zeros(
             (self._pad_size * 2 + DEM.shape[0], self._pad_size * 2 + DEM.shape[1])
         )
@@ -231,16 +302,53 @@ class CraterGenerator:
         DEM_padded[
             self._pad_size : -self._pad_size, self._pad_size : -self._pad_size
         ] = DEM
-        for coord, rad in zip(coords, radius):
-            rad = int(rad * 2 / self._resolution)
-            coord = coord / self._resolution
-            c, rad = self.generateCrater(int(rad))
-            coord2 = (coord + self._pad_size).astype(np.int64)
-            coord = (coord - rad / 2 + self._pad_size).astype(np.int64)
-            DEM_padded[coord[0] : coord[0] + rad, coord[1] : coord[1] + rad] += c
-            mask_padded = cv2.circle(
-                mask_padded, (coord2[1], coord2[0]), int(rad / 4), 0, -1
-            )
+
+        # Creates a cache to store craters data
+        if craters_data is None:
+            craters_data = []
+
+        # Adds the craters to the DEM
+        if len(craters_data) == 0:
+            for coord, rad in zip(coords, radius):
+                rad = int(rad * 2 / self._resolution)
+                coord_s = coord / self._resolution
+                c, crater_data = self.generateCrater(int(rad))
+                crater_data.coord = (coord[0], coord[1])
+                coord2 = (coord_s + self._pad_size).astype(np.int64)
+                coord = (coord_s - crater_data.size / 2 + self._pad_size).astype(
+                    np.int64
+                )
+                DEM_padded[
+                    coord[0] : coord[0] + crater_data.size,
+                    coord[1] : coord[1] + crater_data.size,
+                ] += c
+                mask_padded = cv2.circle(
+                    mask_padded,
+                    (coord2[1], coord2[0]),
+                    int(crater_data.size / 4),
+                    0,
+                    -1,
+                )
+                craters_data.append(crater_data)
+        else:
+            for crater_data in craters_data:
+                rad = int(crater_data.size * 2 / self._resolution)
+                coord = coord / self._resolution
+                c, crater_data = self.generateCrater(crater_data)
+                coord2 = (coord + self._pad_size).astype(np.int64)
+                coord = (coord - crater_data.size / 2 + self._pad_size).astype(np.int64)
+                DEM_padded[
+                    coord[0] : coord[0] + crater_data.size,
+                    coord[1] : coord[1] + crater_data.size,
+                ] += c
+                mask_padded = cv2.circle(
+                    mask_padded,
+                    (coord2[1], coord2[0]),
+                    int(crater_data.size / 4),
+                    0,
+                    -1,
+                )
+
         mask_padded[: self._pad_size + 1, :] = 0
         mask_padded[:, : self._pad_size + 1] = 0
         mask_padded[-self._pad_size - 1 :, :] = 0
@@ -252,6 +360,7 @@ class CraterGenerator:
             mask_padded[
                 self._pad_size : -self._pad_size, self._pad_size : -self._pad_size
             ],
+            craters_data,
         )
 
 
@@ -509,17 +618,17 @@ class GenerateProceduralMoonYard:
         Generates a random terrain DEM with craters.
 
         Returns:
-            np.ndarray: random terrain DEM with craters
+            tuple: random terrain DEM with craters, mask of the craters, and the data regarding the craters generation.
         """
+
         DEM = self.T.generateRandomTerrain(is_lab=self.is_lab, is_yard=self.is_yard)
-        mask = np.ones_like(DEM)
         coords, radius = self.D.run()
-        DEM, mask = self.G.generateCraters(DEM, coords, radius)
+        DEM, mask, craters_data = self.G.generateCraters(DEM, coords, radius)
         self._dem_init = DEM
         self._dem_delta = np.zeros_like(DEM)
         self._mask = mask
         self._num_pass = np.zeros_like(mask)
-        return DEM, mask
+        return DEM, mask, craters_data
     
     def register_terrain(self, DEM:np.ndarray, mask:np.ndarray):
         """
@@ -546,7 +655,7 @@ if __name__ == "__main__":
     craters_profiles_path = "crater_spline_profiles.pkl"
     start = datetime.datetime.now()
     G = GenerateProceduralMoonYard(craters_profiles_path)
-    DEMs = [G.randomize() for i in range(4)]
+    DEMs, mask, craters_data = [G.randomize() for i in range(4)]
     end = datetime.datetime.now()
 
     print((end - start).total_seconds())

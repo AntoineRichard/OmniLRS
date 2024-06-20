@@ -46,37 +46,32 @@ class ROS_LunaryardManager:
         self.projector_subs = []
         self.projector_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Projector/TurnOn", Bool, self.setProjectorOn, queue_size=1
-            )
-        )
-        self.projector_subs.append(
-            rospy.Subscriber(
-                "/Lunalab/Projector/Intensity",
+                "/LunarYard/Sun/Intensity",
                 Float32,
-                self.setProjectorIntensity,
+                self.setSunIntensity,
                 queue_size=1,
             )
         )
         self.projector_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Projector/Pose", Pose, self.setProjectorPose, queue_size=1
+                "/LunarYard/Sun/Pose", Pose, self.setSunPose, queue_size=1
             )
         )
         # self.projector_subs.append(rospy.Subscriber("/Lunalab/Projector/Color", ColorRGBA, self.setProjectorColor, queue_size=1))
         self.terrains_subs = []
         self.terrains_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Terrain/Switch", Int8, self.switchTerrain, queue_size=1
+                "/LunarYard/Terrain/Switch", Int8, self.switchTerrain, queue_size=1
             )
         )
         self.terrains_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Terrain/EnableRocks", Bool, self.enableRocks, queue_size=1
+                "/LunarYard/Terrain/EnableRocks", Bool, self.enableRocks, queue_size=1
             )
         )
         self.terrains_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Terrain/RandomizeRocks",
+                "/LunarYard/Terrain/RandomizeRocks",
                 Int32,
                 self.randomizeRocks,
                 queue_size=1,
@@ -85,7 +80,7 @@ class ROS_LunaryardManager:
         self.render_subs = []
         self.render_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Render/EnableRTXRealTime",
+                "/LunarYard/Render/EnableRTXRealTime",
                 Empty,
                 self.useRTXRealTimeRender,
                 queue_size=1,
@@ -93,7 +88,7 @@ class ROS_LunaryardManager:
         )
         self.render_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Render/EnableRTXInteractive",
+                "/LunarYard/Render/EnableRTXInteractive",
                 Empty,
                 self.useRTXInteractiveRender,
                 queue_size=1,
@@ -101,7 +96,7 @@ class ROS_LunaryardManager:
         )
         self.render_subs.append(
             rospy.Subscriber(
-                "/Lunalab/LensFlare/EnableLensFlares",
+                "/LunarYard/LensFlare/EnableLensFlares",
                 Bool,
                 self.setLensFlareOn,
                 queue_size=1,
@@ -109,7 +104,7 @@ class ROS_LunaryardManager:
         )
         self.render_subs.append(
             rospy.Subscriber(
-                "/Lunalab/LensFlare/NumBlades",
+                "/LunarYard/LensFlare/NumBlades",
                 Int8,
                 self.setLensFlareNumBlade,
                 queue_size=1,
@@ -117,7 +112,7 @@ class ROS_LunaryardManager:
         )
         self.render_subs.append(
             rospy.Subscriber(
-                "/Lunalab/LensFlare/Scale",
+                "/LunarYard/LensFlare/Scale",
                 Float32,
                 self.setLensFlareScale,
                 queue_size=1,
@@ -125,7 +120,7 @@ class ROS_LunaryardManager:
         )
         self.render_subs.append(
             rospy.Subscriber(
-                "/Lunalab/LensFlare/ApertureRotation",
+                "/LunarYard/LensFlare/ApertureRotation",
                 Float32,
                 self.setLensFlareApertureRotation,
                 queue_size=1,
@@ -133,7 +128,7 @@ class ROS_LunaryardManager:
         )
         self.render_subs.append(
             rospy.Subscriber(
-                "/Lunalab/LensFlare/FocalLength",
+                "/LunarYard/LensFlare/FocalLength",
                 Float32,
                 self.setLensFlareFocalLength,
                 queue_size=1,
@@ -141,7 +136,7 @@ class ROS_LunaryardManager:
         )
         self.render_subs.append(
             rospy.Subscriber(
-                "/Lunalab/LensFlare/Fstop",
+                "/LunarYard/LensFlare/Fstop",
                 Float32,
                 self.setLensFlareFstop,
                 queue_size=1,
@@ -149,7 +144,7 @@ class ROS_LunaryardManager:
         )
         self.render_subs.append(
             rospy.Subscriber(
-                "/Lunalab/LensFlare/SensorAspectRatio",
+                "/LunarYard/LensFlare/SensorAspectRatio",
                 Float32,
                 self.setLensFlareSensorAspectRatio,
                 queue_size=1,
@@ -157,7 +152,7 @@ class ROS_LunaryardManager:
         )
         self.render_subs.append(
             rospy.Subscriber(
-                "/Lunalab/LensFlare/SensorDiagonal",
+                "/LunarYard/LensFlare/SensorDiagonal",
                 Float32,
                 self.setLensFlareSensorDiagonal,
                 queue_size=1,
@@ -166,12 +161,12 @@ class ROS_LunaryardManager:
         self.robot_subs = []
         self.robot_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Robots/Spawn", PoseStamped, self.spawnRobot, queue_size=1
+                "/LunarYard/Robots/Spawn", PoseStamped, self.spawnRobot, queue_size=1
             )
         )
         self.robot_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Robots/Teleport",
+                "/LunarYard/Robots/Teleport",
                 PoseStamped,
                 self.teleportRobot,
                 queue_size=1,
@@ -179,16 +174,26 @@ class ROS_LunaryardManager:
         )
         self.robot_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Robots/Reset", String, self.resetRobot, queue_size=1
+                "/LunarYard/Robots/Reset", String, self.resetRobot, queue_size=1
             )
         )
         self.robot_subs.append(
             rospy.Subscriber(
-                "/Lunalab/Robots/ResetAll", Empty, self.resetRobots, queue_size=1
+                "/LunarYard/Robots/ResetAll", Empty, self.resetRobots, queue_size=1
             )
         )
         self.domain_id = 0
         self.modifications = []
+
+    def periodicUpdate(self, dt: float) -> None:
+        """
+        Updates the lab.
+
+        Args:
+            dt (float): Time step.
+        """
+
+        self.modifications.append([self.LC.updateStellarEngine, [dt]])
 
     def clearModifications(self):
         """
@@ -210,27 +215,16 @@ class ROS_LunaryardManager:
 
         pass
 
-    def setProjectorOn(self, data: Bool) -> None:
-        """
-        Turns the projector on or off.
-
-        Args:
-            data (Bool): True to turn the projector on, False to turn it off."""
-
-        self.modifications.append([self.LC.turnProjectorOnOff, [data.data]])
-
-    def setProjectorIntensity(self, data: Float32) -> None:
+    def setSunIntensity(self, data: Float32) -> None:
         """
         Sets the projector intensity.
 
         Args:
             data (Float32): Intensity in percentage."""
 
-        default_intensity = 120000000.0
-        data = default_intensity * float(data.data) / 100.0
-        self.modifications.append([self.LC.setProjectorIntensity, [data]])
+        self.modifications.append([self.LC.setSunIntensity, data.data])
 
-    def setProjectorColor(self, data: ColorRGBA) -> None:
+    def setSunColor(self, data: ColorRGBA) -> None:
         """
         Sets the projector color.
 
@@ -238,14 +232,14 @@ class ROS_LunaryardManager:
             data (ColorRGBA): Color in RGBA format."""
 
         color = [data.r, data.g, data.b]
-        self.modifications.append([self.LC.setProjectorColor, [color]])
+        self.modifications.append([self.LC.setSunColor, color])
 
-    def setProjectorPose(self, data: Pose) -> None:
+    def setSunPose(self, data: Pose) -> None:
         """
         Sets the projector pose.
 
         Args:
-            data (Pose): Pose in ROS Pose format."""
+            data (Pose): Pose in ROS2 Pose format."""
 
         position = [data.position.x, data.position.y, data.position.z]
         quaternion = [
@@ -254,7 +248,7 @@ class ROS_LunaryardManager:
             data.orientation.z,
             data.orientation.w,
         ]
-        self.modifications.append([self.LC.setProjectorPose, [(position, quaternion)]])
+        self.modifications.append([self.LC.setSunPose, (position, quaternion)])
 
     def switchTerrain(self, data: Bool) -> None:
         """

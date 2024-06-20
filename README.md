@@ -28,7 +28,7 @@ Finally, we provide simple configurations for different renderers:
 
 ## Getting started:
 
-<details><summary><b>Installation & Requirements</b></summary>
+### Installation & Requirements 
 
 Software:
  - Ubuntu 20.04 or 22.04
@@ -46,7 +46,12 @@ git clone --recurse-submodules https://github.com/AntoineRichard/OmniLRS.git
 cd OmniLRS
 git submodule init
 git submodule update
-~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core
+
+sudo apt-get install gdal-bin
+sudo apt-get install libgdal-dev
+version=$(gdal-config --version)
+
+~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version
 ```
 
 Docker Installation (Comes packaged with ROS2 humble): #TODO a ROS1 (Noetic) version
@@ -61,8 +66,16 @@ git submodule update
 Assets:
  - Download the assets from: https://drive.google.com/file/d/1ArLEKcSKplgveiHVBWAlP_FOMgIACdVU/view?usp=drive_link
  - Unzip the assets inside the git repository. (The directory should be as shown in [Directory Structure](#directory-structure)
+ - To download the lunar Southpole DEMs run the following lines:
+```bash
+./scripts/get_dems.sh
+./scripts/extract_dems.sh
+```
+ - To use the stellar engine, a tool that precisely computes the position of the sun and the earth relatively to a position on the moon for a given time stamp, you will need to run the following script:
+```bash
+./scripts/get_ephemeris_data.sh
+```
 
-</details>
 
 <details><summary><b>Running the sim</b></summary>
 
