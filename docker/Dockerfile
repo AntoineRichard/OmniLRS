@@ -31,10 +31,13 @@ ENV ROS_DISTRO humble
 # install ros2 packages
 RUN apt-get update && apt-get install -y \
     ros-humble-ros-core=0.10.0-1* \
+    gdal-bin \
+    libgdal-dev \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 RUN /isaac-sim/python.sh -m pip install skyfield
-
+RUN /isaac-sim/python.sh -m pip install gdal==$(gdal-config --version)
 # setup entrypoint
 COPY ./entrypoint.sh /
 
