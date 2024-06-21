@@ -39,6 +39,10 @@ RUN apt-get update && apt-get install -y \
 RUN /isaac-sim/python.sh -m pip install skyfield
 RUN /isaac-sim/python.sh -m pip install gdal==$(gdal-config --version)
 
+# isaac ros2_bridge config
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/isaac-sim/exts/omni.isaac.ros2_bridge/humble/lib
+ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+
 # setup entrypoint
 COPY ./entrypoint.sh /
 
