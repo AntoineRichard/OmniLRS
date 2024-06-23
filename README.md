@@ -17,10 +17,11 @@ We also provide 3 operation modes:
  - SDG: or Synthetic Data Generarion, allows to capture synthetic data to train neural-networks.
 
 For both ROS1 and ROS2 we prepared 4 different robots:
- - EX1: SRL's own rover.
- - Leo Rover: a rover from XXX used by SpaceR.
- - Husky: the rover from Clearpath Robotics.
- - Turtlebot: A popular educational robot.
+ - EX1 (`ex1.usd`): SRL's own rover.
+ - Leo Rover (`Leo_rover.usd`): a rover from fictionlab used by SpaceR.
+ - Husky (`husky.usd`): the UGV from Clearpath Robotics.
+ - Jackal (`jackal.usd`): the UGV from Clearpath Robotics.
+ - Turtlebot (`turtlebot3.usd`): A popular educational robot.
 
 Finally, we provide simple configurations for different renderers:
  - path_tracing: A slower rendering method that provides realistic light bounces.
