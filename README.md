@@ -3,6 +3,12 @@
 In this repository, you will find the tools developped jointly by the Space Robotics group from the University of Luxembourg (SpaceR),
 and the Space Robotics Lab from Tohoku University in Japan (SRL).
 
+Please refer to the following presentation video and [slide](https://drive.google.com/file/d/1vIf3sHbgJz4mbKpPGAQFcx8JtvYv5YKp/view?usp=sharing) for the overview of our work.
+<p align="center">
+<iframe width="560" height="315"
+src="https://www.youtube.com/embed/PebUZjm0WuA?si=6Kl5IZggTq6jX11m" 
+title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></p>
+
 > Please note that this is only a partial release. The entirety of the code and assets/robots will be released at a later date.
 > We will also provide docker as well as Foxglove interfaces to ease the interaction with the simulation.
 > Should you run into any bug, or would like to have a new feature, feel free to open an issue.
@@ -11,12 +17,17 @@ With this initial release we provide our small scale environments:
  - The lunalab 
  - The lunaryard (3 versions 20m, 40m, 80m)
 
+| Environment| Description | Image            |
+|------------|-------------|---------------------------------|
+| **Lunalab**            | Digital-Twin of lunar analog at the University of Luxembourg. | <img src="data/env_img/lunalab.png" width=520/> |
+| **Lunaryard**            | Procedually generated lunar environment. | <img src="data/env_img/lunaryard_husky_ex1.png" width=520/> |
+
 We also provide 3 operation modes:
  - ROS1: allows to run ROS1 enabled robots
  - ROS2: allows to run ROS2 enabled robots
  - SDG: or Synthetic Data Generarion, allows to capture synthetic data to train neural-networks.
 
-For both ROS1 and ROS2 we prepared 4 different robots:
+For both ROS1 and ROS2 we prepared 5 different robots:
  - EX1 (`ex1.usd`): SRL's own rover.
  - Leo Rover (`Leo_rover.usd`): a rover from fictionlab used by SpaceR.
  - Husky (`husky.usd`): the UGV from Clearpath Robotics.
@@ -26,6 +37,7 @@ For both ROS1 and ROS2 we prepared 4 different robots:
 Finally, we provide simple configurations for different renderers:
  - path_tracing: A slower rendering method that provides realistic light bounces.
  - ray_tracing: A fast rendering method that does not provide pitched back shadows.
+
 
 ## Getting started:
 
@@ -99,11 +111,11 @@ In each of these folders, there are different configuration files, that parametr
 
 For instance, to run the lunalab environment with ROS2, and ray-traced lighting one can use the following command:
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_tracing
+~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_tracing
 ```
 Similarly, to run the lunaryard environment with ROS2, one can use the following command:
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunaryard_20m mode=ROS2 rendering=ray_tracing
+~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh run.py environment=lunaryard_20m mode=ROS2 rendering=ray_tracing
 ```
 
 The rendering mode can be changed by using `rendering=path_tracing` instead of `rendering=ray_tracing`.
@@ -114,25 +126,25 @@ and let Hydra fetch it.
 If you just want to modify a parameter for a given run, say disabling the lens-flare effects, then you can also edit parameters directly from the command line:
 For instance:
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunaryard_20m mode=ROS2 rendering=ray_tracing rendering.lens_flares.enable=False
+~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh run.py environment=lunaryard_20m mode=ROS2 rendering=ray_tracing rendering.lens_flares.enable=False
 ```
 
 We provide bellow a couple premade command line that can be useful, the full description of the configuration files is given here:
 Lunalab, ROS1
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS1 rendering=ray_tracing
+~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh run.py environment=lunalab mode=ROS1 rendering=ray_tracing
 ```
 Lunalab, ROS2 (foxy)
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_tracing
+~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_tracing
 ```
 Lunalab, ROS2 (humble)
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_tracing mode.bridge_name=humble
+~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh run.py environment=lunalab mode=ROS2 rendering=ray_tracing mode.bridge_name=humble
 ```
 Lunalab, SDG
 ```bash
-~/.local/share/ov/pkg/isaac_sim-2022.2.1/python.sh run.py environment=lunalab4SDG mode=SDG rendering=path_tracing rendering.renderer.headless=True
+~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh run.py environment=lunalab4SDG mode=SDG rendering=path_tracing rendering.renderer.headless=True
 ```
 </details>
 
@@ -161,11 +173,12 @@ Changing the render mode:
 ## Citation
 Please use the following citation if you use `OmniLRS` in your work.
 ```bibtex
-@article{richard2023omnilrs,
+@article{richard2024omnilrs,
   title={OmniLRS: A Photorealistic Simulator for Lunar Robotics},
   author={Richard, Antoine and Kamohara, Junnosuke and Uno, Kentaro and Santra, Shreya and van der Meer, Dave and Olivares-Mendez, Miguel and Yoshida, Kazuya},
-  journal={arXiv preprint arXiv:2309.08997},
-  year={2023}
+  booktitle={2024 IEEE International Conference on Robotics and Automation (ICRA)},
+  url={https://arxiv.org/abs/2309.08997},
+  year={2024}
 }
 ```
 
