@@ -4,10 +4,11 @@ In this repository, you will find the tools developped jointly by the Space Robo
 and the Space Robotics Lab from Tohoku University in Japan (SRL).
 
 Please refer to the following presentation video and [slide](https://drive.google.com/file/d/1vIf3sHbgJz4mbKpPGAQFcx8JtvYv5YKp/view?usp=sharing) for the overview of our work.
-<p align="center">
-<iframe width="560" height="315"
-src="https://www.youtube.com/embed/PebUZjm0WuA?si=6Kl5IZggTq6jX11m" 
-title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></p>
+<div align="left">
+      <a href="https://youtu.be/PebUZjm0WuA?si=hb-BivXSh4xw7Mqq">
+         <img src="media/thumb/thumbnail.png" style="width:60%;">
+      </a>
+</div>
 
 > Please note that this is only a partial release. The entirety of the code and assets/robots will be released at a later date.
 > We will also provide docker as well as Foxglove interfaces to ease the interaction with the simulation.
@@ -19,8 +20,8 @@ With this initial release we provide our small scale environments:
 
 | Environment| Description | Image            |
 |------------|-------------|---------------------------------|
-| **Lunalab**            | Digital-Twin of lunar analog at the University of Luxembourg. | <img src="data/env_img/lunalab.png" width=520/> |
-| **Lunaryard**            | Procedually generated lunar environment. | <img src="data/env_img/lunaryard_husky_ex1.png" width=520/> |
+| **Lunalab**            | Digital-Twin of lunar analog at the University of Luxembourg. | <img src="media/env_img/lunalab.png" width=520/> |
+| **Lunaryard**            | Procedually generated lunar environment. | <img src="media/env_img/lunaryard_husky_ex1.png" width=520/> |
 
 We also provide 3 operation modes:
  - ROS1: allows to run ROS1 enabled robots
