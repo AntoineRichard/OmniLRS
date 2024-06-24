@@ -255,8 +255,8 @@ terrain_manager:
       terrain_height: ${....lunaryard_settings.lab_length}
       terrain_resolution: ${....lunaryard_settings.resolution}
       footprint:
-        width: 0.105
-        height: 0.35
+        width: 0.125
+        height: 0.33
       deform_constrain:
         x_deform_offset: 0.0
         y_deform_offset: 0.05
@@ -301,9 +301,18 @@ robots_settings:
     #   domain_id: 0
     #   target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
     
+    # -
+    #   robot_name: jackal
+    #   usd_path: assets/USD_Assets/robots/jackal.usd
+    #   pose:
+    #     position: [5.0, 5.0, 0.5]
+    #     orientation: [1, 0, 0, 0]
+    #   domain_id: 0
+    #   target_links: ["front_left_wheel_link", "front_right_wheel_link", "rear_left_wheel_link", "rear_right_wheel_link"]
+    
     -
-      robot_name: jackal
-      usd_path: assets/USD_Assets/robots/jackal.usd
+      robot_name: husky
+      usd_path: assets/USD_Assets/robots/husky.usd
       pose:
         position: [5.0, 5.0, 0.5]
         orientation: [1, 0, 0, 0]

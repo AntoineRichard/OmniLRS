@@ -4,7 +4,7 @@ In this repository, you will find the tools developped jointly by the Space Robo
 and the Space Robotics Lab from Tohoku University in Japan (SRL).
 
 Please refer to the following presentation video and [slide](https://drive.google.com/file/d/1vIf3sHbgJz4mbKpPGAQFcx8JtvYv5YKp/view?usp=sharing) for the overview of our work.
-<div align="left">
+<div align="center">
       <a href="https://youtu.be/PebUZjm0WuA?si=hb-BivXSh4xw7Mqq">
          <img src="media/thumb/thumbnail.png" style="width:60%;">
       </a>
@@ -169,6 +169,11 @@ Changing the render mode:
 - ray tracing
  
 </details>
+
+### ROS2 demo
+We prepared another separate git repository to run ROS2 demo. \
+It supports joystick teleoperation and navigation for now. \
+https://github.com/jnskkmhr/omnilrs_ros2_demo
 
 
 ## Citation
