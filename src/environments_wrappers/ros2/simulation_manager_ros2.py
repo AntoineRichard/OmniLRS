@@ -13,11 +13,54 @@ from threading import Thread
 from omni.isaac.core import World
 from typing import Union
 import omni
+import time
 
 from src.environments_wrappers.ros2.robot_manager_ros2 import ROS_RobotManager
 from src.environments_wrappers.ros2.lunalab_ros2 import ROS_LunalabManager
 from src.environments_wrappers.ros2.lunaryard_ros2 import ROS_LunaryardManager
 from rclpy.executors import SingleThreadedExecutor as Executor
+
+class Rate:
+    """
+    Creates a rate object that enables to sleep for a minimum amount
+    of time between two iterations of a loop. If freq and dt are
+    passed, the object will only use the information provided by dt.
+    """
+
+    def __init__(self, freq: float = None, dt: float = None, is_disabled: bool = False) -> None:
+        """
+        Args:
+          freq (float): The frequency at which the loop should be executed.
+          dt (float): The delta of time to be kept between two loop iterations.
+        """
+
+        self.is_disabled = is_disabled
+
+        if not self.is_disabled:
+            if dt is None:
+                if freq is None:
+                    raise ValueError("You must provide either a frequency or a delta time.")
+                else:
+                    self.dt = 1.0 / freq
+            else:
+                self.dt = dt
+
+            self.last_check = time.time()
+
+    def sleep(self) -> None:
+        """
+        Wait for a minimum amount of time between two iterations of a loop.
+        """
+        if not self.is_disabled:
+            now = time.time()
+            delta = now - self.last_check
+            # If time delta is too low sleep, else carry on.
+            if delta < self.dt:
+                to_sleep = delta - self.dt
+                time.sleep(to_sleep)
+                # Update last check after sleep
+                self.last_check = time.time()
+        
 
 
 class ROS2_LabManagerFactory:
@@ -88,9 +131,14 @@ class ROS2_SimulationManager:
         self.simulation_app = simulation_app
         # Setups the physics and acquires the different interfaces to talk with Isaac
         self.timeline = omni.timeline.get_timeline_interface()
-        self.world = World(stage_units_in_meters=1.0)
+        self.world = World(stage_units_in_meters=1.0, physics_dt=cfg["environment"]["physics_dt"], rendering_dt=cfg["environment"]["rendering_dt"])
         self.physics_ctx = self.world.get_physics_context()
         self.physics_ctx.set_solver_type("PGS")
+        if cfg["environment"]["enforce_realtime"]:
+            self.rate = Rate(dt=cfg["environment"]["physics_dt"])
+        else:
+            self.rate = Rate(is_disabled=True)
+
         # Lab manager thread
         self.ROSLabManager = ROS2_LMF(cfg)
         exec1 = Executor()
@@ -143,5 +191,6 @@ class ROS2_SimulationManager:
                     if self.world.current_time_step_index % self.render_deform_inv == 0:
                         self.ROSLabManager.LC.deformTerrain()
                     # self.ROSLabManager.LC.applyTerramechanics()
+            self.rate.sleep()
 
         self.timeline.stop()

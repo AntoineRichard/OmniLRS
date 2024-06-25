@@ -33,6 +33,8 @@ RUN apt-get update && apt-get install -y \
     ros-humble-ros-core=0.10.0-1* \
     gdal-bin \
     libgdal-dev \
+    ros-humble-vision-msgs \
+    ros-humble-tf2-msgs \
     g++ \
     wget \
     && rm -rf /var/lib/apt/lists/*

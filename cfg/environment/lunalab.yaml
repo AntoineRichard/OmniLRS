@@ -1,5 +1,9 @@
 name: Lunalab
 seed: 42  
+physics_dt: 0.0333 # 30 Hz
+rendering_dt: 0.0333 # 30 Hz
+enforce_realtime: true
+
 # Stage settings, only edit if you know what you are doing.
 lunalab_settings:
   lab_length: 10.0

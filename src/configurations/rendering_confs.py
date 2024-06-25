@@ -21,6 +21,7 @@ class FlaresConf:
     sensor_aspect_ratio: float = dataclasses.field(default_factory=float)
     fstop: float = dataclasses.field(default_factory=float)
     focal_length: float = dataclasses.field(default_factory=float)
+    decoupled_flare_intensity_ratio: float = dataclasses.field(default_factory=float)
 
     def __post_init__(self):
         assert type(self.enable) is bool, "enalbe must be a boolean"
@@ -35,6 +36,7 @@ class FlaresConf:
         ), "sensor_aspect_ratio must be a float"
         assert type(self.fstop) is float, "fstop must be a float"
         assert type(self.focal_length) is float, "focal_length must be a float"
+        assert type(self.decoupled_flare_intensity_ratio) is float, "decoupled flare intensity ratio must be a float"
 
         assert self.scale > 0, "scale must be greater than 0"
         assert self.blades > 0, "blades must be greater than 0"
@@ -50,6 +52,7 @@ class FlaresConf:
         ), "sensor_aspect_ratio must be greater than 0"
         assert self.fstop > 0, "fstop must be greater than 0"
         assert self.focal_length > 0, "focal_length must be greater than 0"
+        assert self.decoupled_flare_intensity_ratio >= 1, "decoupled flare intensity ratio must be greater or equal to 1"
 
 
 @dataclasses.dataclass
