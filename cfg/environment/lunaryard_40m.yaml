@@ -1,12 +1,30 @@
 name: Lunaryard
 seed: 42
+physics_dt: 0.0666 # 60 Hz
+rendering_dt: 0.0333 # 30 Hz
+enforce_realtime: true
+
 # Stage settings, only edit if you know what you are doing.
 lunaryard_settings:
   lab_length: 40.0
   lab_width: 40.0
-  resolution: 0.04
+  resolution: 0.02
   projector_path: /Lunaryard/Sun
   earth_path: /Lunaryard/Earth
+  coordinates:
+    latitude: 46.8
+    longitude: -26.3
+
+stellar_engine_settings:
+  start_date:
+    year: 2024
+    month: 5
+    day: 1
+    hour: 12
+    minute: 50
+  time_scale: 1
+  update_interval: 600
+  distance_scale: 0.001
 
 # Rocks sampling parameters.
 rocks_settings:
@@ -30,8 +48,8 @@ rocks_settings:
             name: ThomasCluster
             randomization_space: 2
             lambda_parent: 0.15
-            lambda_daughter: 50
-            sigma: 0.8
+            lambda_daughter: 20
+            sigma: 1.5
             seed: ${.......seed}
 
         req_pos_z:
@@ -105,14 +123,14 @@ terrain_manager:
       seed: ${....seed}
     
     deformation_engine:
-      enable: False
+      enable: True
       render_deform_inv: 10
       terrain_width: ${....lunaryard_settings.lab_width}
       terrain_height: ${....lunaryard_settings.lab_length}
       terrain_resolution: ${....lunaryard_settings.resolution}
       footprint:
-        width: 0.04
-        height: 0.15
+        width: 0.25
+        height: 0.2
       deform_constrain:
         x_deform_offset: 0.0
         y_deform_offset: 0.0
@@ -120,8 +138,8 @@ terrain_manager:
       boundary_distribution: 
         distribution: trapezoidal
         angle_of_repose: 1.047 #pi/3
-      depth_distribution: 
-        distribution: trapezoidal
+      depth_distribution:
+        distribution: sinusoidal
         wave_frequency: 4.14 # num_grouser/pi (no slip)
       force_depth_regression:
         amplitude_slope: 0.00006
@@ -144,18 +162,18 @@ terrain_manager:
 
 robots_settings:
   uses_nucleus: False
-  is_ROS2: False
+  is_ROS2: True
   max_robots: 5
   robots_root: "/Robots"
   parameters:
-    -
-      robot_name: ex1
-      usd_path: assets/USD_Assets/robots/ex1.usd
-      pose:
-        position: [10.0, 10.0, 0.5]
-        orientation: [0, 0, 0, 1]
-      domain_id: 0
-      target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
+    # -
+    #   robot_name: ex1
+    #   usd_path: assets/USD_Assets/robots/ex1.usd
+    #   pose:
+    #     position: [10.0, 10.0, 0.5]
+    #     orientation: [0, 0, 0, 1]
+    #   domain_id: 0
+    #   target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
     
     # -
     #   robot_name: jackal
@@ -168,7 +186,7 @@ robots_settings:
 
     -
       robot_name: husky
-      usd_path: assets/USD_Assets/robots/husky.usd
+      usd_path: assets/USD_Assets/robots/husky_vlp16.usd
       pose:
         position: [5.0, 5.0, 0.5]
         orientation: [1, 0, 0, 0]
