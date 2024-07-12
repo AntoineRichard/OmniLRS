@@ -266,6 +266,7 @@ class TerrainManagerConf:
     sim_length: int = dataclasses.field(default_factory=int)
     sim_width: int = dataclasses.field(default_factory=int)
     resolution: float = dataclasses.field(default_factory=float)
+    augmentation: bool = False
 
     def __post_init__(self):
         self.moon_yard = MoonYardConf(**self.moon_yard)

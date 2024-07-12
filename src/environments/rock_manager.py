@@ -167,7 +167,10 @@ class OGInstancer:
 
 class RockManager:
     def __init__(
-        self, rocks_settings: dict = None, instancers_path: str = None, **kwargs
+        self, rocks_settings: dict = None, 
+        instancers_path: str = None, 
+        enable: bool = True,
+        **kwargs
     ):
         self.stage = omni.usd.get_context().get_stage()
 
@@ -184,19 +187,21 @@ class RockManager:
 
         for name, settings in rocks_settings.items():
             self.settings[name] = settings
-
-        # This is probalby over-engineered (like every good things in life)
-        # Creates a dependency graph to know which node depends on which.
-        # It also collects the root nodes, the ones that don't depend on any.
-        # As well as all the nodes.
-        self.dependency_graph = {}
-        self.root_nodes = []
-        self.nodes = []
-        self.buildDependencyGraph()
-        self.children_nodes = [i for l in self.dependency_graph.values() for i in l]
-        # From there we compute the order in which the nodes need to be executed.
-        self.execution_order = []
-        self.buildExecutionOrder()
+        
+        self.enable = enable
+        if self.enable:
+            # This is probalby over-engineered (like every good things in life)
+            # Creates a dependency graph to know which node depends on which.
+            # It also collects the root nodes, the ones that don't depend on any.
+            # As well as all the nodes.
+            self.dependency_graph = {}
+            self.root_nodes = []
+            self.nodes = []
+            self.buildDependencyGraph()
+            self.children_nodes = [i for l in self.dependency_graph.values() for i in l]
+            # From there we compute the order in which the nodes need to be executed.
+            self.execution_order = []
+            self.buildExecutionOrder()
 
     def buildDependencyGraph(self) -> None:
         """
@@ -275,8 +280,8 @@ class RockManager:
         Args:
             image (np.ndarray): The image data.
             mask (np.ndarray): The mask data."""
-
-        self.createInstancers()
+        if self.enable:
+            self.createInstancers()
 
     def updateImageData(self, image: np.ndarray, mask: np.ndarray) -> None:
         """
@@ -286,10 +291,11 @@ class RockManager:
         Args:
             image (np.ndarray): The image data.
             mask (np.ndarray): The mask data."""
-
-        self.image = image
-        for name, settings in self.settings.items():
-            self.mixers[name] = generateMixer(settings["requests"], image, mask)
+        
+        if self.enable:
+            self.image = image
+            for name, settings in self.settings.items():
+                self.mixers[name] = generateMixer(settings["requests"], image, mask)
 
     def createInstancers(self):
         """
@@ -338,24 +344,24 @@ class RockManager:
         """
         Runs the mixers, collects the randomized parameters, and sets them to the instancers.
         """
-
-        parents = {}
-        for name in self.execution_order:
-            if name in self.children_nodes:
-                output = self.mixers[name].executeGraph(
-                    parents=parents[self.settings[name]["parent"]]
-                )
-            else:
-                output = self.mixers[name].executeGraph(num)
-            # Check if it the node is the parent of any other node.
-            if (name in self.dependency_graph.keys()) and (
-                len(self.dependency_graph[name]) > 0
-            ):
-                # If so collects parent data from the mixer.
-                parents[name] = self.mixers[name].getParents()
-            # Updates the instancer.
-            output = {self.mappings[key]: value for key, value in output.items()}
-            self.instancers[name].setInstanceParameter(**output)
+        if self.enable:
+            parents = {}
+            for name in self.execution_order:
+                if name in self.children_nodes:
+                    output = self.mixers[name].executeGraph(
+                        parents=parents[self.settings[name]["parent"]]
+                    )
+                else:
+                    output = self.mixers[name].executeGraph(num)
+                # Check if it the node is the parent of any other node.
+                if (name in self.dependency_graph.keys()) and (
+                    len(self.dependency_graph[name]) > 0
+                ):
+                    # If so collects parent data from the mixer.
+                    parents[name] = self.mixers[name].getParents()
+                # Updates the instancer.
+                output = {self.mappings[key]: value for key, value in output.items()}
+                self.instancers[name].setInstanceParameter(**output)
 
     def setVisible(
         self,
@@ -366,9 +372,10 @@ class RockManager:
 
         Args:
             flag (bool): The visibility flag."""
-
-        instancers_prim = self.stage.GetPrimAtPath(self.instancers_path)
-        if flag:
-            instancers_prim.GetAttribute("visibility").Set("visible")
-        else:
-            instancers_prim.GetAttribute("visibility").Set("invisible")
+        
+        if self.enable:
+            instancers_prim = self.stage.GetPrimAtPath(self.instancers_path)
+            if flag:
+                instancers_prim.GetAttribute("visibility").Set("visible")
+            else:
+                instancers_prim.GetAttribute("visibility").Set("invisible")

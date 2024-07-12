@@ -42,6 +42,7 @@ class TerrainManager:
         self._stage = omni.usd.get_context().get_stage()
         self._texture_path = cfg.texture_path
         self._root_path = cfg.root_path
+        self._augmentation = cfg.augmentation
 
         self._dems = {}
         self._DEM = None
@@ -300,7 +301,10 @@ class TerrainManager:
             name (str): the name matching the dictionaty entry."""
 
         self.loadDEMAndMask(name)
-        self._G.register_terrain(self._DEM, self._mask)
+        if self._augmentation:
+            self._DEM, self._mask, self._craters_data = self._G.augment(self._DEM, self._mask)
+        else:
+            self._G.register_terrain(self._DEM, self._mask)
         self.update(update_collider=True)
 
     def loadTerrainId(self, idx: int) -> None:

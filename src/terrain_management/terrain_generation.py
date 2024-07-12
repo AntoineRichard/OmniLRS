@@ -630,6 +630,22 @@ class GenerateProceduralMoonYard:
         self._num_pass = np.zeros_like(mask)
         return DEM, mask, craters_data
     
+    def augment(self, DEM:np.ndarray, mask:np.ndarray) -> np.ndarray:
+        """
+        Generates a random terrain DEM with craters.
+
+        Returns:
+            tuple: random terrain DEM with craters, mask of the craters, and the data regarding the craters generation.
+        """
+        coords, radius = self.D.run()
+        DEM, mask_, craters_data = self.G.generateCraters(DEM, coords, radius)
+        mask = mask * mask_
+        self._dem_init = DEM
+        self._dem_delta = np.zeros_like(DEM)
+        self._mask = mask 
+        self._num_pass = np.zeros_like(mask)
+        return DEM, mask, craters_data
+    
     def register_terrain(self, DEM:np.ndarray, mask:np.ndarray):
         """
         Register dem and mask to instance variables.

@@ -38,5 +38,8 @@ class RobotManagerConf:
     parameters: List[RobotParameters] = field(default_factory=list)
     
     def __post_init__(self):
-        assert len(self.parameters) <= self.max_robots, "number of robots to register should not exeed max_robots"
-        self.parameters = [RobotParameters(**param) for param in self.parameters]
+        if self.parameters:
+            assert len(self.parameters) <= self.max_robots, "number of robots to register should not exeed max_robots"
+            self.parameters = [RobotParameters(**param) for param in self.parameters]
+        else:
+            self.parameters = []
