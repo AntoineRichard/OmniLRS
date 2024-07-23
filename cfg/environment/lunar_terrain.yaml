@@ -1,7 +1,7 @@
 # Terrain mesh loaded from LRO DTM.
 name: Lunaryard
 seed: 42
-physics_dt: 0.0333 # 30 Hz
+physics_dt: 0.0166 # 60 Hz
 rendering_dt: 0.0333 # 30 Hz
 enforce_realtime: true
 
