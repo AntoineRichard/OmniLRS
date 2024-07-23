@@ -1,5 +1,9 @@
 name: Lunaryard
-seed: 42 
+seed: 42
+physics_dt: 0.0333 # 30 Hz
+rendering_dt: 0.0333 # 30 Hz
+enforce_realtime: true
+
 # Stage settings, only edit if you know what you are doing.
 lunaryard_settings:
   lab_length: 80.0
@@ -107,7 +111,7 @@ terrain_manager:
     
     deformation_engine:
       enable: False
-      render_deform_inv: 10
+      delay: 2.0
       terrain_width: ${....lunaryard_settings.lab_width}
       terrain_height: ${....lunaryard_settings.lab_length}
       terrain_resolution: ${....lunaryard_settings.resolution}

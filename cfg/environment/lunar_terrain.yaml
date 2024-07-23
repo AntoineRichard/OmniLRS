@@ -1,6 +1,7 @@
+# Terrain mesh loaded from LRO DTM.
 name: Lunaryard
 seed: 42
-physics_dt: 0.0666 # 60 Hz
+physics_dt: 0.0333 # 30 Hz
 rendering_dt: 0.0333 # 30 Hz
 enforce_realtime: true
 
@@ -14,7 +15,7 @@ lunaryard_settings:
   coordinates:
     latitude: 46.8
     longitude: -26.3
-  terrain_id: 0
+  terrain_id: 0 # id of your terrain directory
 
 stellar_engine_settings:
   start_date:
@@ -193,7 +194,7 @@ terrain_manager:
     
     deformation_engine:
       enable: False
-      render_deform_inv: 10
+      delay: 2.0
       terrain_width: ${....lunaryard_settings.lab_width}
       terrain_height: ${....lunaryard_settings.lab_length}
       terrain_resolution: ${....lunaryard_settings.resolution}
@@ -236,11 +237,11 @@ robots_settings:
   max_robots: 5
   robots_root: "/Robots"
   parameters:
-    # -
-    #   robot_name: husky
-    #   usd_path: assets/USD_Assets/robots/husky_vlp16_localization.usd
-    #   pose:
-    #     position: [5.0, 5.0, 0.1]
-    #     orientation: [0, 0, 0, 1]
-    #   domain_id: 0
-    #   target_links: ["front_left_wheel_link", "front_right_wheel_link", "rear_left_wheel_link", "rear_right_wheel_link"]
+    -
+      robot_name: husky
+      usd_path: assets/USD_Assets/robots/husky_vlp16_localization.usd
+      pose:
+        position: [5.0, 5.0, 0.1]
+        orientation: [0, 0, 0, 1]
+      domain_id: 0
+      target_links: ["front_left_wheel_link", "front_right_wheel_link", "rear_left_wheel_link", "rear_right_wheel_link"]

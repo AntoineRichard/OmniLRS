@@ -195,7 +195,7 @@ class DeformationEngineConf:
     Deformation engine parameters.
     Args:
         enable (bool): Enable deformation.
-        render_deform_inv (int): render_rate/deform_rate.
+        delay (float): Delay time (s) for the deformation.
         terrain_resolution (float): Resolution of the terrain.
         terrain_width (float): Width of the terrain.
         terrain_height (float): Height of the terrain.
@@ -207,7 +207,7 @@ class DeformationEngineConf:
         force_depth_regression (dict): Force depth regression parameters.
     """
     enable: bool = False
-    render_deform_inv: int = 10
+    delay: float = 1.0
     terrain_resolution: float = dataclasses.field(default_factory=float)
     terrain_width: float = dataclasses.field(default_factory=float)
     terrain_height: float = dataclasses.field(default_factory=float)
@@ -219,10 +219,9 @@ class DeformationEngineConf:
     force_depth_regression: ForceDepthRegressionConf = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
-        assert type(self.render_deform_inv) is int, "render_deform_inv must be an int"
+        assert type(self.delay) is float, "delay must be float"
         assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
-        
-        assert self.render_deform_inv > 1, "render_deform_inv must be greater than 1"
+        assert self.delay >= 0, "render_deform_inv must be greater than or equal to 1"
         assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"
         assert self.terrain_width > 0, "terrain_width must be greater than 0"
         assert self.terrain_height > 0, "terrain_height must be greater than 0"
