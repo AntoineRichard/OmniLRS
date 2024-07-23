@@ -12,6 +12,7 @@ from typing import List, Tuple
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+import warp as wp
 
 from src.configurations.procedural_terrain_confs import (
     FootprintConf, 
@@ -501,6 +502,7 @@ class TrapezoidalBoundaryDistributionGenerator(BoundaryDistributionGenerator):
         plt.ylabel("depth mask")
         plt.title("YZ cross section distribution")
 
+
 class DeformationEngine:
     """
     Terrain deformation engine class.
@@ -515,6 +517,7 @@ class DeformationEngine:
         self.terrain_height = deformation_engine.terrain_height
         self.sim_width = self.terrain_width / self.terrain_resolution
         self.sim_height = self.terrain_height / self.terrain_resolution
+        self.num_links = deformation_engine.num_links
         
         self.footprint = deformation_engine.footprint
         self.deform_constrain = deformation_engine.deform_constrain
@@ -585,27 +588,32 @@ class DeformationEngine:
                 footprint_profile_height=self.footprint_profile_height
             )
             self.boundary_dist = self.boundary_distribution_generator.get_boundary_distribution()
+        
+        self.instantiate_np_buffer(n=self.num_links, num_point_sample=self.profile.shape[0])
+    
+    def instantiate_np_buffer(self, n:int, num_point_sample:int)->None:
+        self.headings = np.zeros((n, 2), dtype=np.float32)
+        self.profile_global = np.zeros((n*num_point_sample, 2), dtype=np.float32)
+        self.depth = np.zeros((n*num_point_sample,), dtype=np.float32)
 
-    def get_footprint_profile_in_global(self, body_transforms:np.ndarray)-> np.ndarray:
+    def get_footprint_profile_in_global(self, 
+                                        world_positions: np.ndarray, 
+                                        world_orientations: np.ndarray)-> None:
         """
         Get x, y positions of profile in global coordinate.
         Args:
-            body_transforms (np.ndarray): body transform of robot's links (n, 4, 4)
-            ---
-            n is the number of links.
-        Returns:
-            projection_points (np.ndarray): projected pixel coordinates of robot's links (num_points, 2)
-            num_points = n * num_point_sample
+            world_positions (np.ndarray): world position of robot's links (n, 3)
+            world_orientations (np.ndarray): world orientation of robot's links (n, 4)
+        ====
+        n is the number of links.
+        num_points = n * num_point_sample
         """
-        projection_points = []
-        for i in range(body_transforms.shape[0]):
-            body_transform = body_transforms[i]
-            heading = R.from_matrix(body_transform[:3, :3]).as_euler("zyx")[0]
-            projection_point = np.array(
-                [self.profile[:, 0]*np.cos(heading) - self.profile[:, 1]*np.sin(heading), 
-                self.profile[:, 0]*np.sin(heading) + self.profile[:, 1]*np.cos(heading)]).T + body_transform[:2, 3]
-            projection_points.append(projection_point)
-        return np.concatenate(projection_points)
+        self.headings[:, 0] = 2.0 * (world_orientations[:, 0] * world_orientations[:, 3])
+        self.headings[:, 1] = 1.0 - 2.0 * (world_orientations[:, 3] * world_orientations[:, 3])
+        projection_points = np.zeros((world_positions.shape[0], self.profile.shape[0], 2))
+        projection_points[:, :, 0] = self.profile[:, 0]*self.headings[:, 1, None] - self.profile[:, 1]*self.headings[:, 0, None] + world_positions[:, 0][:, None]
+        projection_points[:, :, 1] = self.profile[:, 0]*self.headings[:, 0, None] + self.profile[:, 1]*self.headings[:, 1, None] + world_positions[:, 1][:, None]
+        self.profile_global = projection_points.reshape(-1, 2)
     
     def force_depth_regression_model(self, normal_forces:np.ndarray)-> np.ndarray:
         """
@@ -622,26 +630,25 @@ class DeformationEngine:
             self.force_depth_regression.mean_intercept
         return amplitude, mean_value
     
-    def get_deformation_depth(self, normal_forces:np.ndarray)-> np.ndarray:
+    def get_deformation_depth(self, normal_forces:np.ndarray)-> None:
         """
         Calculate deformation depth from force distribution.
         Args:
             normal_forces (np.ndarray): contact force fields (n,)
-        Returns:
-            depth (np.ndarray): deformation depth (num_points, 1)
-            ---
-            num_points = n * num_point_sample
+        ===
+        num_points = n * num_point_sample
         """
-        depth = []
-        for normal_force in normal_forces:
-            amplitude, mean_value = self.force_depth_regression_model(normal_force)
-            depth.append(
-                self.boundary_dist * (amplitude * self.depth_dist - mean_value)
-            )
-        depth = np.concatenate(depth)
-        return depth
+        depth = np.zeros((normal_forces.shape[0], self.profile.shape[0]))
+        amplitude, mean_value = self.force_depth_regression_model(normal_forces)
+        depth = self.boundary_dist[None, :] * (amplitude[:, None] * self.depth_dist[None, :] - mean_value[:, None])
+        self.depth = depth.reshape(-1)
     
-    def deform(self, DEM:np.ndarray, num_pass:np.ndarray, body_transforms:np.ndarray, normal_forces:np.ndarray)-> np.ndarray:
+    def deform(self, 
+               DEM:np.ndarray, 
+               num_pass:np.ndarray, 
+               world_positions:np.ndarray, 
+               world_orientations:np.ndarray,
+               normal_forces:np.ndarray)-> Tuple[np.ndarray]:
         """
         Args:
             DEM (np.ndarray): DEM to deform
@@ -653,12 +660,12 @@ class DeformationEngine:
             DEM (np.ndarray): deformed DEM
             num_pass (np.ndarray): number of passes on each pixel
         """
-        profile_points = self.get_footprint_profile_in_global(body_transforms=body_transforms)
-        deformation_depth = self.get_deformation_depth(normal_forces=normal_forces)
-        for i, profile_point in enumerate(profile_points):
+        self.get_footprint_profile_in_global(world_positions, world_orientations)
+        self.get_deformation_depth(normal_forces)
+        for i, profile_point in enumerate(self.profile_global):
             x = int(profile_point[0]/self.terrain_resolution)
             y = int(self.sim_height - profile_point[1]/self.terrain_resolution)
-            DEM[y, x] += deformation_depth[i] * ((self.deform_constrain.deform_decay_ratio)**num_pass[y, x])
+            DEM[y, x] += self.depth[i] * ((self.deform_constrain.deform_decay_ratio)**num_pass[y, x])
             num_pass[y, x] += 1
         return DEM, num_pass
 

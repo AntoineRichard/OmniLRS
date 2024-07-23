@@ -205,6 +205,7 @@ class DeformationEngineConf:
         boundary_distribution (dict): Boundary distribution parameters.
         depth_distribution (dict): Deformation depth distribution parameters.
         force_depth_regression (dict): Force depth regression parameters.
+        num_links (int): Total number of links = num_robot * num_target_links. 
     """
     enable: bool = False
     delay: float = 1.0
@@ -217,6 +218,7 @@ class DeformationEngineConf:
     boundary_distribution: BoundaryDistributionConf = dataclasses.field(default_factory=dict)
     depth_distribution: DepthDistributionConf = dataclasses.field(default_factory=dict)
     force_depth_regression: ForceDepthRegressionConf = dataclasses.field(default_factory=dict)
+    num_links: int = 4
 
     def __post_init__(self):
         assert type(self.delay) is float, "delay must be float"
@@ -225,6 +227,7 @@ class DeformationEngineConf:
         assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"
         assert self.terrain_width > 0, "terrain_width must be greater than 0"
         assert self.terrain_height > 0, "terrain_height must be greater than 0"
+        assert self.num_links > 0, "num_links must be greater than 0"
         
         self.footprint = FootprintConf(**self.footprint)
         self.deform_constrain = DeformConstrainConf(**self.deform_constrain)

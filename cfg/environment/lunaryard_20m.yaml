@@ -1,8 +1,12 @@
 name: Lunaryard
 seed: 42
-# physics_dt: 0.01667 # 60 Hz
+
+# physics_dt: 0.0125 # 60 Hz
+# rendering_dt: 0.0333 # 30 Hz
 physics_dt: 0.0333 # 30 Hz
 rendering_dt: 0.0333 # 30 Hz
+# physics_dt: 0.0666 # 15 Hz
+# rendering_dt: 0.0666 # 15 Hz
 enforce_realtime: true
 
 # Stage settings, only edit if you know what you are doing.
@@ -50,7 +54,7 @@ rocks_settings:
             name: ThomasCluster
             randomization_space: 2
             lambda_parent: 0.25
-            lambda_daughter: 200
+            lambda_daughter: 50
             sigma: 0.2
             seed: ${.......seed}
 
@@ -255,7 +259,7 @@ terrain_manager:
       seed: ${....seed}
     
     deformation_engine:
-      enable: False
+      enable: True
       delay: 2.0
       terrain_width: ${....lunaryard_settings.lab_width}
       terrain_height: ${....lunaryard_settings.lab_length}
@@ -278,6 +282,7 @@ terrain_manager:
         amplitude_intercept: 0.008
         mean_slope: -0.00046
         mean_intercept: -0.0013
+      num_links: 4 # num_robots * num_target_links
 
     is_yard: True
     is_lab: False

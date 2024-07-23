@@ -459,15 +459,23 @@ class LunaryardController:
             world_poses (np.ndarray): The world poses of the contact points.
             contact_forces (np.ndarray): The contact forces in local frame reported by rigidprimview.
         """
-        world_poses = []
+        world_positions = []
+        world_orientations = []
         contact_forces = []
         for rrg in self.robotManager.robots_RG.values():
-            world_poses.append(rrg.get_world_poses())
+            position, orientation = rrg.get_pose()
+            world_positions.append(position)
+            world_orientations.append(orientation)
             contact_forces.append(rrg.get_net_contact_forces())
-        world_poses = np.concatenate(world_poses, axis=0)
+        world_positions = np.concatenate(world_positions, axis=0)
+        world_orientations = np.concatenate(world_orientations, axis=0)
         contact_forces = np.concatenate(contact_forces, axis=0)
         
-        self.T.deformTerrain(body_transforms=world_poses, contact_forces=contact_forces)
+        self.T.deformTerrain(
+            world_positions,
+            world_orientations,
+            contact_forces,
+        )
         self.loadDEM()
         self.RM.updateImageData(self.dem, self.mask)
         
