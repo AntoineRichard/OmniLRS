@@ -11,8 +11,6 @@ __status__ = "development"
 from typing import List, Tuple
 from matplotlib import pyplot as plt
 import numpy as np
-from scipy.spatial.transform import Rotation as R
-import warp as wp
 
 from src.configurations.procedural_terrain_confs import (
     FootprintConf, 
