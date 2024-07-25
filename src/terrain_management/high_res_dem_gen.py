@@ -661,4 +661,6 @@ if __name__ == "__main__":
     )
     im_data.set_data(HRDEMGen.high_res_dem)
     im_data.set_norm(norm)
+    plt.pause(0.25)
+    plt.draw()
     print("Done collecting terrain data...")
