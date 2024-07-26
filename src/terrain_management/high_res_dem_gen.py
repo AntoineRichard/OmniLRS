@@ -1,9 +1,12 @@
+import multiprocessing.process
 from typing import List, Tuple
+import multiprocessing
 import numpy as np
 import dataclasses
 import threading
 import queue
 import copy
+import cv2
 
 from crater_gen import CraterBuilder, CraterDB, CraterSampler
 from crater_gen import (
@@ -16,13 +19,73 @@ from crater_gen import (
 from crater_gen import CraterMetadata, BoundingBox
 
 
-class CraterBuilderWorker(threading.Thread):
+@dataclasses.dataclass
+class InterpolatorCfg:
+    source_resolution: float = dataclasses.field(default_factory=float)
+    target_resolution: float = dataclasses.field(default_factory=float)
+    source_padding: int = dataclasses.field(default_factory=int)
+    method: str = dataclasses.field(default_factory=str)
+
+    def __post_init__(self):
+        self.method = self.method.lower()
+        self.fx = self.source_resolution / self.target_resolution
+        self.fy = self.source_resolution / self.target_resolution
+        self.target_padding = int(self.source_padding * self.fx)
+        if self.source_padding < 2:
+            print("Warning: Padding may be too small for interpolation.")
+            self.source_padding = 2
+
+        if self.method == "bicubic":
+            self.method = cv2.INTER_CUBIC
+            if self.fx < 1.0:
+                print(
+                    "Warning: Bicubic interpolation with downscaling. Consider using a different method."
+                )
+        elif self.method == "nearest":
+            self.method = cv2.INTER_NEAREST
+        elif self.method == "linear":
+            self.method = cv2.INTER_LINEAR
+        elif self.method == "area":
+            self.method = cv2.INTER_AREA
+            if self.fx > 1.0:
+                print(
+                    "Warning: Area interpolation with upscaling. Consider using a different method."
+                )
+        else:
+            raise ValueError(f"Invalid interpolation method: {self.method}")
+
+
+class Interpolator:
+    def __init__(self, settings: InterpolatorCfg):
+        self.settings = settings
+
+    def interpolate(self, data):
+        raise NotImplementedError
+
+
+class CPUInterpolator(Interpolator):
+    def __init__(self, settings: InterpolatorCfg):
+        super().__init__(settings)
+
+    def interpolate(self, data):
+        return cv2.resize(
+            data,
+            (0, 0),
+            fx=self.settings.fx,
+            fy=self.settings.fy,
+            interpolation=self.settings.method,
+        )[
+            self.settings.source_padding : -self.settings.source_padding,
+            self.settings.source_padding : -self.settings.source_padding,
+        ]
+
+
+class BaseWorker(multiprocessing.Process):
     def __init__(
-        self, builder: CraterBuilder, output_queue: queue.Queue, queue_size: int = 10
+        self, queue_size: int, output_queue: multiprocessing.JoinableQueue, **kwargs
     ):
-        threading.Thread.__init__(self)
-        self.builder = builder
-        self.input_queue = queue.Queue(maxsize=queue_size)
+        super().__init__()
+        self.input_queue = multiprocessing.JoinableQueue(maxsize=queue_size)
         self.output_queue = output_queue
 
     def get_input_queue_length(self):
@@ -35,46 +98,75 @@ class CraterBuilderWorker(threading.Thread):
         return self.input_queue.full()
 
     def run(self):
-        while True:
-            coords, crater_meta_data = self.input_queue.get()
-            if crater_meta_data is None:
-                break
-            self.output_queue.put(
-                (coords, self.builder.generateCraters(crater_meta_data, coords))
-            )
-            self.input_queue.task_done()
+        raise NotImplementedError
 
 
-class CraterBuilderManager:
+class BaseWorkerManager:
     def __init__(
         self,
-        builder: CraterBuilder,
         num_workers: int = 1,
         input_queue_size: int = 10,
         output_queue_size: int = 10,
         worker_queue_size: int = 10,
-    ) -> None:
-        # Create the builder (it allows for the generation of craters)
-        self.builder = builder
+        worker_class: BaseWorker = None,
+        **kwargs,
+    ):
+        self.input_queue = multiprocessing.JoinableQueue(maxsize=input_queue_size)
+        self.output_queue = multiprocessing.JoinableQueue(maxsize=output_queue_size)
 
-        # Create the input queue (it holds the crater metadata)
-        self.input_queue = queue.Queue(maxsize=input_queue_size)
-        # Create the output queue, shared by all workers (it holds the generated craters)
-        self.output_queue = queue.Queue(maxsize=output_queue_size)
+        self.instantiate_workers(
+            num_workers=num_workers,
+            worker_queue_size=worker_queue_size,
+            worker_class=worker_class,
+            **kwargs,
+        )
 
-        # Create the workers and start them
+        self.manager_thread = multiprocessing.Process(target=self.dispatch_jobs)
+        self.manager_thread.start()
+
+    def instantiate_workers(
+        self,
+        num_workers: int = 1,
+        worker_queue_size: int = 10,
+        worker_class: BaseWorker = None,
+        **kwargs,
+    ):
         self.workers = [
-            CraterBuilderWorker(
-                builder, self.output_queue, queue_size=worker_queue_size
-            )
+            worker_class(worker_queue_size, self.output_queue, **kwargs)
             for _ in range(num_workers)
         ]
         for worker in self.workers:
             worker.start()
 
-        # Create the manager thread
-        self.manager_thread = threading.Thread(target=self.dispatch_jobs)
-        self.manager_thread.start()
+    def get_load_per_worker(self):
+        return {
+            "worker_{}".format(i): worker.get_input_queue_length()
+            for i, worker in enumerate(self.workers)
+        }
+
+    def get_input_queue_length(self):
+        return self.input_queue.qsize()
+
+    def get_output_queue_length(self):
+        return self.output_queue.qsize()
+
+    def is_input_queue_empty(self):
+        return self.input_queue.empty()
+
+    def is_output_queue_empty(self):
+        return self.output_queue.empty()
+
+    def is_input_queue_full(self):
+        return self.input_queue.full()
+
+    def is_output_queue_full(self):
+        return self.output_queue.full()
+
+    def get_shortest_queue_index(self):
+        return min(
+            range(len(self.workers)),
+            key=lambda i: self.workers[i].get_input_queue_length(),
+        )
 
     def are_workers_done(self):
         return all([worker.is_input_queue_empty() for worker in self.workers])
@@ -85,19 +177,68 @@ class CraterBuilderManager:
             for i, worker in enumerate(self.workers)
         }
 
-    def get_output_queue_length(self):
-        return self.output_queue.qsize()
+    def dispatch_jobs(self):
+        raise NotImplementedError
 
-    def is_output_queue_empty(self):
-        return self.output_queue.empty()
+    def process_data(self, coords, data):
+        self.input_queue.put((coords, data))
 
-    def is_output_queue_full(self):
-        return self.output_queue.full()
+    def collect_results(self):
+        results = []
+        while not self.is_output_queue_empty():
+            results.append(self.output_queue.get())
+            self.output_queue.task_done()
+        return results
 
-    def get_shortest_queue_index(self):
-        return min(
-            range(len(self.workers)),
-            key=lambda i: self.workers[i].get_input_queue_length(),
+    def shutdown(self):
+        self.input_queue.put(((0, 0), None))
+        self.manager_thread.join()
+        for worker in self.workers:
+            worker.input_queue.put(((0, 0), None))
+        for worker in self.workers:
+            worker.join()
+
+    def __del__(self):
+        self.shutdown()
+
+
+class CraterBuilderWorker(BaseWorker):
+    def __init__(
+        self,
+        queue_size: int = 10,
+        output_queue: multiprocessing.Queue = multiprocessing.JoinableQueue(),
+        builder: CraterBuilder = None,
+    ):
+        super().__init__(queue_size, output_queue)
+        self.builder = copy.copy(builder)
+
+    def run(self):
+        while True:
+            coords, crater_meta_data = self.input_queue.get()
+            if crater_meta_data is None:
+                break
+            self.output_queue.put(
+                (coords, self.builder.generateCraters(crater_meta_data, coords))
+            )
+            self.input_queue.task_done()
+
+
+class CraterBuilderManager(BaseWorkerManager):
+    def __init__(
+        self,
+        num_workers: int = 1,
+        input_queue_size: int = 10,
+        output_queue_size: int = 10,
+        worker_queue_size: int = 10,
+        builder: CraterBuilder = None,
+    ) -> None:
+        super().__init__(
+            num_workers=num_workers,
+            input_queue_size=input_queue_size,
+            output_queue_size=output_queue_size,
+            worker_queue_size=worker_queue_size,
+            worker_class=CraterBuilderWorker,
+            builder=builder,
         )
 
     def dispatch_jobs(self):
@@ -111,37 +252,55 @@ class CraterBuilderManager:
             )
             self.input_queue.task_done()
 
-    def process_crater_meta_data(
-        self, coords: Tuple[float, float], crater_metadata: List[CraterMetadata]
+
+class BicubicInterpolatorWorker(BaseWorker):
+    def __init__(
+        self,
+        queue_size: int = 10,
+        output_queue: queue.Queue = queue.Queue(),
+        interp: Interpolator = None,
     ):
-        # Add crater metadata to the main input queue
-        self.input_queue.put((coords, crater_metadata))
+        super().__init__(queue_size, output_queue)
+        self.interpolator = copy.copy(interp)
 
-    def collect_results(self):
-        # Collect results from the workers
-        print("Collecting results from workers...")
-        results = []
-        while not self.is_output_queue_empty():
-            results.append(self.output_queue.get())
-            self.output_queue.task_done()
-        print(f"Collected {len(results)} results from workers.")
-        return results
+    def run(self):
+        while True:
+            coords, data = self.input_queue.get()
+            if data is None:
+                break
+            self.output_queue.put((coords, self.interpolator.interpolate(data)))
+            self.input_queue.task_done()
 
-    def shutdown(self):
-        print("Shutting down thread manager...")
-        # Signal the manager thread to stop
-        self.input_queue.put(((0, 0), None))
-        self.manager_thread.join()
-        print("Shutting down workers...")
-        # Signal the worker threads to stop
-        for worker in self.workers:
-            worker.input_queue.put(((0, 0), None))
-        for worker in self.workers:
-            worker.join()
 
-    def __del__(self):
-        print("Entering destructor...")
-        self.shutdown()
+class BicubicInterpolatorManager(BaseWorkerManager):
+    def __init__(
+        self,
+        num_workers: int = 1,
+        input_queue_size: int = 10,
+        output_queue_size: int = 10,
+        worker_queue_size: int = 10,
+        interp: Interpolator = None,
+        num_cv2_threads: int = 4,
+    ):
+        super().__init__(
+            num_workers=num_workers,
+            input_queue_size=input_queue_size,
+            output_queue_size=output_queue_size,
+            worker_queue_size=worker_queue_size,
+            worker_class=BicubicInterpolatorWorker,
+            interp=interp,
+        )
+        cv2.setNumThreads(num_cv2_threads)
+
+    def dispatch_jobs(self):
+        while True:
+            coords, data = self.input_queue.get()
+            if data is None:
+                break
+            self.workers[self.get_shortest_queue_index()].input_queue.put(
+                (coords, data)
+            )
+            self.input_queue.task_done()
 
 
 @dataclasses.dataclass
@@ -222,11 +381,11 @@ class HighResDEMGen:
             self.settings.crater_builder_cfg, db=self.crater_db
         )
         self.crater_builder_manager = CraterBuilderManager(
-            self.crater_builder,
             num_workers=8,
-            input_queue_size=100,
-            output_queue_size=10,
-            worker_queue_size=100,
+            input_queue_size=400,
+            output_queue_size=16,
+            worker_queue_size=2,
+            builder=self.crater_builder,
         )
         self.build_block_grid()
         self.instantiate_high_res_dem()
@@ -466,7 +625,7 @@ class HighResDEMGen:
             if self.block_grid_tracker[grid_coords]["has_terrain_data"]:
                 continue
             # Generate terrain data
-            self.crater_builder_manager.process_crater_meta_data(
+            self.crater_builder_manager.process_data(
                 coords, self.crater_db.get_block_data(coords)
             )
 
@@ -481,6 +640,7 @@ class HighResDEMGen:
         )
         # print(f"Offset: {offset}")
         # print(f"Shape: {self.high_res_dem.shape}")
+        print(f"load per worker: {self.crater_builder_manager.get_load_per_worker()}")
         for coords, data in results:
             # print(coords)
             x_i, y_i = coords
@@ -488,9 +648,6 @@ class HighResDEMGen:
             local_coords = (x_c, y_c)
             # print(f"x_coordinates: {x_c / self.settings.resolution + offset}")
             # print(f"y_coordinates: {y_c / self.settings.resolution + offset}")
-            # print(
-            #    f"load per worker: {self.crater_builder_manager.get_load_per_worker()}"
-            # )
             # if self.block_grid_tracker[coords]["is_padding"]:
             #    print(self.block_grid_tracker[coords])
             #    print("Skipping padding block...")
@@ -516,7 +673,7 @@ class HighResDEMGen:
 if __name__ == "__main__":
 
     HRDEMGCfg_D = {
-        "num_blocks": 2,  # int = dataclasses.field(default_factory=int)
+        "num_blocks": 7,  # int = dataclasses.field(default_factory=int)
         "block_size": 50,  # float = dataclasses.field(default_factory=float)
         "pad_size": 10.0,  # float = dataclasses.field(default
         "max_blocks": int(1e7),  # int = dataclasses.field(default_factory=int)
@@ -551,12 +708,14 @@ if __name__ == "__main__":
     from matplotlib import pyplot as plt
     import matplotlib.colors as mcolors
 
+    # Initial Generation
     HRDEMGen.shift((0, 0))
     time.sleep(2.0)
     plt.figure()
     im_data = None
     while (not HRDEMGen.crater_builder_manager.is_output_queue_empty()) or (
         not HRDEMGen.crater_builder_manager.are_workers_done()
+        or (not HRDEMGen.crater_builder_manager.is_input_queue_empty())
     ):
         HRDEMGen.collect_terrain_data()
         norm = mcolors.Normalize(
@@ -570,12 +729,21 @@ if __name__ == "__main__":
         plt.pause(0.25)
         plt.draw()
         print("Collecting terrain data...")
+    time.sleep(5.0)
+    HRDEMGen.collect_terrain_data()
+    im_data.set_data(HRDEMGen.high_res_dem)
+    im_data.set_norm(norm)
+    plt.pause(0.25)
+    plt.draw()
+    time.sleep(5.0)
+
+    # Rover has moved enough trigger new gen
     HRDEMGen.shift((50, 0))
     im_data.set_data(HRDEMGen.high_res_dem)
     im_data.set_norm(norm)
     plt.pause(0.25)
     plt.draw()
-    time.sleep(10.0)
+    time.sleep(5.0)
     while (not HRDEMGen.crater_builder_manager.is_output_queue_empty()) or (
         not HRDEMGen.crater_builder_manager.are_workers_done()
     ):
@@ -588,16 +756,22 @@ if __name__ == "__main__":
         plt.pause(0.25)
         plt.draw()
         print("Collecting terrain data...")
-    time.sleep(10.0)
+
+    time.sleep(5.0)
     HRDEMGen.collect_terrain_data()
-    time.sleep(0.25)
-    print("Done collecting terrain data...")
+    im_data.set_data(HRDEMGen.high_res_dem)
+    im_data.set_norm(norm)
+    plt.pause(0.25)
+    plt.draw()
+    time.sleep(5.0)
+
+    # Rover has moved some more trigger new gen
     HRDEMGen.shift((50, 50))
     im_data.set_data(HRDEMGen.high_res_dem)
     im_data.set_norm(norm)
     plt.pause(0.25)
     plt.draw()
-    time.sleep(10.0)
+    time.sleep(5.0)
     while (not HRDEMGen.crater_builder_manager.is_output_queue_empty()) or (
         not HRDEMGen.crater_builder_manager.are_workers_done()
     ):
@@ -610,16 +784,21 @@ if __name__ == "__main__":
         plt.pause(0.25)
         plt.draw()
         print("Collecting terrain data...")
-    time.sleep(10.0)
+    time.sleep(5.0)
     HRDEMGen.collect_terrain_data()
-    time.sleep(0.25)
-    print("Done collecting terrain data...")
+    im_data.set_data(HRDEMGen.high_res_dem)
+    im_data.set_norm(norm)
+    plt.pause(0.25)
+    plt.draw()
+    time.sleep(5.0)
+
+    # Rover has moved some more
     HRDEMGen.shift((100, 100))
     im_data.set_data(HRDEMGen.high_res_dem)
     im_data.set_norm(norm)
     plt.pause(0.25)
     plt.draw()
-    time.sleep(10.0)
+    time.sleep(5.0)
     while (not HRDEMGen.crater_builder_manager.is_output_queue_empty()) or (
         not HRDEMGen.crater_builder_manager.are_workers_done()
     ):
@@ -632,16 +811,21 @@ if __name__ == "__main__":
         plt.pause(0.25)
         plt.draw()
         print("Collecting terrain data...")
-    time.sleep(10.0)
+    time.sleep(5.0)
     HRDEMGen.collect_terrain_data()
-    time.sleep(0.25)
-    print("Done collecting terrain data...")
+    im_data.set_data(HRDEMGen.high_res_dem)
+    im_data.set_norm(norm)
+    plt.pause(0.25)
+    plt.draw()
+    time.sleep(5.0)
+
+    # Rover has moved some more
     HRDEMGen.shift((0, 0))
     im_data.set_data(HRDEMGen.high_res_dem)
     im_data.set_norm(norm)
     plt.pause(0.25)
     plt.draw()
-    time.sleep(10.0)
+    time.sleep(5.0)
     while (not HRDEMGen.crater_builder_manager.is_output_queue_empty()) or (
         not HRDEMGen.crater_builder_manager.are_workers_done()
     ):
@@ -654,13 +838,11 @@ if __name__ == "__main__":
         plt.pause(0.25)
         plt.draw()
         print("Collecting terrain data...")
-    time.sleep(10.0)
+    time.sleep(5.0)
     HRDEMGen.collect_terrain_data()
-    norm = mcolors.Normalize(
-        vmin=HRDEMGen.high_res_dem.min(), vmax=HRDEMGen.high_res_dem.max()
-    )
     im_data.set_data(HRDEMGen.high_res_dem)
     im_data.set_norm(norm)
     plt.pause(0.25)
     plt.draw()
+    time.sleep(5.0)
     print("Done collecting terrain data...")
