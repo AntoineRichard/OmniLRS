@@ -75,8 +75,12 @@ class CPUInterpolator(Interpolator):
             fy=self.settings.fy,
             interpolation=self.settings.method,
         )[
-            self.settings.source_padding : -self.settings.source_padding,
-            self.settings.source_padding : -self.settings.source_padding,
+            int(self.settings.source_padding * self.settings.fx) : -int(
+                self.settings.source_padding * self.settings.fy
+            ),
+            int(self.settings.source_padding * self.settings.fx) : -int(
+                self.settings.source_padding * self.settings.fy
+            ),
         ]
 
 
@@ -185,7 +189,8 @@ class BaseWorkerManager:
 
     def collect_results(self):
         results = []
-        while not self.is_output_queue_empty():
+        num = self.get_output_queue_length()
+        for _ in range(num):
             results.append(self.output_queue.get())
             self.output_queue.task_done()
         return results
@@ -326,6 +331,10 @@ class HighResDEMGenCfg:
     random_rotation: bool = dataclasses.field(default_factory=bool)
     num_unique_profiles: int = dataclasses.field(default_factory=int)
 
+    source_resolution: float = dataclasses.field(default_factory=float)
+    interpolation_method: str = dataclasses.field(default_factory=str)
+    interpolation_padding: int = dataclasses.field(default_factory=int)
+
     def __post_init__(self):
         self.crater_db_cfg = CraterDBCfg(
             block_size=self.block_size,
@@ -347,6 +356,12 @@ class HighResDEMGenCfg:
             "num_repeat": self.num_repeat,
             "seed": self.seed,
         }
+        IC = {
+            "source_resolution": self.source_resolution,
+            "target_resolution": self.resolution,
+            "source_padding": self.interpolation_padding,
+            "method": self.interpolation_method,
+        }
         self.crater_sampler_cfg = CraterSamplerCfg(
             block_size=self.block_size,
             crater_gen_cfg=CGC,
@@ -358,6 +373,7 @@ class HighResDEMGenCfg:
             resolution=self.resolution,
             z_scale=self.z_scale,
         )
+        self.interpolator_cfg = InterpolatorCfg(**IC)
 
 
 class HighResDEMGen:
@@ -380,6 +396,7 @@ class HighResDEMGen:
         self.crater_builder = CraterBuilder(
             self.settings.crater_builder_cfg, db=self.crater_db
         )
+        self.interpolator = CPUInterpolator(self.settings.interpolator_cfg)
         self.crater_builder_manager = CraterBuilderManager(
             num_workers=8,
             input_queue_size=400,
@@ -387,8 +404,26 @@ class HighResDEMGen:
             worker_queue_size=2,
             builder=self.crater_builder,
         )
+        self.interpolator_manager = BicubicInterpolatorManager(
+            num_workers=1,
+            input_queue_size=400,
+            output_queue_size=30,
+            worker_queue_size=200,
+            interp=self.interpolator,
+        )
         self.build_block_grid()
         self.instantiate_high_res_dem()
+        self.get_low_res_dem_offset()
+
+    def get_low_res_dem_offset(self):
+        self.lr_dem_px_offset = (
+            self.low_res_dem.shape[0] // 2,
+            self.low_res_dem.shape[1] // 2,
+        )
+        self.lr_dem_ratio = self.settings.source_resolution / self.settings.resolution
+        self.lr_dem_block_size = int(
+            self.settings.block_size / self.settings.source_resolution
+        )
 
     def instantiate_high_res_dem(self):
         self.high_res_dem = np.zeros(
@@ -419,6 +454,7 @@ class HighResDEMGen:
 
         # Instantiate empty state for each block in the grid
         state = {
+            "has_crater_metadata": False,
             "has_crater_data": False,
             "has_terrain_data": False,
             "is_padding": False,
@@ -462,6 +498,7 @@ class HighResDEMGen:
                 if (x_i, y_i) not in self.map_grid_block2coords:
                     # This block is not in the map, so it is a new block
                     new_block_grid_tracker[(x_c, y_c)] = {
+                        "has_crater_metadata": False,
                         "has_crater_data": False,
                         "has_terrain_data": False,
                         "is_padding": False,
@@ -610,10 +647,32 @@ class HighResDEMGen:
             exists = self.crater_db.check_block_exists(coords)
             local_coords = self.map_grid_block2coords[coords]
             if exists:
-                self.block_grid_tracker[local_coords]["has_crater_data"] = True
+                self.block_grid_tracker[local_coords]["has_crater_metadata"] = True
             else:
-                self.block_grid_tracker[local_coords]["has_crater_data"] = False
-                print(f"Block {coords} does not have crater data")
+                self.block_grid_tracker[local_coords]["has_crater_metadata"] = False
+                print(f"Block {coords} does not have crater metadata")
+
+    def querry_low_res_dem(self, coordinates: Tuple[float, float]):
+        lr_dem_coordinates = (
+            int(
+                coordinates[0] / self.settings.source_resolution
+                + self.lr_dem_px_offset[0]
+            ),
+            int(
+                coordinates[1] / self.settings.source_resolution
+                + self.lr_dem_px_offset[1]
+            ),
+        )
+        return self.low_res_dem[
+            lr_dem_coordinates[0]
+            - self.settings.interpolation_padding : lr_dem_coordinates[0]
+            + self.lr_dem_block_size
+            + self.settings.interpolation_padding,
+            lr_dem_coordinates[1]
+            - self.settings.interpolation_padding : lr_dem_coordinates[1]
+            + self.lr_dem_block_size
+            + self.settings.interpolation_padding,
+        ]
 
     def generate_terrain_blocks(self):
         # Generate terrain data for + 1 block in each direction
@@ -622,16 +681,17 @@ class HighResDEMGen:
             y_i = grid_key[1]  # + self.current_block_coord[1]
             coords = (x_i, y_i)
             grid_coords = self.map_grid_block2coords[grid_key]
-            if self.block_grid_tracker[grid_coords]["has_terrain_data"]:
-                continue
-            # Generate terrain data
-            self.crater_builder_manager.process_data(
-                coords, self.crater_db.get_block_data(coords)
-            )
+            if not self.block_grid_tracker[grid_coords]["has_crater_data"]:
+                self.crater_builder_manager.process_data(
+                    coords, self.crater_db.get_block_data(coords)
+                )
+            if not self.block_grid_tracker[grid_coords]["has_terrain_data"]:
+                self.interpolator_manager.process_data(
+                    coords, self.querry_low_res_dem(coords)
+                )
 
     def collect_terrain_data(self):
         # print("Collecting terrain data...")
-        results = self.crater_builder_manager.collect_results()
         # print("Updating DEM...")
         offset = int(
             (self.settings.num_blocks + 1)
@@ -640,8 +700,9 @@ class HighResDEMGen:
         )
         # print(f"Offset: {offset}")
         # print(f"Shape: {self.high_res_dem.shape}")
+        crater_results = self.crater_builder_manager.collect_results()
         print(f"load per worker: {self.crater_builder_manager.get_load_per_worker()}")
-        for coords, data in results:
+        for coords, data in crater_results:
             # print(coords)
             x_i, y_i = coords
             x_c, y_c = self.map_grid_block2coords[(x_i, y_i)]
@@ -663,7 +724,39 @@ class HighResDEMGen:
                     (y_c + self.settings.block_size) / self.settings.resolution
                 )
                 + offset,
-            ] = data[0]
+            ] += data[0]
+            self.block_grid_tracker[local_coords]["has_crater_data"] = True
+        terrain_results = self.interpolator_manager.collect_results()
+        print(len(terrain_results))
+        print(f"load per worker: {self.interpolator_manager.get_load_per_worker()}")
+        print(
+            f"input queue length: {self.interpolator_manager.get_input_queue_length()}"
+        )
+        print(
+            f"output queue lenght: {self.interpolator_manager.get_output_queue_length()}"
+        )
+        print(f"output queue full: {self.interpolator_manager.is_output_queue_full()}")
+        for coords, data in terrain_results:
+            x_i, y_i = coords
+            x_c, y_c = self.map_grid_block2coords[(x_i, y_i)]
+            local_coords = (x_c, y_c)
+            # if self.block_grid_tracker[coords]["is_padding"]:
+            #    print(self.block_grid_tracker[coords])
+            #    print("Skipping padding block...")
+            #    continue
+            print(data.shape)
+            self.high_res_dem[
+                int(x_c / self.settings.resolution)
+                + offset : int(
+                    (x_c + self.settings.block_size) / self.settings.resolution
+                )
+                + offset,
+                int(y_c / self.settings.resolution)
+                + offset : int(
+                    (y_c + self.settings.block_size) / self.settings.resolution
+                )
+                + offset,
+            ] += data
             self.block_grid_tracker[local_coords]["has_terrain_data"] = True
 
     def __del__(self):
@@ -698,10 +791,14 @@ if __name__ == "__main__":
         "max_xy_ratio": 1.0,  # float = dataclasses.field(default_factory=float)
         "random_rotation": True,  # bool = dataclasses.field(default_factory=bool)
         "num_unique_profiles": 10000,  # int = dataclasses.field(default_factory=int)
+        "source_resolution": 5.0,  # float = dataclasses.field(default_factory=float)
+        # "target_resolution": 0.05,  # float = dataclasses.field(default_factory=float)
+        "interpolation_padding": 2,  # int = dataclasses.field(default_factory=int)
+        "interpolation_method": "bicubic",  # str = dataclasses.field(default_factory=str)
     }
 
     settings = HighResDEMGenCfg(**HRDEMGCfg_D)
-    low_res_dem = None
+    low_res_dem = np.load("assets/Terrains/SouthPole/ldem_87s_5mpp/dem.npy")
 
     HRDEMGen = HighResDEMGen(low_res_dem, settings)
     import time
