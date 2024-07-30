@@ -16,6 +16,7 @@ import warp as wp
 import dataclasses
 import numpy as np
 import hashlib
+import time
 import os
 
 
@@ -89,12 +90,12 @@ def _bicubic_interpolation(
 
 @dataclasses.dataclass
 class GeoClipmapSpecs:
-    numMeshLODLevels: int = 12
-    meshBaseLODExtentHeightfieldTexels: int = 384
+    numMeshLODLevels: int = 6
+    meshBaseLODExtentHeightfieldTexels: int = 256
     meshBackBonePath: str = "terrain_mesh_backbone.npz"
-    demPath: str = "40k_dem.npy"
+    demPath: str = "assets/Terrains/SouthPole/NPD_final_adj_5mpp_surf/dem.npy"
     meters_per_pixel: float = 5.0
-    meters_per_texel: float = 0.1
+    meters_per_texel: float = 1.0
     z_scale: float = 1.0
 
 
@@ -126,7 +127,7 @@ class GeoClipmap:
         return hashlib.sha256(str(specs).encode("utf-8")).hexdigest()
 
     def querryPointIndex(self, point):
-        hash = str(point[::2])
+        hash = str(point[:2])
         if hash in self.prev_indices.keys():
             index = self.prev_indices[hash]
         elif hash in self.new_indices.keys():
@@ -145,9 +146,9 @@ class GeoClipmap:
         self.indices.append(A_idx)
         self.indices.append(B_idx)
         self.indices.append(C_idx)
-        self.uvs.append(A[::2])
-        self.uvs.append(B[::2])
-        self.uvs.append(C[::2])
+        self.uvs.append(A[:2])
+        self.uvs.append(B[:2])
+        self.uvs.append(C[:2])
 
     def buildMesh(self):
         print("Building the mesh backbone, this may take time...")
@@ -172,9 +173,9 @@ class GeoClipmap:
             # Pad by one element to hide the gap to the next level
             pad = 0
             radius = int(step * (g + pad))
-            for z in range(-radius, radius, step):
+            for y in range(-radius, radius, step):
                 for x in range(-radius, radius, step):
-                    if max(abs(x + halfStep), abs(z + halfStep)) >= g * prevStep:
+                    if max(abs(x + halfStep), abs(y + halfStep)) >= g * prevStep:
                         # Cleared the cutout from the previous level. Tessellate the
                         # square.
 
@@ -186,10 +187,10 @@ class GeoClipmap:
                         #   | /   |   \ |
                         #   G-----H-----I
 
-                        A = Point3(float(x), L, float(z))
-                        C = Point3(float(x + step), L, A[-1])
-                        G = Point3(A[0], L, float(z + step))
-                        I = Point3(C[0], L, G[-1])
+                        A = Point3(float(x), float(y), L)
+                        C = Point3(float(x + step), A[1], L)
+                        G = Point3(A[0], float(y + step), L)
+                        I = Point3(C[0], G[1], L)
 
                         B = (A + C) * 0.5
                         D = (A + G) * 0.5
@@ -213,7 +214,7 @@ class GeoClipmap:
                             self.addTriangle(E, A, D)
                             self.addTriangle(E, D, G)
 
-                        if z == (radius - step):
+                        if y == (radius - step):
                             self.addTriangle(E, G, I)
                         else:
                             self.addTriangle(E, G, H)
@@ -225,7 +226,7 @@ class GeoClipmap:
                             self.addTriangle(E, I, F)
                             self.addTriangle(E, F, C)
 
-                        if z == -radius:
+                        if y == -radius:
                             self.addTriangle(E, C, A)
                         else:
                             self.addTriangle(E, C, B)
@@ -268,18 +269,20 @@ class GeoClipmap:
         self.dem_size = self.dem.shape
 
     def getElevation(self, position):
+        s = time.time()
         position_in_pixel = position * (1.0 / self.specs.meters_per_pixel)
         x = (self.points[:, 0] / self.specs.meters_per_pixel) + position_in_pixel[0]
-        y = (self.points[:, 2] / self.specs.meters_per_pixel) + position_in_pixel[2]
+        y = (self.points[:, 1] / self.specs.meters_per_pixel) + position_in_pixel[1]
         x = np.minimum(x, self.dem.shape[0] - 1)
         y = np.minimum(y, self.dem.shape[1] - 1)
         x = np.maximum(x, 0)
         y = np.maximum(y, 0)
+        e = time.time()
+        print("Time to compute the positions: ", e - s)
 
         z = self.bicubic_interpolation(x, y)
         # bicubic interpolation is broken
 
-        self.points[:, 1] = self.points[:, -1]
         self.points[:, -1] = z.numpy()
 
     def linear_interpolation(self, x, y):
@@ -314,6 +317,7 @@ class GeoClipmap:
         return z
 
     def bicubic_interpolation(self, x, y):
+        s = time.time()
         x1 = np.maximum(np.trunc(x).astype(int) - 1, 0)
         y1 = np.maximum(np.trunc(y).astype(int) - 1, 0)
         x2 = np.minimum(x1 + 1, self.dem_size[0] - 1)
@@ -324,7 +328,10 @@ class GeoClipmap:
         y4 = np.minimum(y1 + 3, self.dem_size[1] - 3)
         dx = wp.from_numpy(x - x2, dtype=float, device="cuda")
         dy = wp.from_numpy(y - y2, dtype=float, device="cuda")
+        e = time.time()
+        print("Time to cast vectors: ", e - s)
 
+        s = time.time()
         q11 = self.dem[x1, y1]
         q12 = self.dem[x2, y1]
         q13 = self.dem[x3, y1]
@@ -353,10 +360,12 @@ class GeoClipmap:
         q4 = wp.from_numpy(
             np.array([q41, q42, q43, q44]).T, dtype=wp.vec4f, device="cuda"
         )
+        e = time.time()
+        print("Time to cast matrices: ", e - s)
         coeffs = wp.zeros(x.shape[0], dtype=wp.vec4f, device="cuda")
 
         z = wp.zeros(x.shape[0], dtype=float, device="cuda")
-        with wp.ScopedTimer("linear_interpolation", active=True):
+        with wp.ScopedTimer("bicubic_interpolation", active=True):
             wp.launch(
                 kernel=_bicubic_interpolation,
                 dim=x.shape[0],

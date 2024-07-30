@@ -19,5 +19,5 @@ cd $CWD
 echo "Finished downloading DEMs."
 echo "Check the tmp/ directory for the downloaded files."
 
-echo "If all is well, please run the next script: ./scripts/extract_dem.sh"
+echo "If all is well, please run the next script: ./scripts/extract_dems.sh"
 echo "This script will extract the DEMs and prepare them for use in the simulation."

@@ -28,10 +28,10 @@ if __name__ == "__main__":
     setDefaultOps(light.GetPrim(), (0, 0, 0), (0.383, 0, 0, 0.924), (1, 1, 1))
 
     T = GeoClipmapManager(cfg)
-    T.updateGeoClipmap(np.array([2000, 2000, 0]))
+    T.updateGeoClipmap(np.array([2000 * 5, 2000 * 5, 0]))
 
-    R = 500
-    C = 2000
+    R = 500 * 5
+    C = 2000 * 5
     theta = np.linspace(0, 2 * np.pi, 256)
 
     i = 0
