@@ -5,6 +5,12 @@
 # --> So we would fetch the low-res DEM block from the DEM manager.
 # --> We would generate the high-res DEM block from the low-res DEM block using bi-cubic interpolation.
 # --> We would generate the high-res DEM block from the low-res DEM block using Perlin noise.
+#     --> Perlin will be generated at the clip-map level. It should be more efficient.
+#     --> Pipeline should be:
+#         --> Generate Perlin noise at the clip-map level.
+#         --> Generate point-specific bicubic interpolation of the DEM
+#         --> Add the Perlin noise to the bicubic interpolation.
+#         --> Send result to CPU and feed to USD.
 
 
 # I will store objects by chunks. This way I don't need to build a QuadTree for quick lookups. --> Or I can build a QuadTree of the chunks.
@@ -37,7 +43,6 @@ class CraterGeneratorCfg:
     num_unique_profiles: int = dataclasses.field(default_factory=int)
 
     def __post_init__(self):
-        print(self.__dict__)
         assert type(self.profiles_path) is str, "profile_path must be a string"
         assert type(self.min_xy_ratio) is float, "min_xy_ratio must be a float"
         assert type(self.max_xy_ratio) is float, "max_xy_ratio must be a float"
@@ -327,7 +332,6 @@ class DynamicDistribute:
         Returns:
             tuple: coordinates of the craters (in meters).
         """
-        print(coords.shape)
         mark_age = self._rng.uniform(0, 1, coords.shape[0])
         boole_keep = np.zeros(mark_age.shape[0], dtype=bool)
         for i in range(mark_age.shape[0]):
@@ -727,15 +731,11 @@ class CraterSampler:
 
     def sample_craters_by_region(self, region: BoundingBox) -> None:
         process_by_regions = True
-        print("Sampling craters by region")
-        print("original region", region)
         while process_by_regions:
             _, _, matrix = self.crater_db.get_blocks_within_region_with_neighbors(
                 region
             )
             area, coords = self.compute_largest_rectangle(matrix)
-            # print(area)
-            # print(coords)
             if area <= 1:
                 process_by_regions = False
                 break
@@ -746,22 +746,14 @@ class CraterSampler:
                 region.y_min + coords[1][1] * self.settings.block_size,
             )
 
-            print("selected region", new_region)
-            # print("get blocks within region")
             blocks, _, _ = self.crater_db.get_blocks_within_region_with_neighbors(
                 new_region
             )
-            # print("found", len(blocks), "blocks")
-            # print("casting from metadata to arrays")
             prev_coords = self.crater_metadata_gen.castMetadata(blocks)
-            # print("running crater distribution")
             new_blocks = self.crater_dist_gen.run(new_region, prev_coords=prev_coords)
-            print("new blocks", new_blocks[0].shape)
-            # print("dissecting region blocks")
             new_blocks_list, block_coordinates_list = self.dissect_region_blocks(
                 new_blocks, region
             )
-            print("coordinates", block_coordinates_list)
             for (coordinates, radius), block_coordinates in zip(
                 new_blocks_list, block_coordinates_list
             ):
@@ -777,9 +769,6 @@ class CraterSampler:
             block = self.crater_db.get_block_data(coordinates)
             coordinates, radius = self.crater_metadata_gen.castMetadata(block)
             ppm = 3000 / self.settings.block_size / 5
-            print(radius)
-            print(np.max(radius))
-            print(np.min(radius))
             plt.scatter(coordinates[:, 0], coordinates[:, 1], s=radius * ppm)
             plt.axis("equal")
         # plt.show()

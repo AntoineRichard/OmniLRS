@@ -1,10 +1,9 @@
-import multiprocessing.process
 from typing import List, Tuple
 import multiprocessing
 import numpy as np
 import dataclasses
 import threading
-import queue
+import time
 import copy
 import cv2
 
@@ -91,6 +90,7 @@ class BaseWorker(multiprocessing.Process):
         super().__init__()
         self.input_queue = multiprocessing.JoinableQueue(maxsize=queue_size)
         self.output_queue = output_queue
+        self.daemon = True
 
     def get_input_queue_length(self):
         return self.input_queue.qsize()
@@ -118,14 +118,20 @@ class BaseWorkerManager:
         self.input_queue = multiprocessing.JoinableQueue(maxsize=input_queue_size)
         self.output_queue = multiprocessing.JoinableQueue(maxsize=output_queue_size)
 
+        self.num_workers = num_workers
+        self.worker_class = worker_class
+        self.worker_queue_size = worker_queue_size
+        self.kwargs = kwargs
+
         self.instantiate_workers(
-            num_workers=num_workers,
-            worker_queue_size=worker_queue_size,
-            worker_class=worker_class,
-            **kwargs,
+            num_workers=self.num_workers,
+            worker_queue_size=self.worker_queue_size,
+            worker_class=self.worker_class,
+            **self.kwargs,
         )
 
         self.manager_thread = multiprocessing.Process(target=self.dispatch_jobs)
+        self.manager_thread.daemon = True
         self.manager_thread.start()
 
     def instantiate_workers(
@@ -221,6 +227,7 @@ class CraterBuilderWorker(BaseWorker):
         while True:
             coords, crater_meta_data = self.input_queue.get()
             if crater_meta_data is None:
+                self.input_queue.task_done()
                 break
             self.output_queue.put(
                 (coords, self.builder.generateCraters(crater_meta_data, coords))
@@ -251,6 +258,7 @@ class CraterBuilderManager(BaseWorkerManager):
         while True:
             coords, crater_metadata = self.input_queue.get()
             if crater_metadata is None:  # Check for shutdown signal
+                self.input_queue.task_done()
                 break
             self.workers[self.get_shortest_queue_index()].input_queue.put(
                 (coords, crater_metadata)
@@ -262,7 +270,7 @@ class BicubicInterpolatorWorker(BaseWorker):
     def __init__(
         self,
         queue_size: int = 10,
-        output_queue: queue.Queue = queue.Queue(),
+        output_queue: multiprocessing.JoinableQueue = multiprocessing.JoinableQueue(),
         interp: Interpolator = None,
     ):
         super().__init__(queue_size, output_queue)
@@ -521,9 +529,6 @@ class HighResDEMGen:
                     self.block_grid_tracker[(x_c, y_c)]["is_padding"] = True
                 else:
                     self.block_grid_tracker[(x_c, y_c)]["is_padding"] = False
-                # print(
-                #    f"Block {x_c, y_c} is padding: {self.block_grid_tracker[(x_c, y_c)]['is_padding']}"
-                # )
 
         # Overwrite the old state with the new state
         self.block_grid_tracker = new_block_grid_tracker
@@ -566,8 +571,6 @@ class HighResDEMGen:
                 y_max_s = self.high_res_dem.shape[1]
                 y_min_t = 0
                 y_max_t = y_shift
-            print(f"Source: {x_min_s, x_max_s, y_min_s, y_max_s}")
-            print(f"Target: {x_min_t, x_max_t, y_min_t, y_max_t}")
             # Copy the data
             self.high_res_dem[x_min_t:x_max_t, y_min_t:y_max_t] = self.high_res_dem[
                 x_min_s:x_max_s, y_min_s:y_max_s
@@ -594,32 +597,35 @@ class HighResDEMGen:
             -int(delta_coord[1] / self.settings.resolution),
         )
         # Shift the block grid
-        print("Shifting block grid...")
         self.shift_block_grid(new_block_coord)
-        # print(self.block_grid_tracker)
         # Shift the DEM
-        print("Shifting DEM...")
-        print(f"Pixel shift: {pixel_shift}")
         self.shift_dem(pixel_shift)
         # Sets the current block coordinates to the new one.
         self.current_block_coord = new_block_coord
         # Trigger terrain update
         # Generate crater metadata for the new blocks
-        print("Generating crater metadata...")
         self.generate_craters_metadata()
         # Asynchronous terrain block generation
-        print("Generating terrain blocks...")
-        # print(self.block_grid_tracker)
         self.generate_terrain_blocks()
-        print("Done feeding queues...")
 
-    def trigger_terrain_update(self):
-        # You want to trigger an update if the robot moved enough into the next block
-        # I.e. we want to avoid cases where the robot is at the edge of a block and the
-        # terrain data keeps getting updated.
-        # Something like 2 meters into the next block should be enough, and to go back
-        # to the previous block, the robot would have to move 4 meters back.
-        pass
+    def update_high_res_dem(self, coords):
+        self.shift(coords)
+        threading.Thread(target=self.threaded_high_res_dem_update).start()
+
+    def is_map_done(self):
+        return all(
+            [
+                self.block_grid_tracker[coords]["has_crater_metadata"]
+                and self.block_grid_tracker[coords]["has_crater_data"]
+                and self.block_grid_tracker[coords]["has_terrain_data"]
+                for coords in self.map_grid_block2coords.values()
+            ]
+        )
+
+    def threaded_high_res_dem_update(self):
+        while not self.is_map_done():
+            self.collect_terrain_data()
+            time.sleep(0.1)
 
     def generate_craters_metadata(self):
         # Generate crater metadata at for + 2 blocks in each direction
@@ -691,28 +697,16 @@ class HighResDEMGen:
                 )
 
     def collect_terrain_data(self):
-        # print("Collecting terrain data...")
-        # print("Updating DEM...")
         offset = int(
             (self.settings.num_blocks + 1)
             * self.settings.block_size
             / self.settings.resolution
         )
-        # print(f"Offset: {offset}")
-        # print(f"Shape: {self.high_res_dem.shape}")
         crater_results = self.crater_builder_manager.collect_results()
-        print(f"load per worker: {self.crater_builder_manager.get_load_per_worker()}")
         for coords, data in crater_results:
-            # print(coords)
             x_i, y_i = coords
             x_c, y_c = self.map_grid_block2coords[(x_i, y_i)]
             local_coords = (x_c, y_c)
-            # print(f"x_coordinates: {x_c / self.settings.resolution + offset}")
-            # print(f"y_coordinates: {y_c / self.settings.resolution + offset}")
-            # if self.block_grid_tracker[coords]["is_padding"]:
-            #    print(self.block_grid_tracker[coords])
-            #    print("Skipping padding block...")
-            #    continue
             self.high_res_dem[
                 int(x_c / self.settings.resolution)
                 + offset : int(
@@ -727,24 +721,10 @@ class HighResDEMGen:
             ] += data[0]
             self.block_grid_tracker[local_coords]["has_crater_data"] = True
         terrain_results = self.interpolator_manager.collect_results()
-        print(len(terrain_results))
-        print(f"load per worker: {self.interpolator_manager.get_load_per_worker()}")
-        print(
-            f"input queue length: {self.interpolator_manager.get_input_queue_length()}"
-        )
-        print(
-            f"output queue lenght: {self.interpolator_manager.get_output_queue_length()}"
-        )
-        print(f"output queue full: {self.interpolator_manager.is_output_queue_full()}")
         for coords, data in terrain_results:
             x_i, y_i = coords
             x_c, y_c = self.map_grid_block2coords[(x_i, y_i)]
             local_coords = (x_c, y_c)
-            # if self.block_grid_tracker[coords]["is_padding"]:
-            #    print(self.block_grid_tracker[coords])
-            #    print("Skipping padding block...")
-            #    continue
-            print(data.shape)
             self.high_res_dem[
                 int(x_c / self.settings.resolution)
                 + offset : int(
@@ -764,7 +744,6 @@ class HighResDEMGen:
 
 
 if __name__ == "__main__":
-
     HRDEMGCfg_D = {
         "num_blocks": 7,  # int = dataclasses.field(default_factory=int)
         "block_size": 50,  # float = dataclasses.field(default_factory=float)
@@ -825,7 +804,6 @@ if __name__ == "__main__":
             im_data.set_norm(norm)
         plt.pause(0.25)
         plt.draw()
-        print("Collecting terrain data...")
     time.sleep(5.0)
     HRDEMGen.collect_terrain_data()
     im_data.set_data(HRDEMGen.high_res_dem)
@@ -852,8 +830,6 @@ if __name__ == "__main__":
         im_data.set_norm(norm)
         plt.pause(0.25)
         plt.draw()
-        print("Collecting terrain data...")
-
     time.sleep(5.0)
     HRDEMGen.collect_terrain_data()
     im_data.set_data(HRDEMGen.high_res_dem)
@@ -880,7 +856,6 @@ if __name__ == "__main__":
         im_data.set_norm(norm)
         plt.pause(0.25)
         plt.draw()
-        print("Collecting terrain data...")
     time.sleep(5.0)
     HRDEMGen.collect_terrain_data()
     im_data.set_data(HRDEMGen.high_res_dem)
@@ -907,7 +882,6 @@ if __name__ == "__main__":
         im_data.set_norm(norm)
         plt.pause(0.25)
         plt.draw()
-        print("Collecting terrain data...")
     time.sleep(5.0)
     HRDEMGen.collect_terrain_data()
     im_data.set_data(HRDEMGen.high_res_dem)
@@ -934,7 +908,6 @@ if __name__ == "__main__":
         im_data.set_norm(norm)
         plt.pause(0.25)
         plt.draw()
-        print("Collecting terrain data...")
     time.sleep(5.0)
     HRDEMGen.collect_terrain_data()
     im_data.set_data(HRDEMGen.high_res_dem)
@@ -942,4 +915,42 @@ if __name__ == "__main__":
     plt.pause(0.25)
     plt.draw()
     time.sleep(5.0)
+
+    plt.figure()
+    s = time.time()
+    HRDEMGen.update_high_res_dem((50, 50))
+    while not HRDEMGen.is_map_done():
+        time.sleep(0.1)
+    e = time.time()
+    print(f"Time to update entire map: {e-s}")
+    plt.imshow(HRDEMGen.high_res_dem, cmap="terrain")
+    plt.show()
+    s = time.time()
+    HRDEMGen.update_high_res_dem((50, 100))
+    while not HRDEMGen.is_map_done():
+        time.sleep(0.1)
+    e = time.time()
+    print(f"Time to update one band: {e-s}")
+    plt.imshow(HRDEMGen.high_res_dem, cmap="terrain")
+    plt.show()
+    s = time.time()
+    HRDEMGen.update_high_res_dem((100, 100))
+    while not HRDEMGen.is_map_done():
+        time.sleep(0.1)
+    e = time.time()
+    print(f"Time to update one band: {e-s}")
+    plt.imshow(HRDEMGen.high_res_dem, cmap="terrain")
+    plt.show()
+    s = time.time()
+    HRDEMGen.update_high_res_dem((150, 150))
+    while not HRDEMGen.is_map_done():
+        time.sleep(0.1)
+    e = time.time()
+    print(f"Time to update two bands: {e-s}")
+    plt.imshow(HRDEMGen.high_res_dem, cmap="terrain")
+    plt.show()
+
+    plt.close()
     print("Done collecting terrain data...")
+    HRDEMGen.crater_builder_manager.shutdown()
+    HRDEMGen.interpolator_manager.shutdown()
