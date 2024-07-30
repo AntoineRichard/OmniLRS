@@ -89,13 +89,13 @@ def fetch_from_dem(
 
 @dataclasses.dataclass
 class GeoClipmapSpecs:
-    numMeshLODLevels: int = 5
+    numMeshLODLevels: int = 6
     meshBaseLODExtentHeightfieldTexels: int = 256
     meshBackBonePath: str = "terrain_mesh_backbone.npz"
-    demPath: str = "dem.npy"
-    meters_per_pixel: float = 1.0
+    demPath: str = "assets/Terrains/SouthPole/NPD_final_adj_5mpp_surf/dem.npy"
+    meters_per_pixel: float = 5.0
     meters_per_texel: float = 1.0
-    z_scale: float = 1 / 100.0
+    z_scale: float = 1.0
 
 
 def Point3(x, y, z):
@@ -292,6 +292,7 @@ class GeoClipmap:
         # texel_per_pixel = self.specs.meters_per_pixel / self.specs.meters_per_texel
         position_in_pixel = position * (1.0 / self.specs.meters_per_pixel)
         position = wp.vec2(position_in_pixel[0], position_in_pixel[2])
+        print("num points: ", self.points.shape[0])
         with wp.ScopedTimer("update elevation", active=True):
             wp.launch(
                 kernel=fetch_from_dem,
