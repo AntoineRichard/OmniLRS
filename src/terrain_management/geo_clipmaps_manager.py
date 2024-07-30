@@ -21,7 +21,7 @@ class GeoClipmapManagerConf:
     geo_clipmap_specs: GeoClipmapSpecs = GeoClipmapSpecs()
     mesh_position: np.ndarray = np.array([0, 0, 0])
     mesh_orientation: np.ndarray = np.array([0, 0, 0, 1])
-    mesh_scale: np.ndarray = np.array([0.01, 0.01, 0.01])
+    mesh_scale: np.ndarray = np.array([1, 1, 1])
 
 
 class GeoClipmapManager:

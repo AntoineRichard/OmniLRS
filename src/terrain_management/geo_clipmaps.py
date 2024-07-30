@@ -52,8 +52,7 @@ def fetch_from_dem(
     q21: wp.array(dtype=float),
     q22: wp.array(dtype=float),
     position: wp.vec2,
-    texel_per_pixel: float,
-    meters_per_texel: float,
+    meters_per_pixel: float,
     dem_size: wp.vec2,
     dem_data: wp.array(dtype=float),
     x_out: wp.array(dtype=int),
@@ -62,8 +61,8 @@ def fetch_from_dem(
 ):
     # Align grid with DEM
     tid = wp.tid()
-    x_tmp[tid] = (x[tid] / (meters_per_texel / texel_per_pixel)) + position[0]
-    y_tmp[tid] = (y[tid] / (meters_per_texel / texel_per_pixel)) + position[1]
+    x_tmp[tid] = (x[tid] / meters_per_pixel) + position[0]
+    y_tmp[tid] = (y[tid] / meters_per_pixel) + position[1]
 
     # Snap to DEM
     wp.atomic_min(x_tmp, tid, dem_size[0] - 1.0)
@@ -127,7 +126,7 @@ class GeoClipmap:
         return hashlib.sha256(str(specs).encode("utf-8")).hexdigest()
 
     def querryPointIndex(self, point):
-        hash = str(point[::2])
+        hash = str(point[:2])
         if hash in self.prev_indices.keys():
             index = self.prev_indices[hash]
         elif hash in self.new_indices.keys():
@@ -146,9 +145,9 @@ class GeoClipmap:
         self.indices.append(A_idx)
         self.indices.append(B_idx)
         self.indices.append(C_idx)
-        self.uvs.append(A[::2])
-        self.uvs.append(B[::2])
-        self.uvs.append(C[::2])
+        self.uvs.append(A[:2])
+        self.uvs.append(B[:2])
+        self.uvs.append(C[:2])
 
     def buildMesh(self):
         print("Building the mesh backbone, this may take time...")
@@ -173,9 +172,9 @@ class GeoClipmap:
             # Pad by one element to hide the gap to the next level
             pad = 0
             radius = int(step * (g + pad))
-            for z in range(-radius, radius, step):
+            for y in range(-radius, radius, step):
                 for x in range(-radius, radius, step):
-                    if max(abs(x + halfStep), abs(z + halfStep)) >= g * prevStep:
+                    if max(abs(x + halfStep), abs(y + halfStep)) >= g * prevStep:
                         # Cleared the cutout from the previous level. Tessellate the
                         # square.
 
@@ -187,10 +186,10 @@ class GeoClipmap:
                         #   | /   |   \ |
                         #   G-----H-----I
 
-                        A = Point3(float(x), L, float(z))
-                        C = Point3(float(x + step), L, A[-1])
-                        G = Point3(A[0], L, float(z + step))
-                        I = Point3(C[0], L, G[-1])
+                        A = Point3(float(x), float(y), L)
+                        C = Point3(float(x + step), A[1], L)
+                        G = Point3(A[0], float(y + step), L)
+                        I = Point3(C[0], G[1], L)
 
                         B = (A + C) * 0.5
                         D = (A + G) * 0.5
@@ -214,7 +213,7 @@ class GeoClipmap:
                             self.addTriangle(E, A, D)
                             self.addTriangle(E, D, G)
 
-                        if z == (radius - step):
+                        if y == (radius - step):
                             self.addTriangle(E, G, I)
                         else:
                             self.addTriangle(E, G, H)
@@ -226,7 +225,7 @@ class GeoClipmap:
                             self.addTriangle(E, I, F)
                             self.addTriangle(E, F, C)
 
-                        if z == -radius:
+                        if y == -radius:
                             self.addTriangle(E, C, A)
                         else:
                             self.addTriangle(E, C, B)
@@ -271,19 +270,16 @@ class GeoClipmap:
     def instantiateWarpBuffers(self):
         # Casting
         self.wp_x = wp.array(self.points[:, 0], dtype=float)
-        self.wp_y = wp.array(self.points[:, 2], dtype=float)
+        self.wp_y = wp.array(self.points[:, 1], dtype=float)
         self.wp_x_tmp = wp.array(self.points[:, 0], dtype=float)
-        self.wp_y_tmp = wp.array(self.points[:, 2], dtype=float)
+        self.wp_y_tmp = wp.array(self.points[:, 1], dtype=float)
         self.wp_q11 = wp.zeros(self.wp_x.shape[0], dtype=float)
         self.wp_q12 = wp.zeros(self.wp_x.shape[0], dtype=float)
         self.wp_q21 = wp.zeros(self.wp_x.shape[0], dtype=float)
         self.wp_q22 = wp.zeros(self.wp_x.shape[0], dtype=float)
         self.wp_dem_size = wp.vec2(self.dem_size[0], self.dem_size[1])
         self.wp_dem_data = wp.array(self.dem.flatten(), dtype=float)
-        self.wp_texel_per_pixel = (
-            self.specs.meters_per_pixel / self.specs.meters_per_texel
-        )
-        self.wp_meters_per_texel = self.specs.meters_per_texel
+        self.wp_meters_per_pixel = self.specs.meters_per_pixel
         self.wp_x_out = wp.zeros(self.wp_x.shape[0], dtype=int)
         self.wp_y_out = wp.zeros(self.wp_x.shape[0], dtype=int)
         self.wp_z = wp.zeros(self.wp_x.shape[0], dtype=float)
@@ -291,7 +287,7 @@ class GeoClipmap:
     def getElevation(self, position):
         # texel_per_pixel = self.specs.meters_per_pixel / self.specs.meters_per_texel
         position_in_pixel = position * (1.0 / self.specs.meters_per_pixel)
-        position = wp.vec2(position_in_pixel[0], position_in_pixel[2])
+        position = wp.vec2(position_in_pixel[0], position_in_pixel[1])
         print("num points: ", self.points.shape[0])
         with wp.ScopedTimer("update elevation", active=True):
             wp.launch(
@@ -307,8 +303,7 @@ class GeoClipmap:
                     self.wp_q21,
                     self.wp_q22,
                     position,
-                    self.wp_texel_per_pixel,
-                    self.wp_meters_per_texel,
+                    self.wp_meters_per_pixel,
                     self.wp_dem_size,
                     self.wp_dem_data,
                     self.wp_x_out,
@@ -318,7 +313,7 @@ class GeoClipmap:
             )
 
         with wp.ScopedTimer("send elevation to numpy", active=True):
-            self.points[:, 1] = self.wp_z.numpy()
+            self.points[:, -1] = self.wp_z.numpy()
 
         # x = (self.points[:,0] / (self.specs.meters_per_texel / self.wp_texel_per_pixel)) + position_in_pixel[0]
         # y = (self.points[:,2] / (self.specs.meters_per_texel / self.wp_texel_per_pixel)) + position_in_pixel[2]
