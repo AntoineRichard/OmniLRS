@@ -11,7 +11,7 @@ if __name__ == "__main__":
     from pxr import UsdLux
     from WorldBuilders.pxr_utils import setDefaultOps, addDefaultOps
     import numpy as np
-    from src.terrain_management.geo_clipmaps_manager import (
+    from src.terrain_management.geo_clipmaps_manager_hybrid import (
         GeoClipmapManager,
         GeoClipmapManagerConf,
     )
@@ -30,16 +30,6 @@ if __name__ == "__main__":
     T = GeoClipmapManager(cfg)
     T.updateGeoClipmap(np.array([2000 * 5, 2000 * 5, 0]))
 
-    R = 500 * 5
-    C = 2000 * 5
-    theta = np.linspace(0, 2 * np.pi, 256)
-
-    i = 0
     while True:
-        for _ in range(2):
-            world.step(render=True)
-
-        x = math.cos(theta[i]) * R + C
-        y = math.sin(theta[i]) * R + C
-        T.updateGeoClipmap(np.array([x, y, 0]))
-        i = (i + 1) % 256
+        T.updateGeoClipmap(np.array([2000 * 5, 2000 * 5, 0]))
+        world.step(render=True)

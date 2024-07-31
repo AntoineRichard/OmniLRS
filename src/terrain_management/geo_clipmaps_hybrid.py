@@ -50,12 +50,6 @@ def preprocess(
     x[tid] = wp.atomic_max(x, tid, 0.0)
     y[tid] = wp.atomic_max(y, tid, 0.0)
 
-    # x_int[tid] = wp.trunc(x[tid])
-    # y_int[tid] = wp.trunc(y[tid])
-
-    # x_delta[tid] = x - x_int[tid]
-    # y_delta[tid] = x - y_int[tid]
-
 
 @wp.kernel
 def get_values_wp(
@@ -78,8 +72,8 @@ def get_values_wp(
 def get_4x4_mat(
     dem: wp.array(dtype=float), dem_shape: wp.vec2i, x: float, y: float, out: wp.mat44f
 ) -> wp.mat44f:
-    x0 = int(x)
-    y0 = int(y)
+    x0 = wp.max(int(x) - 1, 0)
+    y0 = wp.max(int(y) - 1, 0)
     x1 = wp.min(x0 + 1, dem_shape[0]) * dem_shape[1]
     x2 = wp.min(x0 + 2, dem_shape[0]) * dem_shape[1]
     x3 = wp.min(x0 + 3, dem_shape[0]) * dem_shape[1]
@@ -116,6 +110,34 @@ def get_values_wp_4x4(
 ):
     tid = wp.tid()
     out[tid] = get_4x4_mat(dem, dem_shape, x[tid], y[tid], out[tid])
+
+
+@wp.func
+def get_2x2_mat(
+    dem: wp.array(dtype=float), dem_shape: wp.vec2i, x: float, y: float, out: wp.mat22f
+) -> wp.mat22f:
+    x0 = int(x)
+    y0 = int(y)
+    x1 = wp.min(x0 + 1, dem_shape[0]) * dem_shape[1]
+    x0 = x0 * dem_shape[1]
+    y1 = wp.min(y0 + 1, dem_shape[1])
+    out[0, 0] = dem[x0 + y0]
+    out[1, 0] = dem[x1 + y0]
+    out[0, 1] = dem[x0 + y1]
+    out[1, 1] = dem[x1 + y1]
+    return out
+
+
+@wp.kernel
+def get_values_wp_2x2(
+    dem: wp.array(dtype=float),
+    dem_shape: wp.vec2i,
+    x: wp.array(dtype=float),
+    y: wp.array(dtype=float),
+    out: wp.array(dtype=wp.mat22f),
+):
+    tid = wp.tid()
+    out[tid] = get_2x2_mat(dem, dem_shape, x[tid], y[tid], out[tid])
 
 
 @wp.kernel
@@ -182,9 +204,6 @@ def _bicubic_interpolation(
         + q[tid][2, 3] * coeffs[tid][2]
         + q[tid][3, 3] * coeffs[tid][3]
     )
-    # a1 = wp.dot(q[tid][:, 1], coeffs[tid])
-    # a2 = wp.dot(q[tid][:, 2], coeffs[tid])
-    # a3 = wp.dot(q[tid][:, 3], coeffs[tid])
     coeffs[tid] = _cubic_interpolation(y[tid], coeffs[tid])
     out[tid] = (
         a0 * coeffs[tid][0]
@@ -210,7 +229,7 @@ def Point3(x, y, z):
 
 
 class GeoClipmap:
-    def __init__(self, specs: GeoClipmapSpecs):
+    def __init__(self, specs: GeoClipmapSpecs, interpolation_method="linear"):
         self.specs = specs
         self.index_count = 0
         self.prev_indices = {}
@@ -218,6 +237,7 @@ class GeoClipmap:
         self.points = []
         self.uvs = []
         self.indices = []
+        self.interpolation_method = interpolation_method
 
         self.specs_hash = self.compute_hash(self.specs)
 
@@ -376,17 +396,6 @@ class GeoClipmap:
         self.dem_size = self.dem.shape
 
     def getElevation(self, position):
-        # s = time.time()
-        # x = (self.points[:, 0] / self.specs.meters_per_pixel) + position_in_pixel[0]
-        # y = (self.points[:, 1] / self.specs.meters_per_pixel) + position_in_pixel[1]
-
-        # x = np.minimum(x, self.dem.shape[0] - 1)
-        # y = np.minimum(y, self.dem.shape[1] - 1)
-        # x = np.maximum(x, 0)
-        # y = np.maximum(y, 0)
-        # e = time.time()
-        # print("Time to compute the positions: ", e - s)
-
         with wp.ScopedTimer("preprocess", active=True):
             position_in_pixel = position * (1.0 / self.specs.meters_per_pixel)
             coords = wp.vec2f(position_in_pixel[0], position_in_pixel[1])
@@ -407,7 +416,6 @@ class GeoClipmap:
             self.y_wp_cpu.assign(self.y_wp)
 
         self.bicubic_interpolation()
-        # bicubic interpolation is broken
 
     def linear_interpolation(self):
         x1 = np.trunc(x).astype(int)
@@ -461,36 +469,33 @@ class GeoClipmap:
         )
         self.x_delta = wp.zeros((self.points.shape[0]), dtype=float, device="cuda")
         self.y_delta = wp.zeros((self.points.shape[0]), dtype=float, device="cuda")
-        self.q_cpu = wp.zeros(
-            (self.points.shape[0]),
-            dtype=wp.mat44f,
-            device="cpu",
-            pinned=True,
-        )
-        self.q_cuda = wp.zeros((self.points.shape[0]), dtype=wp.mat44f, device="cuda")
         self.dem_shape_wp = wp.vec2i(self.dem_size[0], self.dem_size[1])
         self.dem_shape_wp_f = wp.vec2f(self.dem_size[0], self.dem_size[1])
         self.coeffs_wp = wp.zeros(self.points.shape[0], dtype=wp.vec4f, device="cuda")
         self.z_cuda = wp.zeros(self.points.shape[0], dtype=float, device="cuda")
 
-    def bicubic_interpolation(self):  # , x, y):
+        if self.interpolation_method == "linear":
+            self.q_cpu = wp.zeros(
+                (self.points.shape[0]),
+                dtype=wp.mat22f,
+                device="cpu",
+                pinned=True,
+            )
+            self.q_cuda = wp.zeros(
+                (self.points.shape[0]), dtype=wp.mat22f, device="cuda"
+            )
+        elif self.interpolation_method == "bicubic":
+            self.q_cpu = wp.zeros(
+                (self.points.shape[0]),
+                dtype=wp.mat44f,
+                device="cpu",
+                pinned=True,
+            )
+            self.q_cuda = wp.zeros(
+                (self.points.shape[0]), dtype=wp.mat44f, device="cuda"
+            )
 
-        # s = time.time()
-        # x1 = np.maximum(np.trunc(x).astype(int) - 1, 0)
-        # y1 = np.maximum(np.trunc(y).astype(int) - 1, 0)
-        # x2 = np.minimum(x1 + 0, self.dem_size[0])
-        # y2 = np.minimum(y1 + 0, self.dem_size[1])
-        # x3 = np.minimum(x1 + 1, self.dem_size[0] - 1)
-        # y3 = np.minimum(y1 + 1, self.dem_size[1] - 1)
-        # x4 = np.minimum(x1 + 2, self.dem_size[0] - 2)
-        # y4 = np.minimum(y1 + 2, self.dem_size[1] - 2)
-        # dx = wp.from_numpy(x - x2, dtype=float, device="cuda")
-        # dy = wp.from_numpy(y - y2, dtype=float, device="cuda")
-        # e = time.time()
-        # print("Time to cast vectors: ", e - s)
-
-        # self.x_int.assign(x1)
-        # self.y_int.assign(y1)
+    def bicubic_interpolation(self):
         with wp.ScopedTimer("get_values_wp_4x4", active=True):
             wp.launch(
                 kernel=get_values_wp_4x4,
@@ -505,52 +510,6 @@ class GeoClipmap:
                 device="cpu",
             )
             self.q_cuda.assign(self.q_cpu)
-        # q = self.q_cpu.numpy()
-        # q1 = q[:, :, 0]
-        # q2 = q[:, :, 1]
-        # q3 = q[:, :, 2]
-        # q4 = q[:, :, 3]
-
-        # q11 = self.dem[x1, y1]
-        # q12 = self.dem[x2, y1]
-        # q13 = self.dem[x3, y1]
-        # q14 = self.dem[x4, y1]
-        # q21 = self.dem[x1, y2]
-        # q22 = self.dem[x2, y2]
-        # q23 = self.dem[x3, y2]
-        # q24 = self.dem[x4, y2]
-        # q31 = self.dem[x1, y3]
-        # q32 = self.dem[x2, y3]
-        # q33 = self.dem[x3, y3]
-        # q34 = self.dem[x4, y3]
-        # q41 = self.dem[x1, y4]
-        # q42 = self.dem[x2, y4]
-        # q43 = self.dem[x3, y4]
-        # q44 = self.dem[x4, y4]
-        # q1 = get_values(self.dem, x1, y1)
-        # q2 = get_values(self.dem, x1, y2)
-        # q3 = get_values(self.dem, x1, y3)
-        # q4 = get_values(self.dem, x1, y4)
-
-        # s = time.time()
-        # q1 = wp.from_numpy(q1, dtype=wp.vec4f, device="cuda")
-        # q2 = wp.from_numpy(q2, dtype=wp.vec4f, device="cuda")
-        # q3 = wp.from_numpy(q3, dtype=wp.vec4f, device="cuda")
-        # q4 = wp.from_numpy(q4, dtype=wp.vec4f, device="cuda")
-        # q1 = wp.from_numpy(
-        #    np.array([q11, q12, q13, q14]).T, dtype=wp.vec4f, device="cuda"
-        # )
-        # q2 = wp.from_numpy(
-        #    np.array([q21, q22, q23, q24]).T, dtype=wp.vec4f, device="cuda"
-        # )
-        # q3 = wp.from_numpy(
-        #    np.array([q31, q32, q33, q34]).T, dtype=wp.vec4f, device="cuda"
-        # )
-        # q4 = wp.from_numpy(
-        #    np.array([q41, q42, q43, q44]).T, dtype=wp.vec4f, device="cuda"
-        # )
-        # e = time.time()
-        # print("Time to send matrices to GPU: ", e - s)
 
         with wp.ScopedTimer("bicubic_interpolation", active=True):
             wp.launch(
@@ -563,7 +522,7 @@ class GeoClipmap:
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
-    from mpl_toolkits.mplot3d import axes3d, Axes3D  # <-- Note the capitalization!
+    from mpl_toolkits.mplot3d import axes3d, Axes3D
 
     wp.init()
     specs = GeoClipmapSpecs()
@@ -576,6 +535,4 @@ if __name__ == "__main__":
     print(clipmap.uvs.shape)
     ax = plt.figure().add_subplot(projection="3d")
     ax.scatter(clipmap.points[:, 0], clipmap.points[:, 1], clipmap.points[:, 2])
-    # plt.scatter(points[:,0], points[:,2])
-    # plt.axes("equal")
     plt.show()

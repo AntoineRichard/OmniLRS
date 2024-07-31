@@ -20,25 +20,29 @@ import os
 
 
 @wp.func
-def _linear_interpolation(
-    x: wp.array(dtype=float),
-    y: wp.array(dtype=float),
-    q11: wp.array(dtype=float),
-    q12: wp.array(dtype=float),
-    q21: wp.array(dtype=float),
-    q22: wp.array(dtype=float),
-    out: wp.array(dtype=float),
-):
-    tid = wp.tid()
-    out[tid] = ((1.0 - x[tid]) * q11[tid] + x[tid] * q21[tid]) * (1.0 - y[tid]) + (
-        (1.0 - x[tid]) * q12[tid] + x[tid] * q22[tid]
-    ) * y[tid]
-
-
-@wp.func
 def _sample(dem: wp.array(dtype=float), x: int, y: int, size: wp.vec2) -> float:
     d = dem[y + x * int(size[1])]
     return d
+
+
+@wp.func
+def _linear_interpolation(
+    x: float,
+    y: float,
+    dem: wp.array(dtype=float),
+    size: wp.vec2,
+) -> float:
+    x_idx = int(x)
+    y_idx = int(y)
+    dx = x - wp.trunc(x)
+    dy = y - wp.trunc(y)
+    q11 = _sample(dem, x_idx, y_idx, size)
+    q12 = _sample(dem, x_idx, y_idx + 1, size)
+    q21 = _sample(dem, x_idx + 1, y_idx, size)
+    q22 = _sample(dem, x_idx + 1, y_idx + 1, size)
+    return ((1.0 - dx) * q11 + dx * q21) * (1.0 - dy) + (
+        (1.0 - dx) * q12 + dx * q22
+    ) * dy
 
 
 @wp.kernel
@@ -47,16 +51,10 @@ def fetch_from_dem(
     y: wp.array(dtype=float),
     x_tmp: wp.array(dtype=float),
     y_tmp: wp.array(dtype=float),
-    q11: wp.array(dtype=float),
-    q12: wp.array(dtype=float),
-    q21: wp.array(dtype=float),
-    q22: wp.array(dtype=float),
     position: wp.vec2,
     meters_per_pixel: float,
     dem_size: wp.vec2,
     dem_data: wp.array(dtype=float),
-    x_out: wp.array(dtype=int),
-    y_out: wp.array(dtype=int),
     z_out: wp.array(dtype=float),
 ):
     # Align grid with DEM
@@ -70,20 +68,7 @@ def fetch_from_dem(
     wp.atomic_min(y_tmp, tid, dem_size[1] - 1.0)
     wp.atomic_max(y_tmp, tid, 0.0)
 
-    # Get the lower corner
-    x_out[tid] = int(x_tmp[tid])
-    y_out[tid] = int(y_tmp[tid])
-
-    x_tmp[tid] = x_tmp[tid] - wp.trunc(x_tmp[tid])
-    y_tmp[tid] = y_tmp[tid] - wp.trunc(y_tmp[tid])
-
-    # Linear interpolation
-    q11[tid] = _sample(dem_data, x_out[tid], y_out[tid], dem_size)
-    q12[tid] = _sample(dem_data, x_out[tid], y_out[tid] + 1, dem_size)
-    q21[tid] = _sample(dem_data, x_out[tid] + 1, y_out[tid], dem_size)
-    q22[tid] = _sample(dem_data, x_out[tid] + 1, y_out[tid] + 1, dem_size)
-
-    _linear_interpolation(x_tmp, y_tmp, q11, q12, q21, q22, z_out)
+    z_out[tid] = _linear_interpolation(x_tmp[tid], y_tmp[tid], dem_data, dem_size)
 
 
 @dataclasses.dataclass
@@ -154,7 +139,7 @@ class GeoClipmap:
         for level in range(0, self.specs.numMeshLODLevels):
             print(
                 "Generating level "
-                + str(level)
+                + str(level + 1)
                 + " out of "
                 + str(self.specs.numMeshLODLevels)
                 + "..."
@@ -298,16 +283,10 @@ class GeoClipmap:
                     self.wp_y,
                     self.wp_x_tmp,
                     self.wp_y_tmp,
-                    self.wp_q11,
-                    self.wp_q12,
-                    self.wp_q21,
-                    self.wp_q22,
                     position,
                     self.wp_meters_per_pixel,
                     self.wp_dem_size,
                     self.wp_dem_data,
-                    self.wp_x_out,
-                    self.wp_y_out,
                     self.wp_z,
                 ],
             )
@@ -315,55 +294,20 @@ class GeoClipmap:
         with wp.ScopedTimer("send elevation to numpy", active=True):
             self.points[:, -1] = self.wp_z.numpy()
 
-        # x = (self.points[:,0] / (self.specs.meters_per_texel / self.wp_texel_per_pixel)) + position_in_pixel[0]
-        # y = (self.points[:,2] / (self.specs.meters_per_texel / self.wp_texel_per_pixel)) + position_in_pixel[2]
-
-        # x = np.minimum(x, self.dem.shape[0]-1)
-        # y = np.minimum(y, self.dem.shape[1]-1)
-        # x = np.maximum(x, 0)
-        # y = np.maximum(y, 0)
-
-        # x1 = np.trunc(x).astype(int)
-        # y1 = np.trunc(y).astype(int)
-
-        # x2 = np.minimum(x1 + 1, self.dem_size[0]-1)
-        # y2 = np.minimum(y1 + 1, self.dem_size[1]-1)
-        # dx = x - x1
-        # dy = y - y1
-
-        # q11 = self.dem[x1,y1]
-        # q12 = self.dem[x1,y2]
-        # q21 = self.dem[x2,y1]
-        # q22 = self.dem[x2,y2]
-
-        # z = wp.zeros(x.shape[0], dtype=float)
-        # with wp.ScopedTimer("linear_interpolation", active=True):
-        #    wp.launch(kernel=_linear_interpolation,
-        #        dim=x.shape[0],
-        #        inputs=[wp.array(dx, dtype=float),
-        #                wp.array(dy, dtype=float),
-        #                wp.array(q11, dtype=float),
-        #                wp.array(q12, dtype=float),
-        #                wp.array(q21, dtype=float),
-        #                wp.array(q22, dtype=float),
-        #                z])
-
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
-    from mpl_toolkits.mplot3d import axes3d, Axes3D  # <-- Note the capitalization!
+    from mpl_toolkits.mplot3d import axes3d, Axes3D
 
     wp.init()
     specs = GeoClipmapSpecs()
     clipmap = GeoClipmap(specs)
     with wp.ScopedTimer("render", active=True):
-        clipmap.getElevation(np.array([8192 * 1, 0, 8192 * 1]))
+        clipmap.getElevation(np.array([2000 * 5, 2000 * 5, 0]))
 
     print(clipmap.points.shape)
     print(clipmap.indices.shape)
     print(clipmap.uvs.shape)
     ax = plt.figure().add_subplot(projection="3d")
     ax.scatter(clipmap.points[:, 0], clipmap.points[:, 1], clipmap.points[:, 2])
-    # plt.scatter(points[:,0], points[:,2])
-    # plt.axes("equal")
     plt.show()
