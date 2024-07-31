@@ -41,8 +41,8 @@ class GeoClipmapManager:
         self.update_topology = True
 
     def updateGeoClipmap(self, position: np.ndarray) -> None:
-        self._geo_clipmap.getElevation(position)
         with wp.ScopedTimer("mesh update"):
+            self._geo_clipmap.getElevation(position)
             self.renderMesh(
                 self._geo_clipmap.points,
                 self._geo_clipmap.indices,

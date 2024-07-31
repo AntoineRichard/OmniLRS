@@ -31,4 +31,5 @@ if __name__ == "__main__":
     T.updateGeoClipmap(np.array([2000 * 5, 2000 * 5, 0]))
 
     while True:
+        T.updateGeoClipmap(np.array([2000 * 5, 2000 * 5, 0]))
         world.step(render=True)
