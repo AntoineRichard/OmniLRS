@@ -70,7 +70,11 @@ def get_values_wp(
 
 @wp.func
 def get_4x4_mat(
-    dem: wp.array(dtype=float), dem_shape: wp.vec2i, x: float, y: float, out: wp.mat44f
+    dem: wp.array(dtype=float),
+    dem_shape: wp.vec2i,
+    x: float,
+    y: float,
+    out: wp.mat44f,
 ) -> wp.mat44f:
     x0 = wp.max(int(x) - 1, 0)
     y0 = wp.max(int(y) - 1, 0)
@@ -114,7 +118,11 @@ def get_values_wp_4x4(
 
 @wp.func
 def get_2x2_mat(
-    dem: wp.array(dtype=float), dem_shape: wp.vec2i, x: float, y: float, out: wp.mat22f
+    dem: wp.array(dtype=float),
+    dem_shape: wp.vec2i,
+    x: float,
+    y: float,
+    out: wp.mat22f,
 ) -> wp.mat22f:
     x0 = int(x)
     y0 = int(y)
@@ -140,20 +148,31 @@ def get_values_wp_2x2(
     out[tid] = get_2x2_mat(dem, dem_shape, x[tid], y[tid], out[tid])
 
 
+@wp.func
+def _bilinear_interpolation(
+    x: float,
+    y: float,
+    q: wp.mat22f,
+):
+    x2 = x - wp.trunc(x)
+    y2 = y - wp.trunc(y)
+    return (
+        (1.0 - x2) * (1.0 - y2) * q[0, 0]
+        + x2 * (1.0 - y2) * q[1, 0]
+        + (1.0 - x2) * y2 * q[0, 1]
+        + x2 * y2 * q[1, 1]
+    )
+
+
 @wp.kernel
 def _linear_interpolation(
     x: wp.array(dtype=float),
     y: wp.array(dtype=float),
-    q11: wp.array(dtype=float),
-    q12: wp.array(dtype=float),
-    q21: wp.array(dtype=float),
-    q22: wp.array(dtype=float),
+    q: wp.array(dtype=wp.mat22f),
     out: wp.array(dtype=float),
 ):
     tid = wp.tid()
-    out[tid] = ((1.0 - x[tid]) * q11[tid] + x[tid] * q21[tid]) * (1.0 - y[tid]) + (
-        (1.0 - x[tid]) * q12[tid] + x[tid] * q22[tid]
-    ) * y[tid]
+    out[tid] = _bilinear_interpolation(x[tid], y[tid], q[tid])
 
 
 @wp.func
@@ -395,59 +414,6 @@ class GeoClipmap:
         self.dem = np.load(self.specs.demPath) * self.specs.z_scale
         self.dem_size = self.dem.shape
 
-    def getElevation(self, position):
-        with wp.ScopedTimer("preprocess", active=True):
-            position_in_pixel = position * (1.0 / self.specs.meters_per_pixel)
-            coords = wp.vec2f(position_in_pixel[0], position_in_pixel[1])
-            wp.launch(
-                kernel=preprocess,
-                dim=self.points.shape[0],
-                inputs=[
-                    self.x_wp,
-                    self.y_wp,
-                    self.points_wp,
-                    coords,
-                    self.specs.meters_per_pixel,
-                    self.dem_shape_wp_f,
-                ],
-                device="cuda",
-            )
-            self.x_wp_cpu.assign(self.x_wp)
-            self.y_wp_cpu.assign(self.y_wp)
-
-        self.bicubic_interpolation()
-
-    def linear_interpolation(self):
-        x1 = np.trunc(x).astype(int)
-        y1 = np.trunc(y).astype(int)
-
-        x2 = np.minimum(x1 + 1, self.dem_size[0] - 1)
-        y2 = np.minimum(y1 + 1, self.dem_size[1] - 1)
-        dx = x - x1
-        dy = y - y1
-
-        q11 = self.dem[x1, y1]
-        q12 = self.dem[x1, y2]
-        q21 = self.dem[x2, y1]
-        q22 = self.dem[x2, y2]
-
-        z = wp.zeros(x.shape[0], dtype=float)
-        with wp.ScopedTimer("linear_interpolation", active=True):
-            wp.launch(
-                kernel=_linear_interpolation,
-                dim=self.points.shape[0],
-                inputs=[
-                    wp.array(dx, dtype=float),
-                    wp.array(dy, dtype=float),
-                    wp.array(q11, dtype=float),
-                    wp.array(q12, dtype=float),
-                    wp.array(q21, dtype=float),
-                    wp.array(q22, dtype=float),
-                    z,
-                ],
-            )
-        return z
-
     def initialize_warp_buffers(self):
         self.dem_wp = wp.array(
             self.dem.flatten(), dtype=float, device="cpu", pinned=True
@@ -460,12 +426,6 @@ class GeoClipmap:
         )
         self.y_wp_cpu = wp.zeros(
             (self.points.shape[0]), dtype=float, device="cpu", pinned=True
-        )
-        self.x_int_cpu = wp.zeros(
-            (self.points.shape[0]), dtype=int, device="cpu", pinned=True
-        )
-        self.y_int_cpu = wp.zeros(
-            (self.points.shape[0]), dtype=int, device="cpu", pinned=True
         )
         self.x_delta = wp.zeros((self.points.shape[0]), dtype=float, device="cuda")
         self.y_delta = wp.zeros((self.points.shape[0]), dtype=float, device="cuda")
@@ -494,6 +454,63 @@ class GeoClipmap:
             self.q_cuda = wp.zeros(
                 (self.points.shape[0]), dtype=wp.mat44f, device="cuda"
             )
+        else:
+            raise ValueError("Invalid interpolation method")
+
+    def getElevation(self, position):
+        with wp.ScopedTimer("preprocess", active=True):
+            position_in_pixel = position * (1.0 / self.specs.meters_per_pixel)
+            coords = wp.vec2f(position_in_pixel[0], position_in_pixel[1])
+            wp.launch(
+                kernel=preprocess,
+                dim=self.points.shape[0],
+                inputs=[
+                    self.x_wp,
+                    self.y_wp,
+                    self.points_wp,
+                    coords,
+                    self.specs.meters_per_pixel,
+                    self.dem_shape_wp_f,
+                ],
+                device="cuda",
+            )
+            self.x_wp_cpu.assign(self.x_wp)
+            self.y_wp_cpu.assign(self.y_wp)
+        if self.interpolation_method == "linear":
+            self.linear_interpolation()
+        elif self.interpolation_method == "bicubic":
+            self.bicubic_interpolation()
+        else:
+            raise ValueError("Invalid interpolation method")
+
+    def linear_interpolation(self):
+        with wp.ScopedTimer("get_values_wp", active=True):
+            wp.launch(
+                kernel=get_values_wp_2x2,
+                dim=self.points.shape[0],
+                inputs=[
+                    self.dem_wp,
+                    self.dem_shape_wp,
+                    self.x_wp_cpu,
+                    self.y_wp_cpu,
+                    self.q_cpu,
+                ],
+                device="cpu",
+            )
+            self.q_cuda.assign(self.q_cpu)
+
+        with wp.ScopedTimer("linear_interpolation", active=True):
+            wp.launch(
+                kernel=_linear_interpolation,
+                dim=self.points.shape[0],
+                inputs=[
+                    self.x_wp,
+                    self.y_wp,
+                    self.q_cuda,
+                    self.z_cuda,
+                ],
+            )
+            self.points[:, -1] = self.z_cuda.numpy()
 
     def bicubic_interpolation(self):
         with wp.ScopedTimer("get_values_wp_4x4", active=True):
@@ -515,7 +532,13 @@ class GeoClipmap:
             wp.launch(
                 kernel=_bicubic_interpolation,
                 dim=self.points.shape[0],
-                inputs=[self.x_wp, self.y_wp, self.q_cuda, self.coeffs_wp, self.z_cuda],
+                inputs=[
+                    self.x_wp,
+                    self.y_wp,
+                    self.q_cuda,
+                    self.coeffs_wp,
+                    self.z_cuda,
+                ],
             )
             self.points[:, -1] = self.z_cuda.numpy()
 

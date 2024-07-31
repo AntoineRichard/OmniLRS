@@ -27,7 +27,8 @@ if __name__ == "__main__":
     addDefaultOps(light.GetPrim())
     setDefaultOps(light.GetPrim(), (0, 0, 0), (0.383, 0, 0, 0.924), (1, 1, 1))
 
-    T = GeoClipmapManager(cfg)
+    # T = GeoClipmapManager(cfg, interpolation_method="bicubic")
+    T = GeoClipmapManager(cfg, interpolation_method="linear")
     T.updateGeoClipmap(np.array([2000 * 5, 2000 * 5, 0]))
 
     while True:

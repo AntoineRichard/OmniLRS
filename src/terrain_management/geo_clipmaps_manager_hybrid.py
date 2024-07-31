@@ -25,9 +25,13 @@ class GeoClipmapManagerConf:
 
 
 class GeoClipmapManager:
-    def __init__(self, cfg: GeoClipmapManagerConf):
+    def __init__(
+        self, cfg: GeoClipmapManagerConf, interpolation_method: str = "linear"
+    ):
         self._stage = omni.usd.get_context().get_stage()
-        self._geo_clipmap = GeoClipmap(cfg.geo_clipmap_specs)
+        self._geo_clipmap = GeoClipmap(
+            cfg.geo_clipmap_specs, interpolation_method=interpolation_method
+        )
         self._root_path = cfg.root_path
 
         self._mesh_pos = cfg.mesh_position
