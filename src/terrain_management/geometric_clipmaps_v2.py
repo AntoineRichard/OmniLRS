@@ -61,13 +61,13 @@ def get_4x4_mat(
 ) -> wp.mat44f:
     x0 = wp.max(int(x) - 1, 0)
     y0 = wp.max(int(y) - 1, 0)
-    x1 = wp.min(x0 + 1, dem_shape[0]) * dem_shape[1]
-    x2 = wp.min(x0 + 2, dem_shape[0]) * dem_shape[1]
-    x3 = wp.min(x0 + 3, dem_shape[0]) * dem_shape[1]
+    x1 = wp.min(x0 + 1, dem_shape[0] - 1) * dem_shape[1]
+    x2 = wp.min(x0 + 2, dem_shape[0] - 1) * dem_shape[1]
+    x3 = wp.min(x0 + 3, dem_shape[0], -1) * dem_shape[1]
     x0 = x0 * dem_shape[1]
-    y1 = wp.min(y0 + 1, dem_shape[1])
-    y2 = wp.min(y0 + 2, dem_shape[1])
-    y3 = wp.min(y0 + 3, dem_shape[1])
+    y1 = wp.min(y0 + 1, dem_shape[1], -1)
+    y2 = wp.min(y0 + 2, dem_shape[1], -1)
+    y3 = wp.min(y0 + 3, dem_shape[1], -1)
     out[0, 0] = dem[x0 + y0]
     out[1, 0] = dem[x1 + y0]
     out[2, 0] = dem[x2 + y0]
@@ -109,9 +109,9 @@ def get_2x2_mat(
 ) -> wp.mat22f:
     x0 = int(x)
     y0 = int(y)
-    x1 = wp.min(x0 + 1, dem_shape[0]) * dem_shape[1]
+    x1 = wp.min(x0 + 1, dem_shape[0] - 1) * dem_shape[1]
     x0 = x0 * dem_shape[1]
-    y1 = wp.min(y0 + 1, dem_shape[1])
+    y1 = wp.min(y0 + 1, dem_shape[1] - 1)
     out[0, 0] = dem[x0 + y0]
     out[1, 0] = dem[x1 + y0]
     out[0, 1] = dem[x0 + y1]
@@ -222,7 +222,7 @@ class GeoClipmapSpecs:
     meshBaseLODExtentHeightfieldTexels: int = 256
     meshBackBonePath: str = "terrain_mesh_backbone.npz"
     source_resolution: float = 5.0
-    minimum_target_resolution: float = 1.0
+    minimum_target_resolution: float = 5.0
 
 
 def Point3(x, y, z):
