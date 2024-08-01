@@ -63,11 +63,11 @@ def get_4x4_mat(
     y0 = wp.max(int(y) - 1, 0)
     x1 = wp.min(x0 + 1, dem_shape[0] - 1) * dem_shape[1]
     x2 = wp.min(x0 + 2, dem_shape[0] - 1) * dem_shape[1]
-    x3 = wp.min(x0 + 3, dem_shape[0], -1) * dem_shape[1]
+    x3 = wp.min(x0 + 3, dem_shape[0] - 1) * dem_shape[1]
     x0 = x0 * dem_shape[1]
-    y1 = wp.min(y0 + 1, dem_shape[1], -1)
-    y2 = wp.min(y0 + 2, dem_shape[1], -1)
-    y3 = wp.min(y0 + 3, dem_shape[1], -1)
+    y1 = wp.min(y0 + 1, dem_shape[1] - 1)
+    y2 = wp.min(y0 + 2, dem_shape[1] - 1)
+    y3 = wp.min(y0 + 3, dem_shape[1] - 1)
     out[0, 0] = dem[x0 + y0]
     out[1, 0] = dem[x1 + y0]
     out[2, 0] = dem[x2 + y0]
@@ -613,8 +613,6 @@ class DEMSampler:
                 ],
                 device="cuda",
             )
-            self.x_wp_cpu.assign(self.x_wp)
-            self.y_wp_cpu.assign(self.y_wp)
         if self.interpolation_method == "bilinear":
             self.bilinear_interpolation_GPU()
         elif self.interpolation_method == "bicubic":
@@ -661,7 +659,7 @@ class DEMSampler:
                     self.dem_shape_wp,
                     self.x_wp,
                     self.y_wp,
-                    self.q_cpu,
+                    self.q_cuda,
                 ],
                 device="cuda",
             )
