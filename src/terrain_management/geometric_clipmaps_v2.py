@@ -12,8 +12,44 @@ from copy import copy
 import warp as wp
 import dataclasses
 import numpy as np
+import numba as nb
 import hashlib
+import time
 import os
+
+
+class ScopedTimer:
+    def __init__(self, name="", color=0xFFFF5733, active=True):
+        self.active = active
+        self.name = name
+        if color:
+            self.rgb_color = self.argb_to_rgb(color)
+            self.ansi_color = self.rgb_to_ansi(self.rgb_color)
+        else:
+            self.ansi_color = ""
+
+    def __enter__(self):
+        if self.active:
+            self.start_time = time.time()
+        return self
+
+    def argb_to_rgb(self, argb):
+        # Extract RGB components from ARGB value
+        rgb = (argb >> 16) & 0xFFFFFF
+        return (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF
+
+    def rgb_to_ansi(self, rgb):
+        # Convert RGB to an ANSI escape code for colored text
+        return f"\033[38;2;{rgb[0]};{rgb[1]};{rgb[2]}m"
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.active:
+            self.end_time = time.time()
+            elapsed_time = self.end_time - self.start_time
+            reset_color = "\033[0m"
+            print(
+                f"{self.ansi_color}{self.name} took: {elapsed_time:.4f}s.{reset_color}"
+            )
 
 
 @wp.kernel
@@ -218,15 +254,304 @@ def _bicubic_interpolation(
 @dataclasses.dataclass
 class GeoClipmapSpecs:
     startingLODLevel: int = 0
-    numMeshLODLevels: int = 5
+    numMeshLODLevels: int = 7
     meshBaseLODExtentHeightfieldTexels: int = 256
     meshBackBonePath: str = "terrain_mesh_backbone.npz"
     source_resolution: float = 5.0
-    minimum_target_resolution: float = 5.0
+    minimum_target_resolution: float = 1.0
 
 
 def Point3(x, y, z):
     return np.array([x, y, z])
+
+
+point3 = nb.types.UniTuple(nb.types.float32, 3)
+point2 = nb.types.UniTuple(nb.types.float32, 2)
+idx_dict_type = nb.types.DictType(point2, nb.types.int32)
+point3_list_type = nb.types.ListType(point3)
+point2_list_type = nb.types.ListType(point2)
+idx_list_type = nb.types.ListType(nb.types.int32)
+
+
+@nb.jit(point2(point3), nopython=True)
+def point3_to_point2(point):
+    return point[:2]
+
+
+@nb.jit(
+    nb.types.Tuple((nb.types.int32, nb.types.int32))(
+        point3,
+        point3_list_type,
+        idx_dict_type,
+        idx_dict_type,
+        nb.types.int32,
+    ),
+    nopython=True,
+)
+def _querryPointIndex(point, points, prev_indices, new_indices, index_count):
+    hash = point3_to_point2(point)
+    if hash in prev_indices:
+        index = prev_indices[hash]
+    elif hash in new_indices:
+        index = new_indices[hash]
+    else:
+        index = index_count
+        points.append(point)
+        new_indices[hash] = index
+        index_count += 1
+    return index, index_count
+
+
+@nb.jit(
+    nb.types.int32(
+        point3,
+        point3,
+        point3,
+        idx_list_type,
+        point2_list_type,
+        point3_list_type,
+        idx_dict_type,
+        idx_dict_type,
+        nb.types.int32,
+    ),
+    nopython=True,
+)
+def _addTriangle(
+    A,
+    B,
+    C,
+    indices,
+    uvs,
+    points,
+    prev_indices,
+    new_indices,
+    index_count,
+):
+    A_idx, index_count = _querryPointIndex(
+        A, points, prev_indices, new_indices, index_count
+    )
+    B_idx, index_count = _querryPointIndex(
+        B, points, prev_indices, new_indices, index_count
+    )
+    C_idx, index_count = _querryPointIndex(
+        C, points, prev_indices, new_indices, index_count
+    )
+    indices.append(A_idx)
+    indices.append(B_idx)
+    indices.append(C_idx)
+    uvs.append((A[0], A[1]))
+    uvs.append((B[0], B[1]))
+    uvs.append((C[0], C[1]))
+    return index_count
+
+
+@nb.jit(nopython=True)
+def _buildMesh(num_levels, meshBaseLODExtentHeightfieldTexels):
+    print("Building the mesh backbone, this may take time...")
+    points = nb.typed.List.empty_list(point3)
+    uvs = nb.typed.List.empty_list(point2)
+    indices = nb.typed.List.empty_list(nb.types.int32)
+    prev_indices = nb.typed.Dict.empty(key_type=point2, value_type=nb.types.int32)
+    new_indices = nb.typed.Dict.empty(key_type=point2, value_type=nb.types.int32)
+    index_count = 0
+    for level in range(0, num_levels):
+        print(
+            "Generating level " + str(level + 1) + " out of " + str(num_levels) + "..."
+        )
+        step = 1 << level
+        if level == 0:
+            prevStep = 0
+        else:
+            prevStep = max(0, (1 << (level - 1)))
+        halfStep = prevStep
+
+        g = meshBaseLODExtentHeightfieldTexels / 2
+        L = float(level)
+
+        # Pad by one element to hide the gap to the next level
+        pad = 0
+        radius = int(step * (g + pad))
+        for y in range(-radius, radius, step):
+            for x in range(-radius, radius, step):
+                if max(abs(x + halfStep), abs(y + halfStep)) >= g * prevStep:
+                    # Cleared the cutout from the previous level. Tessellate the
+                    # square.
+
+                    #   A-----B-----C
+                    #   | \   |   / |
+                    #   |   \ | /   |
+                    #   D-----E-----F
+                    #   |   / | \   |
+                    #   | /   |   \ |
+                    #   G-----H-----I
+
+                    A = (float(x), float(y), L)
+                    C = (float(x + step), A[1], L)
+                    G = (A[0], float(y + step), L)
+                    I = (C[0], G[1], L)
+
+                    B = ((A[0] + C[0]) * 0.5, (A[1] + C[1]) * 0.5, (A[2] + C[2]) * 0.5)
+                    D = ((A[0] + G[0]) * 0.5, (A[1] + G[1]) * 0.5, (A[2] + G[2]) * 0.5)
+                    F = ((C[0] + I[0]) * 0.5, (C[1] + I[1]) * 0.5, (C[2] + I[2]) * 0.5)
+                    H = ((G[0] + I[0]) * 0.5, (G[1] + I[1]) * 0.5, (G[2] + I[2]) * 0.5)
+
+                    E = ((A[0] + I[0]) * 0.5, (A[1] + I[1]) * 0.5, (A[2] + I[2]) * 0.5)
+
+                    # Stitch the border into the next level
+
+                    if x == -radius:
+                        #   A-----B-----C
+                        #   | \   |   / |
+                        #   |   \ | /   |
+                        #   |     E-----F
+                        #   |   / | \   |
+                        #   | /   |   \ |
+                        #   G-----H-----I
+                        index_count = _addTriangle(
+                            E,
+                            A,
+                            G,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+                    else:
+                        index_count = _addTriangle(
+                            E,
+                            A,
+                            D,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+                        index_count = _addTriangle(
+                            E,
+                            D,
+                            G,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+
+                    if y == (radius - step):
+                        index_count = _addTriangle(
+                            E,
+                            G,
+                            I,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+                    else:
+                        index_count = _addTriangle(
+                            E,
+                            G,
+                            H,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+                        index_count = _addTriangle(
+                            E,
+                            H,
+                            I,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+
+                    if x == (radius - step):
+                        index_count = _addTriangle(
+                            E,
+                            I,
+                            C,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+                    else:
+                        index_count = _addTriangle(
+                            E,
+                            I,
+                            F,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+                        index_count = _addTriangle(
+                            E,
+                            F,
+                            C,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+
+                    if y == -radius:
+                        index_count = _addTriangle(
+                            E,
+                            C,
+                            A,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+                    else:
+                        index_count = _addTriangle(
+                            E,
+                            C,
+                            B,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+                        index_count = _addTriangle(
+                            E,
+                            B,
+                            A,
+                            indices,
+                            uvs,
+                            points,
+                            prev_indices,
+                            new_indices,
+                            index_count,
+                        )
+        prev_indices = new_indices.copy()
+        new_indices = nb.typed.Dict.empty(key_type=point2, value_type=nb.types.int32)
+    return points, uvs, indices
 
 
 class GeoClipmap:
@@ -268,116 +593,19 @@ class GeoClipmap:
     def compute_hash(specs):
         return hashlib.sha256(str(specs).encode("utf-8")).hexdigest()
 
-    def querryPointIndex(self, point):
-        hash = str(point[:2])
-        if hash in self.prev_indices.keys():
-            index = self.prev_indices[hash]
-        elif hash in self.new_indices.keys():
-            index = self.new_indices[hash]
-        else:
-            index = copy(self.index_count)
-            self.points.append(point)
-            self.new_indices[hash] = index
-            self.index_count += 1
-        return index
-
-    def addTriangle(self, A, B, C):
-        A_idx = self.querryPointIndex(A)
-        B_idx = self.querryPointIndex(B)
-        C_idx = self.querryPointIndex(C)
-        self.indices.append(A_idx)
-        self.indices.append(B_idx)
-        self.indices.append(C_idx)
-        self.uvs.append(A[:2])
-        self.uvs.append(B[:2])
-        self.uvs.append(C[:2])
-
     def buildMesh(self):
-        print("Building the mesh backbone, this may take time...")
-        for level in range(0, self.specs.numMeshLODLevels):
-            print(
-                "Generating level "
-                + str(level + 1)
-                + " out of "
-                + str(self.specs.numMeshLODLevels)
-                + "..."
-            )
-            step = 1 << level
-            if level == 0:
-                prevStep = 0
-            else:
-                prevStep = max(0, (1 << (level - 1)))
-            halfStep = prevStep
-
-            g = self.specs.meshBaseLODExtentHeightfieldTexels / 2
-            L = float(level)
-
-            # Pad by one element to hide the gap to the next level
-            pad = 0
-            radius = int(step * (g + pad))
-            for y in range(-radius, radius, step):
-                for x in range(-radius, radius, step):
-                    if max(abs(x + halfStep), abs(y + halfStep)) >= g * prevStep:
-                        # Cleared the cutout from the previous level. Tessellate the
-                        # square.
-
-                        #   A-----B-----C
-                        #   | \   |   / |
-                        #   |   \ | /   |
-                        #   D-----E-----F
-                        #   |   / | \   |
-                        #   | /   |   \ |
-                        #   G-----H-----I
-
-                        A = Point3(float(x), float(y), L)
-                        C = Point3(float(x + step), A[1], L)
-                        G = Point3(A[0], float(y + step), L)
-                        I = Point3(C[0], G[1], L)
-
-                        B = (A + C) * 0.5
-                        D = (A + G) * 0.5
-                        F = (C + I) * 0.5
-                        H = (G + I) * 0.5
-
-                        E = (A + I) * 0.5
-
-                        # Stitch the border into the next level
-
-                        if x == -radius:
-                            #   A-----B-----C
-                            #   | \   |   / |
-                            #   |   \ | /   |
-                            #   |     E-----F
-                            #   |   / | \   |
-                            #   | /   |   \ |
-                            #   G-----H-----I
-                            self.addTriangle(E, A, G)
-                        else:
-                            self.addTriangle(E, A, D)
-                            self.addTriangle(E, D, G)
-
-                        if y == (radius - step):
-                            self.addTriangle(E, G, I)
-                        else:
-                            self.addTriangle(E, G, H)
-                            self.addTriangle(E, H, I)
-
-                        if x == (radius - step):
-                            self.addTriangle(E, I, C)
-                        else:
-                            self.addTriangle(E, I, F)
-                            self.addTriangle(E, F, C)
-
-                        if y == -radius:
-                            self.addTriangle(E, C, A)
-                        else:
-                            self.addTriangle(E, C, B)
-                            self.addTriangle(E, B, A)
-            self.prev_indices = copy(self.new_indices)
-            self.new_indices = {}
-        self.points = np.array(self.points) * 2 * self.specs.minimum_target_resolution
-        self.uvs = np.array(self.uvs) * 2 * self.specs.minimum_target_resolution
-        self.indices = np.array(self.indices)
+        with ScopedTimer("Complete mesh backbone generation"):
+            with ScopedTimer("numba mesh backbone generation"):
+                self.points, self.uvs, self.indices = _buildMesh(
+                    self.specs.numMeshLODLevels,
+                    self.specs.meshBaseLODExtentHeightfieldTexels,
+                )
+            with ScopedTimer("cast to numpy"):
+                self.points = (
+                    np.array(self.points) * 2 * self.specs.minimum_target_resolution
+                )
+                self.uvs = np.array(self.uvs) * 2 * self.specs.minimum_target_resolution
+                self.indices = np.array(self.indices)
 
     def saveMesh(self):
         np.savez_compressed(
@@ -682,5 +910,8 @@ class DEMSampler:
 
 if __name__ == "__main__":
     wp.init()
-    specs = GeoClipmapSpecs()
-    clipmap = GeoClipmap(specs)
+    GCM = GeoClipmap(specs=GeoClipmapSpecs())
+    GCM.buildMesh()
+    print("num points", GCM.points.shape[0])
+    print("num_uvs", GCM.uvs.shape[0])
+    print("num_indices", GCM.indices.shape)
