@@ -15,7 +15,7 @@ def run(cfg: DictConfig):
     from omni.isaac.core import World
     from omni.isaac.core.utils.stage import get_current_stage
     from pxr import UsdGeom
-    from src.terrain_management.geo_clipmaps_manager_hybrid import (
+    from src.terrain_management.geometric_clipmaps_manager_hybrid import (
         GeoClipmapManager,
         GeoClipmapManagerConf,
     )

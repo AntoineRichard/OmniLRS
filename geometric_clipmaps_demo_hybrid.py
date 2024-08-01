@@ -11,7 +11,7 @@ if __name__ == "__main__":
     from pxr import UsdLux
     from WorldBuilders.pxr_utils import setDefaultOps, addDefaultOps
     import numpy as np
-    from src.terrain_management.geo_clipmaps_manager_hybrid import (
+    from src.terrain_management.geometric_clipmaps_manager_hybrid import (
         GeoClipmapManager,
         GeoClipmapManagerConf,
     )
@@ -27,10 +27,10 @@ if __name__ == "__main__":
     addDefaultOps(light.GetPrim())
     setDefaultOps(light.GetPrim(), (0, 0, 0), (0.383, 0, 0, 0.924), (1, 1, 1))
 
-    # T = GeoClipmapManager(cfg, interpolation_method="bicubic")
-    T = GeoClipmapManager(cfg, interpolation_method="linear")
-    T.updateGeoClipmap(np.array([2000 * 5, 2000 * 5, 0]))
+    T = GeoClipmapManager(cfg, interpolation_method="bicubic")
+    # T = GeoClipmapManager(cfg, interpolation_method="bilinear")
+    T.updateGeoClipmap(np.array([20000 * 5, 20000 * 5, 0]))
 
     while True:
-        T.updateGeoClipmap(np.array([2000 * 5, 2000 * 5, 0]))
+        T.updateGeoClipmap(np.array([20000 * 5, 20000 * 5, 0]))
         world.step(render=True)

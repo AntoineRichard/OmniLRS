@@ -11,7 +11,7 @@ if __name__ == "__main__":
     from pxr import UsdLux
     from WorldBuilders.pxr_utils import setDefaultOps, addDefaultOps
     import numpy as np
-    from src.terrain_management.geo_clipmaps_manager_gpu import (
+    from src.terrain_management.geometric_clipmaps_manager_gpu import (
         GeoClipmapManager,
         GeoClipmapManagerConf,
     )

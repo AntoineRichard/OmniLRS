@@ -8,29 +8,15 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
-# This code is based on: https://github.com/morgan3d/misc/tree/master/terrain
-# Original author: Morgan McGuire, http://cs.williams.edu/~morgan
+# This code is based on (C++): https://github.com/morgan3d/misc/tree/master/terrain
+# from Morgan McGuire, http://cs.williams.edu/~morgan
 
 from copy import copy
 import warp as wp
 import dataclasses
 import numpy as np
-from numba import njit, prange
 import hashlib
-import time
 import os
-
-
-@njit(parallel=True)
-def get_values(dem, x, y):
-    output = np.empty((x.shape[0] * 4), dtype=dem.dtype)
-    x_max = dem.shape[0]
-    for i in prange(x.shape[0]):
-        output[i * 4] = dem[x[i], y[i]]
-        output[i * 4 + 1] = dem[min(x[i] + 1, x_max), y[i]]
-        output[i * 4 + 2] = dem[min(x[i] + 2, x_max), y[i]]
-        output[i * 4 + 3] = dem[min(x[i] + 3, x_max), y[i]]
-    return output
 
 
 @wp.kernel
@@ -149,7 +135,7 @@ def get_values_wp_2x2(
 
 
 @wp.func
-def _bilinear_interpolation(
+def _bilinear_interpolator(
     x: float,
     y: float,
     q: wp.mat22f,
@@ -165,18 +151,18 @@ def _bilinear_interpolation(
 
 
 @wp.kernel
-def _linear_interpolation(
+def _bilinear_interpolation(
     x: wp.array(dtype=float),
     y: wp.array(dtype=float),
     q: wp.array(dtype=wp.mat22f),
     out: wp.array(dtype=float),
 ):
     tid = wp.tid()
-    out[tid] = _bilinear_interpolation(x[tid], y[tid], q[tid])
+    out[tid] = _bilinear_interpolator(x[tid], y[tid], q[tid])
 
 
 @wp.func
-def _cubic_interpolation(
+def _cubic_interpolator(
     x: float,
     coeffs: wp.vec4f,
 ):
@@ -198,7 +184,7 @@ def _bicubic_interpolation(
     out: wp.array(dtype=float),
 ):
     tid = wp.tid()
-    coeffs[tid] = _cubic_interpolation(x[tid], coeffs[tid])
+    coeffs[tid] = _cubic_interpolator(x[tid], coeffs[tid])
     a0 = (
         q[tid][0, 0] * coeffs[tid][0]
         + q[tid][1, 0] * coeffs[tid][1]
@@ -223,7 +209,7 @@ def _bicubic_interpolation(
         + q[tid][2, 3] * coeffs[tid][2]
         + q[tid][3, 3] * coeffs[tid][3]
     )
-    coeffs[tid] = _cubic_interpolation(y[tid], coeffs[tid])
+    coeffs[tid] = _cubic_interpolator(y[tid], coeffs[tid])
     out[tid] = (
         a0 * coeffs[tid][0]
         + a1 * coeffs[tid][1]
@@ -234,12 +220,12 @@ def _bicubic_interpolation(
 
 @dataclasses.dataclass
 class GeoClipmapSpecs:
-    numMeshLODLevels: int = 6
+    numMeshLODLevels: int = 7
     meshBaseLODExtentHeightfieldTexels: int = 256
     meshBackBonePath: str = "terrain_mesh_backbone.npz"
-    demPath: str = "assets/Terrains/SouthPole/NPD_final_adj_5mpp_surf/dem.npy"
+    demPath: str = "assets/Terrains/SouthPole/ldem_87s_5mpp/dem.npy"
     meters_per_pixel: float = 5.0
-    meters_per_texel: float = 1.0
+    meters_per_texel: float = 5.0
     z_scale: float = 1.0
 
 
@@ -248,7 +234,7 @@ def Point3(x, y, z):
 
 
 class GeoClipmap:
-    def __init__(self, specs: GeoClipmapSpecs, interpolation_method="linear"):
+    def __init__(self, specs: GeoClipmapSpecs, interpolation_method="bilinear"):
         self.specs = specs
         self.index_count = 0
         self.prev_indices = {}
@@ -434,7 +420,7 @@ class GeoClipmap:
         self.coeffs_wp = wp.zeros(self.points.shape[0], dtype=wp.vec4f, device="cuda")
         self.z_cuda = wp.zeros(self.points.shape[0], dtype=float, device="cuda")
 
-        if self.interpolation_method == "linear":
+        if self.interpolation_method == "bilinear":
             self.q_cpu = wp.zeros(
                 (self.points.shape[0]),
                 dtype=wp.mat22f,
@@ -476,14 +462,14 @@ class GeoClipmap:
             )
             self.x_wp_cpu.assign(self.x_wp)
             self.y_wp_cpu.assign(self.y_wp)
-        if self.interpolation_method == "linear":
-            self.linear_interpolation()
+        if self.interpolation_method == "bilinear":
+            self.bilinear_interpolation()
         elif self.interpolation_method == "bicubic":
             self.bicubic_interpolation()
         else:
             raise ValueError("Invalid interpolation method")
 
-    def linear_interpolation(self):
+    def bilinear_interpolation(self):
         with wp.ScopedTimer("get_values_wp", active=True):
             wp.launch(
                 kernel=get_values_wp_2x2,
@@ -499,9 +485,9 @@ class GeoClipmap:
             )
             self.q_cuda.assign(self.q_cpu)
 
-        with wp.ScopedTimer("linear_interpolation", active=True):
+        with wp.ScopedTimer("bilinear_interpolation", active=True):
             wp.launch(
-                kernel=_linear_interpolation,
+                kernel=_bilinear_interpolation,
                 dim=self.points.shape[0],
                 inputs=[
                     self.x_wp,

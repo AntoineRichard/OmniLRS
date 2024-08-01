@@ -8,7 +8,7 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
-from src.terrain_management.geo_clipmaps_gpu import GeoClipmapSpecs, GeoClipmap
+from src.terrain_management.geometric_clipmaps_hybrid import GeoClipmapSpecs, GeoClipmap
 from WorldBuilders import pxr_utils
 from pxr import UsdGeom, Sdf
 import numpy as np
@@ -25,9 +25,13 @@ class GeoClipmapManagerConf:
 
 
 class GeoClipmapManager:
-    def __init__(self, cfg: GeoClipmapManagerConf):
+    def __init__(
+        self, cfg: GeoClipmapManagerConf, interpolation_method: str = "bilinear"
+    ):
         self._stage = omni.usd.get_context().get_stage()
-        self._geo_clipmap = GeoClipmap(cfg.geo_clipmap_specs)
+        self._geo_clipmap = GeoClipmap(
+            cfg.geo_clipmap_specs, interpolation_method=interpolation_method
+        )
         self._root_path = cfg.root_path
 
         self._mesh_pos = cfg.mesh_position
@@ -41,14 +45,15 @@ class GeoClipmapManager:
         self.update_topology = True
 
     def updateGeoClipmap(self, position: np.ndarray) -> None:
-        self._geo_clipmap.getElevation(position)
-        with wp.ScopedTimer("mesh update"):
-            self.renderMesh(
-                self._geo_clipmap.points,
-                self._geo_clipmap.indices,
-                self._geo_clipmap.uvs,
-                update_topology=self.update_topology,
-            )
+        with wp.ScopedTimer("complete update loop"):
+            self._geo_clipmap.getElevation(position)
+            with wp.ScopedTimer("mesh update"):
+                self.renderMesh(
+                    self._geo_clipmap.points,
+                    self._geo_clipmap.indices,
+                    self._geo_clipmap.uvs,
+                    update_topology=self.update_topology,
+                )
         self.update_topology = False
 
     def createXforms(self):
