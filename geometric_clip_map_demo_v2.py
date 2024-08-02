@@ -11,12 +11,22 @@ if __name__ == "__main__":
     from pxr import UsdLux
     from WorldBuilders.pxr_utils import setDefaultOps, addDefaultOps
     import numpy as np
+    from src.terrain_management.geometric_clipmaps_v2 import GeoClipmapSpecs
     from src.terrain_management.geometric_clipmaps_manager_v2 import (
         GeoClipmapManager,
         GeoClipmapManagerConf,
     )
 
-    cfg = GeoClipmapManagerConf()
+    specs = GeoClipmapSpecs(
+        startingLODLevel=0,
+        numMeshLODLevels=9,
+        meshBaseLODExtentHeightfieldTexels=64,
+        meshBackBonePath="terrain_mesh_backbone.npz",
+        source_resolution=5.0,
+        minimum_target_resolution=1.0,
+    )
+
+    cfg = GeoClipmapManagerConf(geo_clipmap_specs=specs)
 
     world = World(stage_units_in_meters=1.0)
     stage = get_context().get_stage()
@@ -28,19 +38,25 @@ if __name__ == "__main__":
     setDefaultOps(light.GetPrim(), (0, 0, 0), (0.383, 0, 0, 0.924), (1, 1, 1))
 
     GCM = GeoClipmapManager(
-        cfg, interpolation_method="bilinear", acceleration_mode="gpu"
+        cfg, interpolation_method="bilinear", acceleration_mode="hybrid"
     )
-    dem = np.load("assets/Terrains/SouthPole/NPD_final_adj_5mpp_surf/dem.npy")
+    dem = np.load("assets/Terrains/SouthPole/ldem_87s_5mpp/dem.npy")
     GCM.build(dem, dem.shape)
-    C = 2000 * 5
+    C = 20000 * 5
     R = 500 * 5
-    theta = np.linspace(0, 2 * np.pi, 512)
-    GCM.updateGeoClipmap(np.array([2000 * 5, 2000 * 5, 0]))
+    rotation_rate = 2048
+    spiral_rate = 2.0 / rotation_rate
+    theta = np.linspace(0, 2 * np.pi, rotation_rate)
 
     i = 0
+    i2 = 1.0
     while True:
         GCM.updateGeoClipmap(
-            np.array([C + R * math.cos(theta[i]), C + R * math.sin(theta[i]), 0])
+            np.array(
+                [C + i2 * R * math.cos(theta[i]), C + i2 * R * math.sin(theta[i]), 0]
+            ),
+            np.array([i2 * R * math.cos(theta[i]), i2 * R * math.sin(theta[i]), 0]),
         )
         world.step(render=True)
-        i = (i + 1) % 512
+        i = (i + 1) % rotation_rate
+        i2 += spiral_rate
