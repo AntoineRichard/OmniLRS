@@ -12,8 +12,6 @@ from crater_gen import (
     CraterBuilderCfg,
     CraterDBCfg,
     CraterSamplerCfg,
-    CraterGeneratorCfg,
-    CraterDynamicDistributionCfg,
 )
 from crater_gen import CraterMetadata, BoundingBox
 
@@ -88,6 +86,7 @@ class BaseWorker(multiprocessing.Process):
         self, queue_size: int, output_queue: multiprocessing.JoinableQueue, **kwargs
     ):
         super().__init__()
+        self.stop_event = multiprocessing.Event()
         self.input_queue = multiprocessing.JoinableQueue(maxsize=queue_size)
         self.output_queue = output_queue
         self.daemon = True
@@ -105,23 +104,33 @@ class BaseWorker(multiprocessing.Process):
         raise NotImplementedError
 
 
+@dataclasses.dataclass
+class WorkerManagerCfg:
+    num_workers: int = dataclasses.field(default_factory=int)
+    input_queue_size: int = dataclasses.field(default_factory=int)
+    output_queue_size: int = dataclasses.field(default_factory=int)
+    worker_queue_size: int = dataclasses.field(default_factory=int)
+
+
 class BaseWorkerManager:
     def __init__(
         self,
-        num_workers: int = 1,
-        input_queue_size: int = 10,
-        output_queue_size: int = 10,
-        worker_queue_size: int = 10,
+        settings: WorkerManagerCfg = WorkerManagerCfg(),
         worker_class: BaseWorker = None,
         **kwargs,
     ):
-        self.input_queue = multiprocessing.JoinableQueue(maxsize=input_queue_size)
-        self.output_queue = multiprocessing.JoinableQueue(maxsize=output_queue_size)
+        self.input_queue = multiprocessing.JoinableQueue(
+            maxsize=settings.input_queue_size
+        )
+        self.output_queue = multiprocessing.JoinableQueue(
+            maxsize=settings.output_queue_size
+        )
 
-        self.num_workers = num_workers
+        self.num_workers = settings.num_workers
         self.worker_class = worker_class
-        self.worker_queue_size = worker_queue_size
+        self.worker_queue_size = settings.worker_queue_size
         self.kwargs = kwargs
+        self.stop_event = multiprocessing.Event()
 
         self.instantiate_workers(
             num_workers=self.num_workers,
@@ -130,9 +139,19 @@ class BaseWorkerManager:
             **self.kwargs,
         )
 
-        self.manager_thread = multiprocessing.Process(target=self.dispatch_jobs)
+        self.manager_thread = multiprocessing.Process(
+            target=self.dispatch_jobs,
+        )
         self.manager_thread.daemon = True
         self.manager_thread.start()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print("Exception caught, shutting down workers and main thread.")
+        self.stop_event.set()
+        self.shutdown()
 
     def instantiate_workers(
         self,
@@ -224,7 +243,7 @@ class CraterBuilderWorker(BaseWorker):
         self.builder = copy.copy(builder)
 
     def run(self):
-        while True:
+        while not self.stop_event.is_set():
             coords, crater_meta_data = self.input_queue.get()
             if crater_meta_data is None:
                 self.input_queue.task_done()
@@ -238,24 +257,18 @@ class CraterBuilderWorker(BaseWorker):
 class CraterBuilderManager(BaseWorkerManager):
     def __init__(
         self,
-        num_workers: int = 1,
-        input_queue_size: int = 10,
-        output_queue_size: int = 10,
-        worker_queue_size: int = 10,
+        settings: WorkerManagerCfg = WorkerManagerCfg(),
         builder: CraterBuilder = None,
     ) -> None:
         super().__init__(
-            num_workers=num_workers,
-            input_queue_size=input_queue_size,
-            output_queue_size=output_queue_size,
-            worker_queue_size=worker_queue_size,
+            settings=settings,
             worker_class=CraterBuilderWorker,
             builder=builder,
         )
 
     def dispatch_jobs(self):
         # Assigns the jobs such that the workers have a balanced load
-        while True:
+        while not self.stop_event.is_set():
             coords, crater_metadata = self.input_queue.get()
             if crater_metadata is None:  # Check for shutdown signal
                 self.input_queue.task_done()
@@ -277,7 +290,7 @@ class BicubicInterpolatorWorker(BaseWorker):
         self.interpolator = copy.copy(interp)
 
     def run(self):
-        while True:
+        while not self.stop_event.is_set():
             coords, data = self.input_queue.get()
             if data is None:
                 break
@@ -288,25 +301,19 @@ class BicubicInterpolatorWorker(BaseWorker):
 class BicubicInterpolatorManager(BaseWorkerManager):
     def __init__(
         self,
-        num_workers: int = 1,
-        input_queue_size: int = 10,
-        output_queue_size: int = 10,
-        worker_queue_size: int = 10,
+        settings: WorkerManagerCfg = WorkerManagerCfg(),
         interp: Interpolator = None,
         num_cv2_threads: int = 4,
     ):
         super().__init__(
-            num_workers=num_workers,
-            input_queue_size=input_queue_size,
-            output_queue_size=output_queue_size,
-            worker_queue_size=worker_queue_size,
+            settings=settings,
             worker_class=BicubicInterpolatorWorker,
             interp=interp,
         )
         cv2.setNumThreads(num_cv2_threads)
 
     def dispatch_jobs(self):
-        while True:
+        while not self.stop_event.is_set():
             coords, data = self.input_queue.get()
             if data is None:
                 break
@@ -317,7 +324,7 @@ class BicubicInterpolatorManager(BaseWorkerManager):
 
 
 @dataclasses.dataclass
-class HighResDEMGenCfg:
+class HighResDEMCfg:
     num_blocks: int = dataclasses.field(default_factory=int)
     block_size: float = dataclasses.field(default_factory=float)
     pad_size: float = dataclasses.field(default_factory=float)
@@ -325,63 +332,37 @@ class HighResDEMGenCfg:
     seed: int = dataclasses.field(default_factory=int)
     resolution: float = dataclasses.field(default_factory=float)
     z_scale: float = dataclasses.field(default_factory=float)
-
-    radius: List[Tuple[float, float]] = dataclasses.field(default_factory=list)
-    densities: List[float] = dataclasses.field(default_factory=list)
-    num_repeat: int = dataclasses.field(default_factory=int)
-
-    save_to_disk: bool = dataclasses.field(default_factory=bool)
-    write_to_disk_interval: int = dataclasses.field(default_factory=int)
-
-    profiles_path: str = dataclasses.field(default_factory=str)
-    min_xy_ratio: float = dataclasses.field(default_factory=float)
-    max_xy_ratio: float = dataclasses.field(default_factory=float)
-    random_rotation: bool = dataclasses.field(default_factory=bool)
-    num_unique_profiles: int = dataclasses.field(default_factory=int)
-
     source_resolution: float = dataclasses.field(default_factory=float)
-    interpolation_method: str = dataclasses.field(default_factory=str)
+    resolution: float = dataclasses.field(default_factory=float)
     interpolation_padding: int = dataclasses.field(default_factory=int)
 
+
+@dataclasses.dataclass
+class HighResDEMGenCfg:
+    high_res_dem_cfg: HighResDEMCfg = dataclasses.field(default_factory=dict)
+    crater_db_cfg: CraterDBCfg = dataclasses.field(default_factory=dict)
+    crater_sampler_cfg: CraterSamplerCfg = dataclasses.field(default_factory=dict)
+    crater_builder_cfg: CraterBuilderCfg = dataclasses.field(default_factory=dict)
+    interpolator_cfg: InterpolatorCfg = dataclasses.field(default_factory=dict)
+    crater_worker_manager_cfg: WorkerManagerCfg = dataclasses.field(
+        default_factory=dict
+    )
+    interpolator_worker_manager_cfg: WorkerManagerCfg = dataclasses.field(
+        default_factory=dict
+    )
+
     def __post_init__(self):
-        self.crater_db_cfg = CraterDBCfg(
-            block_size=self.block_size,
-            max_blocks=self.max_blocks,
-            save_to_disk=self.save_to_disk,
-            write_to_disk_interval=self.write_to_disk_interval,
+        self.high_res_dem_cfg = HighResDEMCfg(**self.high_res_dem_cfg)
+        self.crater_db_cfg = CraterDBCfg(**self.crater_db_cfg)
+        self.crater_sampler_cfg = CraterSamplerCfg(**self.crater_sampler_cfg)
+        self.crater_builder_cfg = CraterBuilderCfg(**self.crater_builder_cfg)
+        self.interpolator_cfg = InterpolatorCfg(**self.interpolator_cfg)
+        self.crater_worker_manager_cfg = WorkerManagerCfg(
+            **self.crater_worker_manager_cfg
         )
-        CGC = {
-            "profiles_path": self.profiles_path,
-            "min_xy_ratio": self.min_xy_ratio,
-            "max_xy_ratio": self.max_xy_ratio,
-            "random_rotation": self.random_rotation,
-            "seed": self.seed,
-            "num_unique_profiles": self.num_unique_profiles,
-        }
-        CDDC = {
-            "densities": self.densities,
-            "radius": self.radius,
-            "num_repeat": self.num_repeat,
-            "seed": self.seed,
-        }
-        IC = {
-            "source_resolution": self.source_resolution,
-            "target_resolution": self.resolution,
-            "source_padding": self.interpolation_padding,
-            "method": self.interpolation_method,
-        }
-        self.crater_sampler_cfg = CraterSamplerCfg(
-            block_size=self.block_size,
-            crater_gen_cfg=CGC,
-            crater_dist_cfg=CDDC,
+        self.interpolator_worker_manager_cfg = WorkerManagerCfg(
+            **self.interpolator_worker_manager_cfg
         )
-        self.crater_builder_cfg = CraterBuilderCfg(
-            block_size=self.block_size,
-            pad_size=self.pad_size,
-            resolution=self.resolution,
-            z_scale=self.z_scale,
-        )
-        self.interpolator_cfg = InterpolatorCfg(**IC)
 
 
 class HighResDEMGen:
@@ -406,19 +387,14 @@ class HighResDEMGen:
         )
         self.interpolator = CPUInterpolator(self.settings.interpolator_cfg)
         self.crater_builder_manager = CraterBuilderManager(
-            num_workers=8,
-            input_queue_size=400,
-            output_queue_size=16,
-            worker_queue_size=2,
+            settings=self.settings.crater_worker_manager_cfg,
             builder=self.crater_builder,
         )
         self.interpolator_manager = BicubicInterpolatorManager(
-            num_workers=1,
-            input_queue_size=400,
-            output_queue_size=30,
-            worker_queue_size=200,
+            settings=self.settings.interpolator_worker_manager_cfg,
             interp=self.interpolator,
         )
+        self.settings = self.settings.high_res_dem_cfg
         self.build_block_grid()
         self.instantiate_high_res_dem()
         self.get_low_res_dem_offset()
@@ -669,6 +645,7 @@ class HighResDEMGen:
                 + self.lr_dem_px_offset[1]
             ),
         )
+        print(lr_dem_coordinates)
         return self.low_res_dem[
             lr_dem_coordinates[0]
             - self.settings.interpolation_padding : lr_dem_coordinates[0]
@@ -739,50 +716,94 @@ class HighResDEMGen:
             ] += data
             self.block_grid_tracker[local_coords]["has_terrain_data"] = True
 
-    def __del__(self):
+    def shutdown(self):
         self.crater_builder_manager.shutdown()
+        self.interpolator_manager.shutdown()
+
+    def __del__(self):
+        self.shutdown()
 
 
 if __name__ == "__main__":
-    HRDEMGCfg_D = {
-        "num_blocks": 7,  # int = dataclasses.field(default_factory=int)
+    HRDEMCfg_D = {
+        "num_blocks": 4,  # int = dataclasses.field(default_factory=int)
         "block_size": 50,  # float = dataclasses.field(default_factory=float)
         "pad_size": 10.0,  # float = dataclasses.field(default
         "max_blocks": int(1e7),  # int = dataclasses.field(default_factory=int)
         "seed": 42,  # int = dataclasses.field(default_factory=int)
         "resolution": 0.05,  # float = dataclasses.field(default_factory=float)
         "z_scale": 1.0,  # float = dataclasses.field(default_factory=float)
-        "radius": [
-            [1.5, 2.5],
-            [0.75, 1.5],
-            [0.25, 0.5],
-        ],  # List[Tuple[float, float]] = dataclasses.field(default_factory=list)
-        "densities": [
-            0.025,
-            0.05,
-            0.5,
-        ],  # List[float] = dataclasses.field(default_factory=list)
-        "num_repeat": 1,  # int = dataclasses.field(default_factory=int)
-        "save_to_disk": False,  # bool = dataclasses.field(default_factory=bool)
-        "write_to_disk_interval": 100,  # int = dataclasses.field(default_factory=int)
-        "profiles_path": "assets/Terrains/crater_spline_profiles.pkl",  # str = dataclasses.field(default_factory=str)
-        "min_xy_ratio": 0.85,  # float = dataclasses.field(default_factory=float)
-        "max_xy_ratio": 1.0,  # float = dataclasses.field(default_factory=float)
-        "random_rotation": True,  # bool = dataclasses.field(default_factory=bool)
-        "num_unique_profiles": 10000,  # int = dataclasses.field(default_factory=int)
         "source_resolution": 5.0,  # float = dataclasses.field(default_factory=float)
-        # "target_resolution": 0.05,  # float = dataclasses.field(default_factory=float)
+        "resolution": 0.05,  # float = dataclasses.field(default_factory=float)
         "interpolation_padding": 2,  # int = dataclasses.field(default_factory=int)
-        "interpolation_method": "bicubic",  # str = dataclasses.field(default_factory=str)
+    }
+    CWMCfg_D = {
+        "num_workers": 8,  # int = dataclasses.field(default_factory=int)
+        "input_queue_size": 400,  # int = dataclasses.field(default_factory=int)
+        "output_queue_size": 16,  # int = dataclasses.field(default_factory=int)
+        "worker_queue_size": 2,  # int = dataclasses.field(default_factory=int)
+    }
+    IWMCfg_D = {
+        "num_workers": 1,  # int = dataclasses.field(default_factory=int)
+        "input_queue_size": 400,  # int = dataclasses.field(default_factory=int)
+        "output_queue_size": 30,  # int = dataclasses.field(default_factory=int)
+        "worker_queue_size": 200,  # int = dataclasses.field(default_factory=int)
+    }
+    CraterDBCfg_D = {
+        "block_size": 50,
+        "max_blocks": 7,
+        "save_to_disk": False,
+        "write_to_disk_interval": 100,
+    }
+    CGCfg_D = {
+        "profiles_path": "assets/Terrains/crater_spline_profiles.pkl",
+        "min_xy_ratio": 0.85,
+        "max_xy_ratio": 1.0,
+        "random_rotation": True,
+        "seed": 42,
+        "num_unique_profiles": 10000,
+    }
+    CDDCfg_D = {
+        "densities": [0.025, 0.05, 0.5],
+        "radius": [[1.5, 2.5], [0.75, 1.5], [0.25, 0.5]],
+        "num_repeat": 1,
+        "seed": 42,
+    }
+    CraterSamplerCfg_D = {
+        "block_size": 50,
+        "crater_gen_cfg": CGCfg_D,
+        "crater_dist_cfg": CDDCfg_D,
+    }
+    CraterBuilderCfg_D = {
+        "block_size": 50,
+        "pad_size": 10.0,
+        "resolution": 0.05,
+        "z_scale": 1.0,
+    }
+    ICfg = {
+        "source_resolution": 5.0,
+        "target_resolution": 0.05,
+        "source_padding": 2,
+        "method": "bicubic",
+    }
+    HRDEMGenCfg_D = {
+        "high_res_dem_cfg": HRDEMCfg_D,
+        "crater_db_cfg": CraterDBCfg_D,
+        "crater_sampler_cfg": CraterSamplerCfg_D,
+        "crater_builder_cfg": CraterBuilderCfg_D,
+        "interpolator_cfg": ICfg,
+        "crater_worker_manager_cfg": CWMCfg_D,
+        "interpolator_worker_manager_cfg": IWMCfg_D,
     }
 
-    settings = HighResDEMGenCfg(**HRDEMGCfg_D)
-    low_res_dem = np.load("assets/Terrains/SouthPole/ldem_87s_5mpp/dem.npy")
-
+    settings = HighResDEMGenCfg(**HRDEMGenCfg_D)
+    # low_res_dem = np.load("assets/Terrains/SouthPole/ldem_87s_5mpp/dem.npy")
+    low_res_dem = np.load("assets/Terrains/SouthPole/NPD_final_adj_5mpp_surf/dem.npy")
     HRDEMGen = HighResDEMGen(low_res_dem, settings)
-    import time
+
     from matplotlib import pyplot as plt
     import matplotlib.colors as mcolors
+    import time
 
     # Initial Generation
     HRDEMGen.shift((0, 0))

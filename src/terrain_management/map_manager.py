@@ -21,8 +21,8 @@ from high_res_dem_gen import HighResDEMGenCfg
 @dataclasses.dataclass
 class DemInfo:
     size: tuple = dataclasses.field(default_factory=tuple)
-    resolution: tuple = dataclasses.field(default_factory=tuple)
-    coordinates: tuple = dataclasses.field(default_factory=tuple)
+    pixel_size: tuple = dataclasses.field(default_factory=tuple)
+    center_coordinates: tuple = dataclasses.field(default_factory=tuple)
 
 
 @dataclasses.dataclass
@@ -47,7 +47,7 @@ class MapManager:
         self.dem_paths = {}
         self.dem_infos = {}
         for folder in os.listdir(self.settings.folder_path):
-            if os.path.isdir(folder):
+            if os.path.isdir(os.path.join(self.settings.folder_path, folder)):
                 dem_path = os.path.join(self.settings.folder_path, folder, "dem.npy")
                 dem_info_path = os.path.join(
                     self.settings.folder_path, folder, "dem.yaml"
@@ -59,9 +59,10 @@ class MapManager:
                         f"DEM {dem_path} does not exist. Expected to find dem.npy in the folder but could not find it."
                     )
                 if os.path.exists(dem_info_path):
-                    self.dem_infos[folder] = DemInfo(
-                        **yaml.load(open(dem_info_path, "r"))
-                    )
+                    with open(dem_info_path, "r") as file:
+                        self.dem_infos[folder] = DemInfo(
+                            **yaml.load(file, Loader=yaml.Loader)
+                        )
                 else:
                     warnings.warn(
                         f"DEM info {dem_info_path} does not exist. Expected to find dem.yaml in the folder but could not find it."
@@ -98,7 +99,7 @@ class MapManager:
                 )
         self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
 
-    def load_hr_dem_by_id(self, id: int):
+    def load_lr_dem_by_id(self, id: int):
         if id in list(range(len(self.dem_paths.keys()))):
             key = list(self.dem_paths.keys())[id]
             self.hr_dem = np.load(self.dem_paths[key])
@@ -121,7 +122,7 @@ class MapManager:
         return self.hr_dem_gen.high_res_dem
 
     def get_hr_dem_mask(self):
-        pass
+        raise NotImplementedError
 
     def update_hr_dem(self, coordinates):
         self.hr_dem_gen.update_high_res_dem(coordinates)
@@ -129,8 +130,9 @@ class MapManager:
     def initialize_hr_dem(self, coordinates):
         print("Initializing HR DEM")
         start = time.time()
+        self.update_hr_dem(coordinates)
         while not self.is_hr_dem_updated():
-            self.update_hr_dem(coordinates)
+            time.sleep(0.1)
         end = time.time()
         print(f"HR DEM initialized in {end - start} seconds")
 
@@ -139,49 +141,97 @@ class MapManager:
 
 
 if __name__ == "__main__":
-    HRDEMGCfg_D = {
-        "num_blocks": 7,  # int = dataclasses.field(default_factory=int)
-        "block_size": 50,  # float = dataclasses.field(default_factory=float)
-        "pad_size": 10.0,  # float = dataclasses.field(default
-        "max_blocks": int(1e7),  # int = dataclasses.field(default_factory=int)
-        "seed": 42,  # int = dataclasses.field(default_factory=int)
-        "resolution": 0.05,  # float = dataclasses.field(default_factory=float)
-        "z_scale": 1.0,  # float = dataclasses.field(default_factory=float)
-        "radius": [
-            [1.5, 2.5],
-            [0.75, 1.5],
-            [0.25, 0.5],
-        ],  # List[Tuple[float, float]] = dataclasses.field(default_factory=list)
-        "densities": [
-            0.025,
-            0.05,
-            0.5,
-        ],  # List[float] = dataclasses.field(default_factory=list)
-        "num_repeat": 1,  # int = dataclasses.field(default_factory=int)
-        "save_to_disk": False,  # bool = dataclasses.field(default_factory=bool)
-        "write_to_disk_interval": 100,  # int = dataclasses.field(default_factory=int)
-        "profiles_path": "assets/Terrains/crater_spline_profiles.pkl",  # str = dataclasses.field(default_factory=str)
-        "min_xy_ratio": 0.85,  # float = dataclasses.field(default_factory=float)
-        "max_xy_ratio": 1.0,  # float = dataclasses.field(default_factory=float)
-        "random_rotation": True,  # bool = dataclasses.field(default_factory=bool)
-        "num_unique_profiles": 10000,  # int = dataclasses.field(default_factory=int)
-        "source_resolution": 5.0,  # float = dataclasses.field(default_factory=float)
-        # "target_resolution": 0.05,  # float = dataclasses.field(default_factory=float)
-        "interpolation_padding": 2,  # int = dataclasses.field(default_factory=int)
-        "interpolation_method": "bicubic",  # str = dataclasses.field(default_factory=str)
+    HRDEMCfg_D = {
+        "num_blocks": 4,
+        "block_size": 50,
+        "pad_size": 10.0,
+        "max_blocks": int(1e7),
+        "seed": 42,
+        "resolution": 0.05,
+        "z_scale": 1.0,
+        "source_resolution": 5.0,
+        "resolution": 0.05,
+        "interpolation_padding": 2,
+    }
+    CWMCfg_D = {
+        "num_workers": 8,
+        "input_queue_size": 400,
+        "output_queue_size": 16,
+        "worker_queue_size": 2,
+    }
+    IWMCfg_D = {
+        "num_workers": 1,
+        "input_queue_size": 400,
+        "output_queue_size": 30,
+        "worker_queue_size": 200,
+    }
+    CraterDBCfg_D = {
+        "block_size": 50,
+        "max_blocks": 7,
+        "save_to_disk": False,
+        "write_to_disk_interval": 100,
+    }
+    CGCfg_D = {
+        "profiles_path": "assets/Terrains/crater_spline_profiles.pkl",
+        "min_xy_ratio": 0.85,
+        "max_xy_ratio": 1.0,
+        "random_rotation": True,
+        "seed": 42,
+        "num_unique_profiles": 10000,
+    }
+    CDDCfg_D = {
+        "densities": [0.025, 0.05, 0.5],
+        "radius": [[1.5, 2.5], [0.75, 1.5], [0.25, 0.5]],
+        "num_repeat": 1,
+        "seed": 42,
+    }
+    CraterSamplerCfg_D = {
+        "block_size": 50,
+        "crater_gen_cfg": CGCfg_D,
+        "crater_dist_cfg": CDDCfg_D,
+    }
+    CraterBuilderCfg_D = {
+        "block_size": 50,
+        "pad_size": 10.0,
+        "resolution": 0.05,
+        "z_scale": 1.0,
+    }
+    ICfg = {
+        "source_resolution": 5.0,
+        "target_resolution": 0.05,
+        "source_padding": 2,
+        "method": "bicubic",
+    }
+    HRDEMGenCfg_D = {
+        "high_res_dem_cfg": HRDEMCfg_D,
+        "crater_db_cfg": CraterDBCfg_D,
+        "crater_sampler_cfg": CraterSamplerCfg_D,
+        "crater_builder_cfg": CraterBuilderCfg_D,
+        "interpolator_cfg": ICfg,
+        "crater_worker_manager_cfg": CWMCfg_D,
+        "interpolator_worker_manager_cfg": IWMCfg_D,
     }
 
-    hrdem_settings = HighResDEMGenCfg(**HRDEMGCfg_D)
+    hrdem_settings = HighResDEMGenCfg(**HRDEMGenCfg_D)
 
     MMCfg_D = {
-        "folder_path": "assets/Terrains",
+        "folder_path": "assets/Terrains/SouthPole",
         "lr_dem_name": "crater",
         "initial_pixel_coordinates": (2000, 2000),
     }
 
     mm_settings = MapManagerCfg(**MMCfg_D)
+    from matplotlib import pyplot as plt
+
+    low_res_dem = np.load("assets/Terrains/SouthPole/NPD_final_adj_5mpp_surf/dem.npy")
+    HRDEMGen = HighResDEMGen(low_res_dem, hrdem_settings)
 
     MM = MapManager(hrdem_settings, mm_settings)
     MM.load_lr_dem_by_name("NPD_final_adj_5mpp_surf")
-
-    MM.
+    MM.initialize_hr_dem((0, 0))
+    plt.figure()
+    plt.imshow(MM.hr_dem_gen.high_res_dem, cmap="jet")
+    plt.figure()
+    plt.imshow(MM.lr_dem, cmap="jet")
+    plt.show()
+    MM.hr_dem_gen.shutdown()
