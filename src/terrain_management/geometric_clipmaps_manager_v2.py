@@ -10,12 +10,14 @@ __status__ = "development"
 
 from src.terrain_management.geometric_clipmaps_v2 import GeoClipmapSpecs, GeoClipmap
 from WorldBuilders import pxr_utils
+from dataclasses import dataclass, field
 from pxr import UsdGeom, Sdf
 import numpy as np
 import warp as wp
 import omni
 
 
+@dataclass
 class GeoClipmapManagerConf:
     root_path: str = "/World"
     geo_clipmap_specs: GeoClipmapSpecs = GeoClipmapSpecs()
@@ -52,7 +54,7 @@ class GeoClipmapManager:
     def build(self, dem, dem_shape):
         self._geo_clipmap.build(dem, dem_shape)
 
-    def updateGeoClipmap(self, position: np.ndarray) -> None:
+    def updateGeoClipmap(self, position: np.ndarray, mesh_position: np.ndarray) -> None:
         with wp.ScopedTimer("complete update loop"):
             self._geo_clipmap.updateElevation(position)
             with wp.ScopedTimer("mesh update"):
@@ -62,7 +64,16 @@ class GeoClipmapManager:
                     self._geo_clipmap.uvs,
                     update_topology=self.update_topology,
                 )
+        self.moveMesh(mesh_position)
         self.update_topology = False
+
+    def moveMesh(self, position: np.ndarray) -> None:
+        self._mesh_pos = position
+        mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
+        if mesh:
+            pxr_utils.setDefaultOps(
+                mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale
+            )
 
     def createXforms(self):
         pxr_utils.createXform(self._stage, self._root_path, add_default_op=True)

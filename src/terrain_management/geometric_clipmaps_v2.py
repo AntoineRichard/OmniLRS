@@ -915,3 +915,5 @@ if __name__ == "__main__":
     print("num points", GCM.points.shape[0])
     print("num_uvs", GCM.uvs.shape[0])
     print("num_indices", GCM.indices.shape)
+    print("min grid point", GCM.points.min(axis=0))
+    print("max grid point", GCM.points.max(axis=0))
