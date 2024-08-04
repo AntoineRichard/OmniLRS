@@ -200,7 +200,7 @@ def _cubic_interpolator(
     coeffs: wp.vec4f,
 ):
     x2 = x - wp.trunc(x)
-    a = -0.75
+    a = -0.5
     coeffs[0] = a * (x2 * (1.0 - x2 * (2.0 - x2)))
     coeffs[1] = a * (-2.0 + x2 * x2 * (5.0 - 3.0 * x2))
     coeffs[2] = a * (x2 * (-1.0 + x2 * (-4.0 + 3.0 * x2)))
