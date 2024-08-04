@@ -32,6 +32,7 @@ class GeoClipmapManager:
         cfg: GeoClipmapManagerConf,
         interpolation_method: str = "bilinear",
         acceleration_mode: str = "hybrid",
+        name_prefix: str = "",
     ):
         self._stage = omni.usd.get_context().get_stage()
         self._geo_clipmap = GeoClipmap(
@@ -45,8 +46,8 @@ class GeoClipmapManager:
         self._mesh_rot = cfg.mesh_orientation
         self._mesh_scale = cfg.mesh_scale
 
-        self._og_mesh_path = self._root_path + "/Terrain/terrain_mesh"
-        self._mesh_path = self._root_path + "/Terrain/terrain_mesh"
+        self._og_mesh_path = self._root_path + "/Terrain/terrain_mesh" + name_prefix
+        self._mesh_path = self._root_path + "/Terrain/terrain_mesh" + name_prefix
 
         self.createXforms()
         self.update_topology = True
@@ -76,13 +77,13 @@ class GeoClipmapManager:
             )
 
     def createXforms(self):
-        pxr_utils.createXform(self._stage, self._root_path, add_default_op=True)
-        pxr_utils.createXform(
-            self._stage, self._root_path + "/Terrain", add_default_op=True
-        )
-        pxr_utils.createXform(
-            self._stage, self._root_path + "/Terrain/terrain_mesh", add_default_op=True
-        )
+        if not self._stage.GetPrimAtPath(self._root_path):
+            pxr_utils.createXform(self._stage, self._root_path, add_default_op=True)
+        if not self._stage.GetPrimAtPath(self._root_path + "/Terrain"):
+            pxr_utils.createXform(
+                self._stage, self._root_path + "/Terrain", add_default_op=True
+            )
+        pxr_utils.createXform(self._stage, self._mesh_path, add_default_op=True)
 
     @staticmethod
     def gridIndex(x: int, y: int, stride: int) -> int:

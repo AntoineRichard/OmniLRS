@@ -10,12 +10,13 @@
 import dataclasses
 import numpy as np
 import warnings
+import math
 import yaml
 import time
 import os
 
-from high_res_dem_gen import HighResDEMGen
-from high_res_dem_gen import HighResDEMGenCfg
+from src.terrain_management.high_res_dem_gen import HighResDEMGen
+from src.terrain_management.high_res_dem_gen import HighResDEMGenCfg
 
 
 @dataclasses.dataclass
@@ -29,7 +30,6 @@ class DemInfo:
 class MapManagerCfg:
     folder_path: str = dataclasses.field(default_factory=str)
     lr_dem_name: str = dataclasses.field(default_factory=str)
-    initial_pixel_coordinates: tuple = dataclasses.field(default_factory=tuple)
 
 
 class MapManager:
@@ -118,8 +118,28 @@ class MapManager:
     def get_lr_dem(self):
         return self.lr_dem
 
+    def get_lr_dem_shape(self):
+        return self.lr_dem.shape
+
+    def get_lr_dem_res(self):
+        return math.fabs(self.lr_dem_info.pixel_size[0])
+
+    def get_lr_coordinates(self, coordinates):
+        x = coordinates[0] + self.get_lr_dem_res() * self.get_lr_dem_shape()[0] // 2
+        y = coordinates[1] + self.get_lr_dem_res() * self.get_lr_dem_shape()[1] // 2
+        return (x, y)
+
     def get_hr_dem(self):
         return self.hr_dem_gen.high_res_dem
+
+    def get_hr_dem_shape(self):
+        return self.hr_dem_gen.high_res_dem.shape
+
+    def get_hr_dem_res(self):
+        return self.hr_dem_gen.settings.resolution
+
+    def get_hr_coordinates(self, coordinates):
+        return self.hr_dem_gen.get_coordinates(coordinates)
 
     def get_hr_dem_mask(self):
         raise NotImplementedError
@@ -152,6 +172,7 @@ if __name__ == "__main__":
         "source_resolution": 5.0,
         "resolution": 0.05,
         "interpolation_padding": 2,
+        "generate_craters": True,
     }
     CWMCfg_D = {
         "num_workers": 8,
@@ -217,14 +238,10 @@ if __name__ == "__main__":
     MMCfg_D = {
         "folder_path": "assets/Terrains/SouthPole",
         "lr_dem_name": "crater",
-        "initial_pixel_coordinates": (2000, 2000),
     }
 
     mm_settings = MapManagerCfg(**MMCfg_D)
     from matplotlib import pyplot as plt
-
-    low_res_dem = np.load("assets/Terrains/SouthPole/NPD_final_adj_5mpp_surf/dem.npy")
-    HRDEMGen = HighResDEMGen(low_res_dem, hrdem_settings)
 
     MM = MapManager(hrdem_settings, mm_settings)
     MM.load_lr_dem_by_name("NPD_final_adj_5mpp_surf")
@@ -233,5 +250,7 @@ if __name__ == "__main__":
     plt.imshow(MM.hr_dem_gen.high_res_dem, cmap="jet")
     plt.figure()
     plt.imshow(MM.lr_dem, cmap="jet")
+    plt.figure()
+    plt.imshow(MM.lr_dem[1950:2100, 1950:2100], cmap="jet")
     plt.show()
     MM.hr_dem_gen.shutdown()

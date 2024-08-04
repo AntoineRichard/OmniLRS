@@ -7,13 +7,13 @@ import time
 import copy
 import cv2
 
-from crater_gen import CraterBuilder, CraterDB, CraterSampler
-from crater_gen import (
+from src.terrain_management.crater_gen import CraterBuilder, CraterDB, CraterSampler
+from src.terrain_management.crater_gen import (
     CraterBuilderCfg,
     CraterDBCfg,
     CraterSamplerCfg,
 )
-from crater_gen import CraterMetadata, BoundingBox
+from src.terrain_management.crater_gen import CraterMetadata, BoundingBox
 
 
 @dataclasses.dataclass
@@ -335,6 +335,7 @@ class HighResDEMCfg:
     source_resolution: float = dataclasses.field(default_factory=float)
     resolution: float = dataclasses.field(default_factory=float)
     interpolation_padding: int = dataclasses.field(default_factory=int)
+    generate_craters: bool = dataclasses.field(default_factory=bool)
 
 
 @dataclasses.dataclass
@@ -371,6 +372,7 @@ class HighResDEMGen:
         self.settings = settings
 
         self.current_block_coord = (0, 0)
+        self.sim_is_warm = False
 
         self.sim_lock = False
         self.terrain_is_primed = False
@@ -438,8 +440,8 @@ class HighResDEMGen:
 
         # Instantiate empty state for each block in the grid
         state = {
-            "has_crater_metadata": False,
-            "has_crater_data": False,
+            "has_crater_metadata": not self.settings.generate_craters,
+            "has_crater_data": not self.settings.generate_craters,
             "has_terrain_data": False,
             "is_padding": False,
         }
@@ -482,8 +484,8 @@ class HighResDEMGen:
                 if (x_i, y_i) not in self.map_grid_block2coords:
                     # This block is not in the map, so it is a new block
                     new_block_grid_tracker[(x_c, y_c)] = {
-                        "has_crater_metadata": False,
-                        "has_crater_data": False,
+                        "has_crater_metadata": not self.settings.generate_craters,
+                        "has_crater_data": not self.settings.generate_craters,
                         "has_terrain_data": False,
                         "is_padding": False,
                     }
@@ -580,13 +582,21 @@ class HighResDEMGen:
         self.current_block_coord = new_block_coord
         # Trigger terrain update
         # Generate crater metadata for the new blocks
-        self.generate_craters_metadata()
+        if self.settings.generate_craters:
+            self.generate_craters_metadata()
         # Asynchronous terrain block generation
         self.generate_terrain_blocks()
 
     def update_high_res_dem(self, coords):
-        self.shift(coords)
-        threading.Thread(target=self.threaded_high_res_dem_update).start()
+        block_coordinates = self.cast_coordinates_to_block_space(coords)
+        if not self.sim_is_warm:
+            print("Warming up simulation")
+            self.shift(block_coordinates)
+            threading.Thread(target=self.threaded_high_res_dem_update).start()
+            self.sim_is_warm = True
+        if self.current_block_coord != block_coordinates:
+            self.shift(coords)
+            threading.Thread(target=self.threaded_high_res_dem_update).start()
 
     def is_map_done(self):
         return all(
@@ -645,7 +655,6 @@ class HighResDEMGen:
                 + self.lr_dem_px_offset[1]
             ),
         )
-        print(lr_dem_coordinates)
         return self.low_res_dem[
             lr_dem_coordinates[0]
             - self.settings.interpolation_padding : lr_dem_coordinates[0]
@@ -656,6 +665,21 @@ class HighResDEMGen:
             + self.lr_dem_block_size
             + self.settings.interpolation_padding,
         ]
+
+    def get_coordinates(self, coordinates):
+        x = (
+            (coordinates[0] + self.high_res_dem.shape[0] // 2)
+            * self.settings.resolution
+            - self.current_block_coord[0]
+            - self.settings.block_size // 2
+        )
+        y = (
+            (coordinates[1] + self.high_res_dem.shape[1] // 2)
+            * self.settings.resolution
+            - self.current_block_coord[1]
+            - self.settings.block_size // 2
+        )
+        return (x, y)
 
     def generate_terrain_blocks(self):
         # Generate terrain data for + 1 block in each direction
@@ -736,6 +760,7 @@ if __name__ == "__main__":
         "source_resolution": 5.0,  # float = dataclasses.field(default_factory=float)
         "resolution": 0.05,  # float = dataclasses.field(default_factory=float)
         "interpolation_padding": 2,  # int = dataclasses.field(default_factory=int)
+        "generate_craters": True,
     }
     CWMCfg_D = {
         "num_workers": 8,  # int = dataclasses.field(default_factory=int)

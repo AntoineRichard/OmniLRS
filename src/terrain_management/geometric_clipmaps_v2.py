@@ -346,7 +346,7 @@ def _addTriangle(
 
 
 @nb.jit(nopython=True)
-def _buildMesh(num_levels, meshBaseLODExtentHeightfieldTexels):
+def _buildMesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
     print("Building the mesh backbone, this may take time...")
     points = nb.typed.List.empty_list(point3)
     uvs = nb.typed.List.empty_list(point2)
@@ -354,7 +354,7 @@ def _buildMesh(num_levels, meshBaseLODExtentHeightfieldTexels):
     prev_indices = nb.typed.Dict.empty(key_type=point2, value_type=nb.types.int32)
     new_indices = nb.typed.Dict.empty(key_type=point2, value_type=nb.types.int32)
     index_count = 0
-    for level in range(0, num_levels):
+    for level in range(start_level, num_levels):
         print(
             "Generating level " + str(level + 1) + " out of " + str(num_levels) + "..."
         )
@@ -573,7 +573,6 @@ class GeoClipmap:
         self.dem_shape = None
         self.interpolation_method = interpolation_method
         self.acceleration_mode = acceleration_mode
-        self.specs_hash = self.compute_hash(self.specs)
         self.initMesh()
 
     def build(self, dem, dem_shape):
@@ -586,9 +585,6 @@ class GeoClipmap:
             acceleration_mode=self.acceleration_mode,
         )
 
-    def gridIndex(self, x, y, stride):
-        return y * stride + x
-
     @staticmethod
     def compute_hash(specs):
         return hashlib.sha256(str(specs).encode("utf-8")).hexdigest()
@@ -597,6 +593,7 @@ class GeoClipmap:
         with ScopedTimer("Complete mesh backbone generation"):
             with ScopedTimer("numba mesh backbone generation"):
                 self.points, self.uvs, self.indices = _buildMesh(
+                    self.specs.startingLODLevel,
                     self.specs.numMeshLODLevels,
                     self.specs.meshBaseLODExtentHeightfieldTexels,
                 )
@@ -628,6 +625,7 @@ class GeoClipmap:
 
     def initMesh(self):
         # Cache the mesh backbone between runs because it is expensive to generate
+        self.specs_hash = self.compute_hash(self.specs)
         if os.path.exists(self.specs.meshBackBonePath):
             self.loadMesh()
         else:
@@ -732,12 +730,25 @@ class DEMSampler:
             raise ValueError("Invalid interpolation method")
 
     def getElevation(self, position):
+        print("min dem value", np.min(self.dem))
+        print("max dem value", np.max(self.dem))
         if self.acceleration_mode == "hybrid":
             self.getElevationHybrid(position)
         elif self.acceleration_mode == "gpu":
             self.getElevationGPU(position)
         else:
             raise ValueError("Invalid acceleration mode")
+        print("position", position)
+        print("dem size", self.dem_size)
+        print("source resolution", self.specs.source_resolution)
+        print("min wp dem value", np.min(self.dem_wp.numpy()))
+        print("max wp dem value", np.max(self.dem_wp.numpy()))
+        print("x minimum", np.min(self.points[:, 0]))
+        print("x maximum", np.max(self.points[:, 0]))
+        print("y minimum", np.min(self.points[:, 1]))
+        print("y maximum", np.max(self.points[:, 1]))
+        print("z minimum", np.min(self.points[:, -1]))
+        print("z maximum", np.max(self.points[:, -1]))
 
     def getElevationHybrid(self, position):
         with wp.ScopedTimer("preprocess_Hybrid", active=True):
@@ -758,6 +769,10 @@ class DEMSampler:
             )
             self.x_wp_cpu.assign(self.x_wp)
             self.y_wp_cpu.assign(self.y_wp)
+            print("x_wp max", self.x_wp.numpy().max())
+            print("x_wp min", self.x_wp.numpy().min())
+            print("y_wp max", self.y_wp.numpy().max())
+            print("y_wp min", self.y_wp.numpy().min())
         if self.interpolation_method == "bilinear":
             self.bilinear_interpolation_hybrid()
         elif self.interpolation_method == "bicubic":
