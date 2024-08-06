@@ -96,8 +96,10 @@ if __name__ == "__main__":
     from WorldBuilders.pxr_utils import setDefaultOps, addDefaultOps
     import numpy as np
 
-    from src.terrain_management.map_manager import MapManagerCfg
-    from src.terrain_management.high_res_dem_gen import HighResDEMGenCfg
+    from src.terrain_management.large_scale_terrain.map_manager import MapManagerCfg
+    from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator import (
+        HighResDEMGenCfg,
+    )
     from src.terrain_management.large_scale_terrain_manager import (
         NestedGeometricClipMapManagerCfg,
         LargeScaleTerrainManagerCfg,
@@ -168,17 +170,14 @@ if __name__ == "__main__":
         x_delta = x_new - x
         y_delta = y_new - y
         coords = (x_delta, y_delta)
-        # x = x_new + 0.0
-        # y = y_new + 0.0
-        # print("Old coordinates: ", (x, y))
         print("New coordinates: ", coords)
-        LSTM.update_visual_mesh(coords)
-        setDefaultOps(
-            camera.GetPrim(),
-            (x_delta, y_delta, LSTM.get_height_local(coords) + 0.5),
-            (0.707, 0, 0, 0.707),
-            (1, 1, 1),
-        )
+        # LSTM.update_visual_mesh(coords)
+        # setDefaultOps(
+        #    camera.GetPrim(),
+        #    (x_delta, y_delta, LSTM.get_height_local(coords) + 0.5),
+        #    (0.707, 0, 0, 0.707),
+        #    (1, 1, 1),
+        # )
         world.step(render=True)
         i = (i + 1) % rotation_rate
     #    i2 += spiral_rate

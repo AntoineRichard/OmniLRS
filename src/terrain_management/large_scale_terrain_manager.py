@@ -3,17 +3,21 @@ import numpy as np
 import math
 import copy
 
-from src.terrain_management.map_manager import MapManagerCfg, MapManager
-from src.terrain_management.high_res_dem_gen import HighResDEMGenCfg, HighResDEMGen
-from src.terrain_management.geometric_clipmaps_manager_v2 import (
+from src.terrain_management.large_scale_terrain.map_manager import (
+    MapManagerCfg,
+    MapManager,
+)
+from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator import (
+    HighResDEMGenCfg,
+    HighResDEMGen,
+)
+from src.terrain_management.large_scale_terrain.geometric_clipmaps_manager import (
     GeoClipmapManagerConf,
     GeoClipmapManager,
 )
-from src.terrain_management.geometric_clipmaps_v2 import GeoClipmapSpecs, GeoClipmap
-
-# This will have 2 clipmaps and a flat terrain.
-# The first clipmap is a single level high resolution clipmap. Augments the high res-dem.
-# The second clipmap is a multi-level clipmap with coarser resolution. It feeds off the high-res dem generator.
+from src.terrain_management.large_scale_terrain.geometric_clipmaps import (
+    GeoClipmapSpecs,
+)
 
 
 @dataclasses.dataclass
