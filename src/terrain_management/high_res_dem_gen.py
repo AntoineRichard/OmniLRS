@@ -18,6 +18,16 @@ from src.terrain_management.crater_gen import CraterMetadata, BoundingBox
 
 @dataclasses.dataclass
 class InterpolatorCfg:
+    """
+    Configuration for the interpolator.
+
+    Args:
+        source_resolution (float): The resolution of the source data (meters per pixel).
+        target_resolution (float): The resolution of the target data (meters per pixel).
+        source_padding (int): The padding of the source data (pixels).
+        method (str): The interpolation method. Can be one of "nearest", "linear", "bicubic", "area".
+    """
+
     source_resolution: float = dataclasses.field(default_factory=float)
     target_resolution: float = dataclasses.field(default_factory=float)
     source_padding: int = dataclasses.field(default_factory=int)
@@ -189,6 +199,16 @@ class BaseWorker(multiprocessing.Process):
 
 @dataclasses.dataclass
 class WorkerManagerCfg:
+    """
+    Configuration for the worker manager.
+
+    Args:
+        num_workers (int): The number of workers.
+        input_queue_size (int): The size of the input queue.
+        output_queue_size (int): The size of the output queue.
+        worker_queue_size (int): The size of the worker queue.
+    """
+
     num_workers: int = dataclasses.field(default_factory=int)
     input_queue_size: int = dataclasses.field(default_factory=int)
     output_queue_size: int = dataclasses.field(default_factory=int)
@@ -412,7 +432,8 @@ class BaseWorkerManager:
         Collects the results from the workers.
 
         Returns:
-            List[Tuple[Tuple[float, float], np.ndarray]]: A list of tuples with the coordinates and the data.
+            List[Tuple[Tuple[float, float], np.ndarray]]: A list of tuples with the
+            coordinates and the data.
         """
 
         results = []
@@ -422,7 +443,7 @@ class BaseWorkerManager:
             self.output_queue.task_done()
         return results
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """
         Shuts down the worker manager and its workers.
         """
@@ -434,7 +455,7 @@ class BaseWorkerManager:
         for worker in self.workers:
             worker.join()
 
-    def __del__(self):
+    def __del__(self) -> None:
         """
         Destructor.
         """
@@ -443,16 +464,34 @@ class BaseWorkerManager:
 
 
 class CraterBuilderWorker(BaseWorker):
+    """
+    CraterBuilderWorker class. This class is responsible for generating the craters.
+    """
+
     def __init__(
         self,
         queue_size: int = 10,
         output_queue: multiprocessing.Queue = multiprocessing.JoinableQueue(),
         builder: CraterBuilder = None,
-    ):
+    ) -> None:
+        """
+        Args:
+            queue_size (int): The size of the input queue.
+            output_queue (multiprocessing.JoinableQueue): The output queue.
+            builder (CraterBuilder): The crater builder.
+        """
+
         super().__init__(queue_size, output_queue)
         self.builder = copy.copy(builder)
 
-    def run(self):
+    def run(self) -> None:
+        """
+        The main function of the worker process.
+        This function is called when the worker process is started.
+        It takes craters metadata and coordinates from the input queue
+        and generates images with inprinted craters.
+        """
+
         while not self.stop_event.is_set():
             coords, crater_meta_data = self.input_queue.get()
             if crater_meta_data is None:
@@ -465,18 +504,35 @@ class CraterBuilderWorker(BaseWorker):
 
 
 class CraterBuilderManager(BaseWorkerManager):
+    """
+    CraterBuilderManager class. This class is responsible for managing the crater
+    builder workers. It is responsible for distributing the work across the workers
+    and collecting the results.
+    """
+
     def __init__(
         self,
         settings: WorkerManagerCfg = WorkerManagerCfg(),
         builder: CraterBuilder = None,
     ) -> None:
+        """
+        Args:
+            settings (WorkerManagerCfg): The settings for the worker manager.
+            builder (CraterBuilder): The crater builder.
+        """
+
         super().__init__(
             settings=settings,
             worker_class=CraterBuilderWorker,
             builder=builder,
         )
 
-    def dispatch_jobs(self):
+    def dispatch_jobs(self) -> None:
+        """
+        Dispatches the jobs to the workers.
+        The jobs are dispatched in a balanced way such that the workers have a similar load.
+        """
+
         # Assigns the jobs such that the workers have a balanced load
         while not self.stop_event.is_set():
             coords, crater_metadata = self.input_queue.get()
@@ -490,16 +546,34 @@ class CraterBuilderManager(BaseWorkerManager):
 
 
 class BicubicInterpolatorWorker(BaseWorker):
+    """
+    BicubicInterpolatorWorker class. This class is responsible for interpolating the
+    terrain data.
+    """
+
     def __init__(
         self,
         queue_size: int = 10,
         output_queue: multiprocessing.JoinableQueue = multiprocessing.JoinableQueue(),
         interp: Interpolator = None,
     ):
+        """
+        Args:
+            queue_size (int): The size of the input queue.
+            output_queue (multiprocessing.JoinableQueue): The output queue.
+            interp (Interpolator): The interpolator.
+        """
+
         super().__init__(queue_size, output_queue)
         self.interpolator = copy.copy(interp)
 
-    def run(self):
+    def run(self) -> None:
+        """
+        The main function of the worker process.
+        This function is called when the worker process is started.
+        It takes terrain data from the input queue and interpolates it.
+        """
+
         while not self.stop_event.is_set():
             coords, data = self.input_queue.get()
             if data is None:
@@ -509,12 +583,25 @@ class BicubicInterpolatorWorker(BaseWorker):
 
 
 class BicubicInterpolatorManager(BaseWorkerManager):
+    """
+    BicubicInterpolatorManager class. This class is responsible for managing the
+    bicubic interpolator workers. It is responsible for distributing the work across
+    the workers and collecting the results.
+    """
+
     def __init__(
         self,
         settings: WorkerManagerCfg = WorkerManagerCfg(),
         interp: Interpolator = None,
         num_cv2_threads: int = 4,
     ):
+        """
+        Args:
+            settings (WorkerManagerCfg): The settings for the worker manager.
+            interp (Interpolator): The interpolator.
+            num_cv2_threads (int): The number of threads to use for cv2.
+        """
+
         super().__init__(
             settings=settings,
             worker_class=BicubicInterpolatorWorker,
@@ -523,6 +610,11 @@ class BicubicInterpolatorManager(BaseWorkerManager):
         cv2.setNumThreads(num_cv2_threads)
 
     def dispatch_jobs(self):
+        """
+        Dispatches the jobs to the workers.
+        The jobs are dispatched in a balanced way such that the workers have a similar load.
+        """
+
         while not self.stop_event.is_set():
             coords, data = self.input_queue.get()
             if data is None:
@@ -535,6 +627,23 @@ class BicubicInterpolatorManager(BaseWorkerManager):
 
 @dataclasses.dataclass
 class HighResDEMCfg:
+    """
+    Configuration for the high resolution DEM.
+
+    Args:
+        num_blocks (int): The number of blocks in each direction. Total number of blocks is 2 * num_blocks + 1.
+        block_size (float): The size of each block in meters. The blocks are square.
+        pad_size (float): The size of the padding in meters. Used to avoid edge cases when adding craters.
+        max_blocks (int): The maximum number of blocks. Used to avoid memory issues.
+        seed (int): The seed for the random number generator.
+        resolution (float): The resolution of the high resolution DEM in meters per pixel.
+        z_scale (float): The scale of the z axis.
+        source_resolution (float): The resolution of the source data in meters per pixel.
+        resolution (float): The resolution of the high resolution DEM in meters per pixel.
+        interpolation_padding (int): The padding for the interpolation. In pixels.
+        generate_craters (bool): True if craters should be generated, False otherwise.
+    """
+
     num_blocks: int = dataclasses.field(default_factory=int)
     block_size: float = dataclasses.field(default_factory=float)
     pad_size: float = dataclasses.field(default_factory=float)
@@ -550,6 +659,20 @@ class HighResDEMCfg:
 
 @dataclasses.dataclass
 class HighResDEMGenCfg:
+    """
+    Configuration for the high resolution DEM generation.
+    Note that the class should be fed dictionaries and not objects.
+
+    Args:
+        high_res_dem_cfg (HighResDEMCfg): The configuration for the high resolution DEM.
+        crater_db_cfg (CraterDBCfg): The configuration for the crater DB.
+        crater_sampler_cfg (CraterSamplerCfg): The configuration for the crater sampler.
+        crater_builder_cfg (CraterBuilderCfg): The configuration for the crater builder.
+        interpolator_cfg (InterpolatorCfg): The configuration for the interpolator.
+        crater_worker_manager_cfg (WorkerManagerCfg): The configuration for the crater worker manager.
+        interpolator_worker_manager_cfg (WorkerManagerCfg): The configuration for the interpolator worker manager.
+    """
+
     high_res_dem_cfg: HighResDEMCfg = dataclasses.field(default_factory=dict)
     crater_db_cfg: CraterDBCfg = dataclasses.field(default_factory=dict)
     crater_sampler_cfg: CraterSamplerCfg = dataclasses.field(default_factory=dict)
@@ -658,6 +781,7 @@ class HighResDEMGen:
         Please note that this function does not generate the actual DEM, but only instantiates
         an empty numpy array with the correct dimensions.
         """
+
         self.high_res_dem = np.zeros(
             (
                 int(
@@ -1057,16 +1181,15 @@ class HighResDEMGen:
         Returns:
             Tuple[float, float]: Coordinates in meters in the high resolution DEM frame
         """
-
         x = (
-            (coordinates[0] + self.high_res_dem.shape[0] // 2)
-            * self.settings.resolution
+            coordinates[0]
+            + (self.high_res_dem.shape[0] // 2) * self.settings.resolution
             - self.current_block_coord[0]
             - self.settings.block_size // 2
         )
         y = (
-            (coordinates[1] + self.high_res_dem.shape[1] // 2)
-            * self.settings.resolution
+            coordinates[1]
+            + (self.high_res_dem.shape[1] // 2) * self.settings.resolution
             - self.current_block_coord[1]
             - self.settings.block_size // 2
         )
@@ -1170,29 +1293,29 @@ class HighResDEMGen:
 
 if __name__ == "__main__":
     HRDEMCfg_D = {
-        "num_blocks": 4,  # int = dataclasses.field(default_factory=int)
-        "block_size": 50,  # float = dataclasses.field(default_factory=float)
-        "pad_size": 10.0,  # float = dataclasses.field(default
-        "max_blocks": int(1e7),  # int = dataclasses.field(default_factory=int)
-        "seed": 42,  # int = dataclasses.field(default_factory=int)
-        "resolution": 0.05,  # float = dataclasses.field(default_factory=float)
-        "z_scale": 1.0,  # float = dataclasses.field(default_factory=float)
-        "source_resolution": 5.0,  # float = dataclasses.field(default_factory=float)
-        "resolution": 0.05,  # float = dataclasses.field(default_factory=float)
-        "interpolation_padding": 2,  # int = dataclasses.field(default_factory=int)
+        "num_blocks": 4,
+        "block_size": 50,
+        "pad_size": 10.0,
+        "max_blocks": int(1e7),
+        "seed": 42,
+        "resolution": 0.05,
+        "z_scale": 1.0,
+        "source_resolution": 5.0,
+        "resolution": 0.05,
+        "interpolation_padding": 2,
         "generate_craters": True,
     }
     CWMCfg_D = {
-        "num_workers": 8,  # int = dataclasses.field(default_factory=int)
-        "input_queue_size": 400,  # int = dataclasses.field(default_factory=int)
-        "output_queue_size": 16,  # int = dataclasses.field(default_factory=int)
-        "worker_queue_size": 2,  # int = dataclasses.field(default_factory=int)
+        "num_workers": 8,
+        "input_queue_size": 400,
+        "output_queue_size": 16,
+        "worker_queue_size": 2,
     }
     IWMCfg_D = {
-        "num_workers": 1,  # int = dataclasses.field(default_factory=int)
-        "input_queue_size": 400,  # int = dataclasses.field(default_factory=int)
-        "output_queue_size": 30,  # int = dataclasses.field(default_factory=int)
-        "worker_queue_size": 200,  # int = dataclasses.field(default_factory=int)
+        "num_workers": 1,
+        "input_queue_size": 400,
+        "output_queue_size": 30,
+        "worker_queue_size": 200,
     }
     CraterDBCfg_D = {
         "block_size": 50,
@@ -1242,7 +1365,6 @@ if __name__ == "__main__":
     }
 
     settings = HighResDEMGenCfg(**HRDEMGenCfg_D)
-    # low_res_dem = np.load("assets/Terrains/SouthPole/ldem_87s_5mpp/dem.npy")
     low_res_dem = np.load("assets/Terrains/SouthPole/NPD_final_adj_5mpp_surf/dem.npy")
     HRDEMGen = HighResDEMGen(low_res_dem, settings)
 
@@ -1389,6 +1511,7 @@ if __name__ == "__main__":
         time.sleep(0.1)
     e = time.time()
     print(f"Time to update entire map: {e-s}")
+    plt.title("High Resolution DEM. Close that window to continue.")
     plt.imshow(HRDEMGen.high_res_dem, cmap="terrain")
     plt.show()
     s = time.time()
@@ -1397,6 +1520,7 @@ if __name__ == "__main__":
         time.sleep(0.1)
     e = time.time()
     print(f"Time to update one band: {e-s}")
+    plt.title("High Resolution DEM. Close that window to continue.")
     plt.imshow(HRDEMGen.high_res_dem, cmap="terrain")
     plt.show()
     s = time.time()
@@ -1405,6 +1529,7 @@ if __name__ == "__main__":
         time.sleep(0.1)
     e = time.time()
     print(f"Time to update one band: {e-s}")
+    plt.title("High Resolution DEM. Close that window to continue.")
     plt.imshow(HRDEMGen.high_res_dem, cmap="terrain")
     plt.show()
     s = time.time()
@@ -1413,6 +1538,7 @@ if __name__ == "__main__":
         time.sleep(0.1)
     e = time.time()
     print(f"Time to update two bands: {e-s}")
+    plt.title("High Resolution DEM. Close that window to continue.")
     plt.imshow(HRDEMGen.high_res_dem, cmap="terrain")
     plt.show()
 

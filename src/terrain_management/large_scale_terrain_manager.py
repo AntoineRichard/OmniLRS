@@ -148,6 +148,16 @@ class LargeScaleTerrainManager:
                 (self.settings.pixel_coordinates[1] - lr_dem_shape // 2) / lr_dem_res,
             )
 
+    def get_height_local(self, coordinates):
+        global_coordinates = (
+            coordinates[0] + self.initial_coordinates[0],
+            coordinates[1] + self.initial_coordinates[1],
+        )
+        return self.map_manager.get_height(global_coordinates)
+
+    def get_height_global(self, coordinates):
+        return self.map_manager.get_height(coordinates)
+
     def build(self):
         self.map_manager = MapManager(self.highresdemgen_cfg, self.mapmanager_cfg)
         self.nested_clipmap_manager = NestedGeoClipmapManager(
@@ -165,10 +175,11 @@ class LargeScaleTerrainManager:
             self.map_manager.get_hr_dem_res(),
             self.map_manager.get_lr_dem_res(),
         )
-        self.update_visual_mesh(self.initial_coordinates)
+        self.update_visual_mesh((0, 0))
 
     def update_visual_mesh(self, local_coordinates):
         print("local_coordinates", local_coordinates)
+        print("last_update_coordinates", self.last_update_coordinates)
         if self.last_update_coordinates is None:
             self.last_update_coordinates = copy.copy(local_coordinates)
             delta = (0.0, 0.0)
@@ -181,20 +192,28 @@ class LargeScaleTerrainManager:
             )
             dist = math.sqrt(delta[0] ** 2 + delta[1] ** 2)
         if dist > self.settings.visual_mesh_update_threshold:
+            # cast the coordinates so that they are a multiple of the threshold.
+            x = (
+                local_coordinates[0] // self.settings.visual_mesh_update_threshold
+            ) * self.settings.visual_mesh_update_threshold
+            y = (
+                local_coordinates[1] // self.settings.visual_mesh_update_threshold
+            ) * self.settings.visual_mesh_update_threshold
+            corrected_coordinates = (x, y)
             # Update the visual mesh
             self.last_update_coordinates = local_coordinates
 
             # Get the global coordinates. The mesh initial position is in (0,0).
             # Thus, we need to add the initial coordinates to the local coordinates.
             global_coordinates = (
-                local_coordinates[0] + self.initial_coordinates[0],
-                local_coordinates[1] + self.initial_coordinates[1],
+                corrected_coordinates[0] + self.initial_coordinates[0],
+                corrected_coordinates[1] + self.initial_coordinates[1],
             )
             print("initial_coordinates", self.initial_coordinates)
             print("global_coordinates", global_coordinates)
 
             # Update the high resolution DEM
-            self.map_manager.update_hr_dem(global_coordinates)
+            hr_dem_updated = self.map_manager.update_hr_dem(global_coordinates)
             self.mesh_position = (
                 self.mesh_position[0] + delta[0],
                 self.mesh_position[1] + delta[1],

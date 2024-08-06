@@ -145,7 +145,10 @@ class MapManager:
         raise NotImplementedError
 
     def update_hr_dem(self, coordinates):
-        self.hr_dem_gen.update_high_res_dem(coordinates)
+        return self.hr_dem_gen.update_high_res_dem(coordinates)
+
+    def get_height(self, coordinates):
+        return self.hr_dem_gen.get_height(coordinates)
 
     def initialize_hr_dem(self, coordinates):
         print("Initializing HR DEM")

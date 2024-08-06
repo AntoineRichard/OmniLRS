@@ -89,19 +89,10 @@ NGCMMCfg_D = {
     "coarse_acceleration_mode": "hybrid",
 }
 
-LSTMCfg_D = {
-    "map_name": "NPD_final_adj_5mpp_surf",
-    "pixel_coordinates": (0, 0),
-    "ll_coordinates": (0, 0),
-    "meters_coordinates": (0, 0),
-    "coordinate_format": "meters",
-    "visual_mesh_update_threshold": 2.0,
-}
-
 if __name__ == "__main__":
     from omni.isaac.core import World
     from omni.usd import get_context
-    from pxr import UsdLux
+    from pxr import UsdLux, UsdGeom, Gf
     from WorldBuilders.pxr_utils import setDefaultOps, addDefaultOps
     import numpy as np
 
@@ -120,16 +111,39 @@ if __name__ == "__main__":
     light = UsdLux.DistantLight.Define(stage, "/sun")
     light.CreateIntensityAttr(3000.0)
     addDefaultOps(light.GetPrim())
-    setDefaultOps(light.GetPrim(), (0, 0, 0), (0.383, 0, 0, 0.924), (1, 1, 1))
+    setDefaultOps(light.GetPrim(), (0, 0, 0), (0.65, 0, 0, 0.76), (1, 1, 1))
 
-    C = 20000 * 5
+    # Camera
+    camera = UsdGeom.Camera.Define(stage, "/camera")
+    camera.GetClippingRangeAttr().Set(Gf.Vec2f(0.01, 100000))
+    camera.GetFocalLengthAttr().Set(42)
+    addDefaultOps(camera.GetPrim())
+    setDefaultOps(camera.GetPrim(), (0, 0, 0), (0, 0, 0, 1), (1, 1, 1))
+
+    C = 0
     R = 500 * 5
     max_displacement = 2.0 / 30
     perimeter = 2 * np.pi * R
     rotation_rate = int(perimeter / max_displacement)
     spiral_rate = 0.0 / rotation_rate
     theta = np.linspace(0, 2 * np.pi, rotation_rate)
+    i = 0
+    i2 = 1.0
     print(rotation_rate)
+
+    x = C + i2 * R * math.cos(theta[i])
+    y = C + i2 * R * math.sin(theta[i])
+
+    initial_position = (x, y)
+
+    LSTMCfg_D = {
+        "map_name": "NPD_final_adj_5mpp_surf",
+        "pixel_coordinates": (0, 0),
+        "ll_coordinates": (0, 0),
+        "meters_coordinates": initial_position,
+        "coordinate_format": "meters",
+        "visual_mesh_update_threshold": 2.0,
+    }
 
     hrdem_settings = HighResDEMGenCfg(**HRDEMGenCfg_D)
     mm_settings = MapManagerCfg(**MMCfg_D)
@@ -141,17 +155,30 @@ if __name__ == "__main__":
     )
 
     LSTM.build()
+    height = LSTM.get_height_global(initial_position)
+
+    setDefaultOps(
+        camera.GetPrim(), (0, 0, height + 0.5), (0.707, 0, 0, 0.707), (1, 1, 1)
+    )
     # LSTM.update_visual_mesh((0, 0))
 
-    # i = 0
-    # i2 = 1.0
     while True:
-        # GCM.updateGeoClipmap(
-        #    np.array(
-        #        [C + i2 * R * math.cos(theta[i]), C + i2 * R * math.sin(theta[i]), 0]
-        #    ),
-        #    np.array([i2 * R * math.cos(theta[i]), i2 * R * math.sin(theta[i]), 0]),
-        # )
+        x_new = C + i2 * R * math.cos(theta[i])
+        y_new = C + i2 * R * math.sin(theta[i])
+        x_delta = x_new - x
+        y_delta = y_new - y
+        coords = (x_delta, y_delta)
+        # x = x_new + 0.0
+        # y = y_new + 0.0
+        # print("Old coordinates: ", (x, y))
+        print("New coordinates: ", coords)
+        LSTM.update_visual_mesh(coords)
+        setDefaultOps(
+            camera.GetPrim(),
+            (x_delta, y_delta, LSTM.get_height_local(coords) + 0.5),
+            (0.707, 0, 0, 0.707),
+            (1, 1, 1),
+        )
         world.step(render=True)
-        # i = (i + 1) % rotation_rate
-        # i2 += spiral_rate
+        i = (i + 1) % rotation_rate
+    #    i2 += spiral_rate

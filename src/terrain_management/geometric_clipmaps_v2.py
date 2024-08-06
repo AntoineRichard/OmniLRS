@@ -728,27 +728,29 @@ class DEMSampler:
             )
         else:
             raise ValueError("Invalid interpolation method")
+        # print("min wp dem value", np.min(self.dem_wp.numpy()))
+        # print("max wp dem value", np.max(self.dem_wp.numpy()))
 
     def getElevation(self, position):
-        print("min dem value", np.min(self.dem))
-        print("max dem value", np.max(self.dem))
+        # print("min dem value", np.min(self.dem))
+        # print("max dem value", np.max(self.dem))
         if self.acceleration_mode == "hybrid":
             self.getElevationHybrid(position)
         elif self.acceleration_mode == "gpu":
             self.getElevationGPU(position)
         else:
             raise ValueError("Invalid acceleration mode")
-        print("position", position)
-        print("dem size", self.dem_size)
-        print("source resolution", self.specs.source_resolution)
-        print("min wp dem value", np.min(self.dem_wp.numpy()))
-        print("max wp dem value", np.max(self.dem_wp.numpy()))
-        print("x minimum", np.min(self.points[:, 0]))
-        print("x maximum", np.max(self.points[:, 0]))
-        print("y minimum", np.min(self.points[:, 1]))
-        print("y maximum", np.max(self.points[:, 1]))
-        print("z minimum", np.min(self.points[:, -1]))
-        print("z maximum", np.max(self.points[:, -1]))
+        # print("position", position)
+        # print("dem size", self.dem_size)
+        # print("source resolution", self.specs.source_resolution)
+        # print("min wp dem value", np.min(self.dem_wp.numpy()))
+        # print("max wp dem value", np.max(self.dem_wp.numpy()))
+        # print("x minimum", np.min(self.points[:, 0]))
+        # print("x maximum", np.max(self.points[:, 0]))
+        # print("y minimum", np.min(self.points[:, 1]))
+        # print("y maximum", np.max(self.points[:, 1]))
+        # print("z minimum", np.min(self.points[:, -1]))
+        # print("z maximum", np.max(self.points[:, -1]))
 
     def getElevationHybrid(self, position):
         with wp.ScopedTimer("preprocess_Hybrid", active=True):
