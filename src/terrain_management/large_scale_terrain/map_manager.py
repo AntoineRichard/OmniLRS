@@ -1,0 +1,449 @@
+__author__ = "Antoine Richard"
+__copyright__ = (
+    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+)
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
+from typing import Tuple
+import dataclasses
+import numpy as np
+import warnings
+import math
+import yaml
+import time
+import os
+
+from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator import (
+    HighResDEMGen,
+)
+from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator import (
+    HighResDEMGenCfg,
+)
+
+
+@dataclasses.dataclass
+class DemInfo:
+    """
+    Args:
+        size (tuple): size of the DEM in pixels
+        pixel_size (tuple): size of the pixel in meters
+        center_coordinates: (tuple): center coordinates of the DEM in meters
+    """
+
+    size: tuple = dataclasses.field(default_factory=tuple)
+    pixel_size: tuple = dataclasses.field(default_factory=tuple)
+    center_coordinates: tuple = dataclasses.field(default_factory=tuple)
+
+
+@dataclasses.dataclass
+class MapManagerCfg:
+    """
+    Args:
+        folder_path (str): path to the folder containing the DEMs.
+        lr_dem_name (str): name of the DEM to load.
+    """
+
+    folder_path: str = dataclasses.field(default_factory=str)
+    lr_dem_name: str = dataclasses.field(default_factory=str)
+
+
+class MapManager:
+    """
+    Class to manage the DEMs. It is reponsible for loading the DEMs and generating
+    the high resolution DEM. It provides an interface for other classes to
+    interract with the DEMs.
+    """
+
+    def __init__(
+        self, hrdem_settings: HighResDEMGenCfg, map_manager_settings: MapManagerCfg
+    ) -> None:
+        """
+        Args:
+            hrdem_settings (HighResDEMGenCfg): settings for the high resolution DEM generation.
+            map_manager_settings (MapManagerCfg): settings for the map manager.
+        """
+
+        self.hr_dem_settings = hrdem_settings
+        self.settings = map_manager_settings
+        self.lr_dem = None
+
+        self.fetch_pregenerated_lr_dems()
+
+    def fetch_pregenerated_lr_dems(self) -> None:
+        """
+        Fetches the pregenerated DEMs in the folder path.
+        The folder path should contain a folder for each DEM with the DEM
+        and the DEM info. It should look like this:
+        folder_path
+        ├── DEM1
+        │   ├── dem.npy
+        │   └── dem.yaml
+        ├── DEM2
+        │   ├── dem.npy
+        │   └── dem.yaml
+        ├── ...
+
+        This method will load the paths to the DEMs and the DEM infos, not the DEMs
+        themselves.
+
+        dem.yaml should contain the following:
+        size: Tuple[int, int]
+        pixel_size: Tuple[float, float]
+        center_coordinates: Tuple[float, float]
+        """
+
+        assert os.path.isdir(self.settings.folder_path), "Folder path does not exist"
+        self.dem_paths = {}
+        self.dem_infos = {}
+        for folder in os.listdir(self.settings.folder_path):
+            if os.path.isdir(os.path.join(self.settings.folder_path, folder)):
+                dem_path = os.path.join(self.settings.folder_path, folder, "dem.npy")
+                dem_info_path = os.path.join(
+                    self.settings.folder_path, folder, "dem.yaml"
+                )
+                if os.path.exists(dem_path):
+                    self.dem_paths[folder] = dem_path
+                else:
+                    warnings.warn(
+                        f"DEM {dem_path} does not exist. Expected to find dem.npy in the folder but could not find it."
+                    )
+                if os.path.exists(dem_info_path):
+                    with open(dem_info_path, "r") as file:
+                        self.dem_infos[folder] = DemInfo(
+                            **yaml.load(file, Loader=yaml.Loader)
+                        )
+                else:
+                    warnings.warn(
+                        f"DEM info {dem_info_path} does not exist. Expected to find dem.yaml in the folder but could not find it."
+                    )
+            else:
+                warnings.warn(f"Folder {folder} is not a directory.")
+
+    def load_lr_dem_by_name(self, name: str) -> None:
+        """
+        Loads the low resolution DEM by name, and initializes the high resolution DEM generator.
+
+        Args:
+            name (str): name of the DEM to load.
+        """
+
+        if name in self.dem_paths:
+            self.lr_dem = np.load(self.dem_paths[name])
+            if name in self.dem_infos:
+                self.lr_dem_info = self.dem_infos[name]
+            else:
+                raise ValueError(
+                    f"DEM info {name} does not exist in the folder path {self.settings.folder_path}"
+                )
+        else:
+            warnings.warn(
+                f"DEM {name} does not exist in the folder path {self.settings.folder_path}"
+            )
+        self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
+
+    def load_lr_dem_by_path(self, path: str) -> None:
+        """
+        Loads the low resolution DEM by path, and initializes the high resolution DEM generator.
+        This method is used to load a DEM from a specific path outside of the folder path.
+
+        Args:
+            path (str): path to the DEM to load.
+        """
+
+        if os.path.exists(path):
+            dem_path = os.path.join(path, "dem.npy")
+            dem_info_path = os.path.join(path, "dem.yaml")
+            if os.path.exists(dem_path) and os.path.exists(dem_info_path):
+                self.lr_dem = np.load(dem_path)
+                self.lr_dem_info = DemInfo(**yaml.load(open(dem_info_path, "r")))
+            else:
+                raise ValueError(
+                    f"DEM {dem_path} or DEM info {dem_info_path} does not exist in the folder path {path}"
+                )
+        self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
+
+    def load_lr_dem_by_id(self, id: int) -> None:
+        """
+        Loads the low resolution DEM by id, and initializes the high resolution DEM generator.
+        This method is a legacy method and should not be used.
+
+        Args:
+            id (int): id of the DEM to load.
+        """
+
+        warnings.warn(
+            "load_lr_dem_by_id is a legacy method and should not be used. Use load_lr_dem_by_name instead."
+        )
+        if id in list(range(len(self.dem_paths.keys()))):
+            key = list(self.dem_paths.keys())[id]
+            self.hr_dem = np.load(self.dem_paths[key])
+            self.hr_dem_info = self.dem_infos[key]
+        elif id == -1:
+            self.generate_procedural_lr_dem()
+        else:
+            raise ValueError(
+                f"id {id} is not in the range of the number of DEMs in the folder path {self.settings.folder_path}"
+            )
+        self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
+
+    def generate_procedural_lr_dem(self):
+        """
+        Generates a procedural low resolution DEM.
+        """
+
+        raise NotImplementedError
+
+    def get_lr_dem(self) -> np.ndarray:
+        """
+        Returns the low resolution DEM.
+
+        Returns:
+            np.ndarray: low resolution DEM.
+        """
+
+        return self.lr_dem
+
+    def get_lr_dem_shape(self) -> Tuple[int, int]:
+        """
+        Returns the shape of the low resolution DEM.
+
+        Returns:
+            tuple: shape of the low resolution DEM.
+        """
+        return self.lr_dem.shape
+
+    def get_lr_dem_res(self) -> float:
+        """
+        Returns the resolution of the low resolution DEM.
+
+        Returns:
+            float: resolution of the low resolution DEM.
+        """
+
+        return math.fabs(self.lr_dem_info.pixel_size[0])
+
+    def get_lr_coordinates(
+        self, coordinates: Tuple[float, float]
+    ) -> Tuple[float, float]:
+        """
+        Converts the global coordinates in meters to the low resolution DEM coordinates in meters.
+
+        Args:
+            coordinates (Tuple[float, floay]): coordinates in meters.
+
+        Returns:
+            Tuple[float, float]: coordinates in meters in the LR dem space.
+        """
+
+        x = coordinates[0] + self.get_lr_dem_res() * self.get_lr_dem_shape()[0] // 2
+        y = coordinates[1] + self.get_lr_dem_res() * self.get_lr_dem_shape()[1] // 2
+        return (x, y)
+
+    def get_hr_dem(self) -> np.ndarray:
+        """
+        Returns the high resolution DEM.
+
+        Returns:
+            np.ndarray: high resolution DEM.
+        """
+
+        return self.hr_dem_gen.high_res_dem
+
+    def get_hr_dem_shape(self) -> Tuple[int, int]:
+        """
+        Returns the shape of the high resolution DEM.
+
+        Returns:
+            tuple: shape of the high resolution DEM.
+        """
+
+        return self.hr_dem_gen.high_res_dem.shape
+
+    def get_hr_dem_res(self) -> float:
+        """
+        Returns the resolution of the high resolution DEM.
+
+        Returns:
+            float: resolution of the high resolution DEM.
+        """
+
+        return self.hr_dem_gen.settings.resolution
+
+    def get_hr_coordinates(
+        self, coordinates: Tuple[float, float]
+    ) -> Tuple[float, float]:
+        """
+        Converts the global coordinates in meters to the high resolution DEM coordinates in meters.
+
+        Args:
+            coordinates (Tuple[float,float]): coordinates in meters.
+
+        Returns:
+            Tuple[float,float]: coordinates in meters in the hr dem space.
+        """
+
+        return self.hr_dem_gen.get_coordinates(coordinates)
+
+    def get_hr_dem_mask(self) -> np.ndarray:
+        """
+        Returns the high resolution DEM mask.
+
+        Returns:
+            np.ndarray: high resolution DEM mask.
+        """
+
+        raise NotImplementedError
+
+    def update_hr_dem(self, coordinates: Tuple[float, float]) -> bool:
+        """
+        Updates the high resolution DEM around the coordinates.
+        If conditions are met, this will trigger an update of the high resolution DEM.
+
+        Args:
+            coordinates (Tuple[float,float]): coordinates in meters.
+
+        Returns:
+            bool: True if the high resolution DEM was updated, False otherwise.
+        """
+
+        return self.hr_dem_gen.update_high_res_dem(coordinates)
+
+    def get_height(self, coordinates: Tuple[float, float]) -> float:
+        """
+        Returns the height at the coordinates in meters.
+
+        Args:
+            coordinates (Tuple[float,float]): coordinates in meters.
+
+        Returns:
+            float: height at the coordinates in meters.
+        """
+
+        return self.hr_dem_gen.get_height(coordinates)
+
+    def initialize_hr_dem(self, coordinates: Tuple[float, float]) -> None:
+        """
+        Initializes the high resolution DEM around the coordinates.
+        Calling this method will block until the high resolution DEM is updated.
+
+        Args:
+            coordinates (Tuple[float,float]): coordinates in meters.
+        """
+
+        print("Initializing HR DEM")
+        start = time.time()
+        self.update_hr_dem(coordinates)
+        while not self.is_hr_dem_updated():
+            time.sleep(0.1)
+        end = time.time()
+        print(f"HR DEM initialized in {end - start} seconds")
+
+    def is_hr_dem_updated(self) -> bool:
+        """
+        Returns True if the high resolution DEM is updated, False otherwise.
+
+        Returns:
+            bool: True if the high resolution DEM is updated, False otherwise.
+        """
+
+        return self.hr_dem_gen.is_map_done()
+
+
+if __name__ == "__main__":
+    HRDEMCfg_D = {
+        "num_blocks": 4,
+        "block_size": 50,
+        "pad_size": 10.0,
+        "max_blocks": int(1e7),
+        "seed": 42,
+        "resolution": 0.05,
+        "z_scale": 1.0,
+        "source_resolution": 5.0,
+        "resolution": 0.05,
+        "interpolation_padding": 2,
+        "generate_craters": True,
+    }
+    CWMCfg_D = {
+        "num_workers": 8,
+        "input_queue_size": 400,
+        "output_queue_size": 16,
+        "worker_queue_size": 2,
+    }
+    IWMCfg_D = {
+        "num_workers": 1,
+        "input_queue_size": 400,
+        "output_queue_size": 30,
+        "worker_queue_size": 200,
+    }
+    CraterDBCfg_D = {
+        "block_size": 50,
+        "max_blocks": 7,
+        "save_to_disk": False,
+        "write_to_disk_interval": 100,
+    }
+    CGCfg_D = {
+        "profiles_path": "assets/Terrains/crater_spline_profiles.pkl",
+        "min_xy_ratio": 0.85,
+        "max_xy_ratio": 1.0,
+        "random_rotation": True,
+        "seed": 42,
+        "num_unique_profiles": 10000,
+    }
+    CDDCfg_D = {
+        "densities": [0.025, 0.05, 0.5],
+        "radius": [[1.5, 2.5], [0.75, 1.5], [0.25, 0.5]],
+        "num_repeat": 1,
+        "seed": 42,
+    }
+    CraterSamplerCfg_D = {
+        "block_size": 50,
+        "crater_gen_cfg": CGCfg_D,
+        "crater_dist_cfg": CDDCfg_D,
+    }
+    CraterBuilderCfg_D = {
+        "block_size": 50,
+        "pad_size": 10.0,
+        "resolution": 0.05,
+        "z_scale": 1.0,
+    }
+    ICfg = {
+        "source_resolution": 5.0,
+        "target_resolution": 0.05,
+        "source_padding": 2,
+        "method": "bicubic",
+    }
+    HRDEMGenCfg_D = {
+        "high_res_dem_cfg": HRDEMCfg_D,
+        "crater_db_cfg": CraterDBCfg_D,
+        "crater_sampler_cfg": CraterSamplerCfg_D,
+        "crater_builder_cfg": CraterBuilderCfg_D,
+        "interpolator_cfg": ICfg,
+        "crater_worker_manager_cfg": CWMCfg_D,
+        "interpolator_worker_manager_cfg": IWMCfg_D,
+    }
+
+    hrdem_settings = HighResDEMGenCfg(**HRDEMGenCfg_D)
+
+    MMCfg_D = {
+        "folder_path": "assets/Terrains/SouthPole",
+        "lr_dem_name": "crater",
+    }
+
+    mm_settings = MapManagerCfg(**MMCfg_D)
+    from matplotlib import pyplot as plt
+
+    MM = MapManager(hrdem_settings, mm_settings)
+    MM.load_lr_dem_by_name("NPD_final_adj_5mpp_surf")
+    MM.initialize_hr_dem((0, 0))
+    plt.figure()
+    plt.imshow(MM.hr_dem_gen.high_res_dem, cmap="jet")
+    plt.figure()
+    plt.imshow(MM.lr_dem, cmap="jet")
+    plt.figure()
+    plt.imshow(MM.lr_dem[1950:2100, 1950:2100], cmap="jet")
+    plt.show()
+    MM.hr_dem_gen.shutdown()
