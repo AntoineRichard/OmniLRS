@@ -254,6 +254,13 @@ class DEMSampler:
             self.initialize_warp_buffers_gpu_mode()
         else:
             raise ValueError("Invalid acceleration mode")
+        
+    def updateDEM(self, dem: np.ndarray) -> None:
+        with wp.ScopedTimer("update DEM data"):
+            wp.synchronize()
+            self.dem_wp.assign(dem.flatten())
+            wp.synchronize()
+
 
     def initialize_warp_buffers_hybrid_mode(self) -> None:
         """
@@ -368,12 +375,10 @@ class DEMSampler:
                 ],
                 device="cuda",
             )
+            wp.synchronize()
             self.x_wp_cpu.assign(self.x_wp)
             self.y_wp_cpu.assign(self.y_wp)
-            print("x_wp max", self.x_wp.numpy().max())
-            print("x_wp min", self.x_wp.numpy().min())
-            print("y_wp max", self.y_wp.numpy().max())
-            print("y_wp min", self.y_wp.numpy().min())
+            wp.synchronize()
         if self.interpolation_method == "bilinear":
             self.bilinear_interpolation_hybrid()
         elif self.interpolation_method == "bicubic":
