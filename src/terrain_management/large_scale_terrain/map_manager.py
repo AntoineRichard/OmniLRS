@@ -239,8 +239,8 @@ class MapManager:
             Tuple[float, float]: coordinates in meters in the LR dem space.
         """
 
-        x = coordinates[0] + self.get_lr_dem_res() * self.get_lr_dem_shape()[0] // 2
-        y = coordinates[1] + self.get_lr_dem_res() * self.get_lr_dem_shape()[1] // 2
+        x = coordinates[0] + self.get_lr_dem_res() * self.get_lr_dem_shape()[0] // 2 - self.get_lr_dem_res() / 2
+        y = coordinates[1] + self.get_lr_dem_res() * self.get_lr_dem_shape()[1] // 2 - self.get_lr_dem_res() / 2
         return (x, y)
 
     def get_hr_dem(self) -> np.ndarray:
