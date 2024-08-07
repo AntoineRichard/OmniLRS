@@ -11,22 +11,22 @@ if __name__ == "__main__":
     from pxr import UsdLux
     from WorldBuilders.pxr_utils import setDefaultOps, addDefaultOps
     import numpy as np
-    from src.terrain_management.geometric_clipmaps_v2 import GeoClipmapSpecs
-    from src.terrain_management.geometric_clipmaps_manager_v2 import (
+    from src.terrain_management.large_scale_terrain.geometric_clipmaps import GeoClipmapSpecs
+    from src.terrain_management.large_scale_terrain.geometric_clipmaps_manager import (
         GeoClipmapManager,
         GeoClipmapManagerConf,
     )
 
     specs = GeoClipmapSpecs(
         startingLODLevel=0,
-        numMeshLODLevels=9,
-        meshBaseLODExtentHeightfieldTexels=64,
+        numMeshLODLevels=11,
+        meshBaseLODExtentHeightfieldTexels=256,
         meshBackBonePath="terrain_mesh_backbone.npz",
         source_resolution=5.0,
-        minimum_target_resolution=1.0,
+        minimum_target_resolution=0.01,
     )
 
-    cfg = GeoClipmapManagerConf(geo_clipmap_specs=specs)
+    cfg = GeoClipmapManagerConf(root_path="/World", geo_clipmap_specs=specs, mesh_position=np.array([0, 0, 0]), mesh_orientation=np.array([0, 0, 0, 1]), mesh_scale=np.array([1, 1, 1]))
 
     world = World(stage_units_in_meters=1.0)
     stage = get_context().get_stage()
@@ -38,12 +38,12 @@ if __name__ == "__main__":
     setDefaultOps(light.GetPrim(), (0, 0, 0), (0.383, 0, 0, 0.924), (1, 1, 1))
 
     GCM = GeoClipmapManager(
-        cfg, interpolation_method="bilinear", acceleration_mode="hybrid"
+        cfg, interpolation_method="bicubic", acceleration_mode="hybrid"
     )
-    dem = np.load("assets/Terrains/SouthPole/ldem_87s_5mpp/dem.npy")
+    dem = np.load("assets/Terrains/SouthPole/NPD_final_adj_5mpp_surf/dem.npy")
     GCM.build(dem, dem.shape)
-    C = 20000 * 5
-    R = 500 * 5
+    C = 2000 * 5
+    R = 0#500 * 5
     rotation_rate = 2048
     spiral_rate = 2.0 / rotation_rate
     theta = np.linspace(0, 2 * np.pi, rotation_rate)
