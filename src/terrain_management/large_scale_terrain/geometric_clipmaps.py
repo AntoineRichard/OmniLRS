@@ -188,6 +188,14 @@ class GeoClipmap:
         else:
             self.buildMesh()
             self.saveMesh()
+    
+    def updateDEMBuffer(self) -> None:
+        """
+        Updates the DEM buffer. Note that since the DEM is passed to the DEM sampler as a reference,
+        it is not required to feed it through that function.
+        """
+
+        self.DEM_sampler.updateDEM()
 
     def updateElevation(self, coordinates: Tuple[float, float]) -> None:
         """
@@ -255,12 +263,17 @@ class DEMSampler:
         else:
             raise ValueError("Invalid acceleration mode")
         
-    def updateDEM(self, dem: np.ndarray) -> None:
-        with wp.ScopedTimer("update DEM data"):
-            wp.synchronize()
-            self.dem_wp.assign(dem.flatten())
-            wp.synchronize()
+    def updateDEM(self) -> None:
+        """
+        Update the DEM buffer.
+        
+        This method should only be called in GPU mode. In hybrid mode,
+        warp is using a reference to the DEM data, so there is no need to update it.
+        """
 
+        if self.acceleration_mode == "gpu":
+            with wp.ScopedTimer("update DEM data"):
+                self.dem_wp.assign(self.dem.flatten())
 
     def initialize_warp_buffers_hybrid_mode(self) -> None:
         """
@@ -268,7 +281,7 @@ class DEMSampler:
         """
 
         self.dem_wp = wp.array(
-            self.dem.flatten(), dtype=float, device="cpu", pinned=True
+            self.dem, dtype=float, device="cpu", copy=False,
         )
         self.points_wp = wp.array(self.points[:, :2], dtype=wp.vec2f, device="cuda")
         self.x_wp = wp.zeros((self.points.shape[0]), dtype=float, device="cuda")
@@ -375,7 +388,6 @@ class DEMSampler:
                 ],
                 device="cuda",
             )
-            wp.synchronize()
             self.x_wp_cpu.assign(self.x_wp)
             self.y_wp_cpu.assign(self.y_wp)
             wp.synchronize()
@@ -396,7 +408,7 @@ class DEMSampler:
                 kernel=_get_values_wp_2x2,
                 dim=self.points.shape[0],
                 inputs=[
-                    self.dem_wp,
+                    self.dem_wp.flatten(),
                     self.dem_shape_wp,
                     self.x_wp_cpu,
                     self.y_wp_cpu,
@@ -429,7 +441,7 @@ class DEMSampler:
                 kernel=_get_values_wp_4x4,
                 dim=self.points.shape[0],
                 inputs=[
-                    self.dem_wp,
+                    self.dem_wp.flatten(),
                     self.dem_shape_wp,
                     self.x_wp_cpu,
                     self.y_wp_cpu,
