@@ -87,6 +87,13 @@ class GeoClipmapManager:
         """
 
         self._geo_clipmap.build(dem, dem_shape)
+    
+    def updateDEMBuffer(self) -> None:
+        """
+        Updates the DEM buffer of the clipmap.
+        """
+
+        self._geo_clipmap.updateDEMBuffer()
 
     def updateGeoClipmap(self, position: np.ndarray, mesh_position: np.ndarray) -> None:
         """
@@ -123,7 +130,11 @@ class GeoClipmapManager:
                 mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale
             )
 
-    def createXforms(self):
+    def createXforms(self) -> None:
+        """
+        Creates the xforms for the clipmap.
+        """
+
         if not self._stage.GetPrimAtPath(self._root_path):
             pxr_utils.createXform(self._stage, self._root_path, add_default_op=True)
         if not self._stage.GetPrimAtPath(self._root_path + "/Terrain"):
@@ -131,21 +142,6 @@ class GeoClipmapManager:
                 self._stage, self._root_path + "/Terrain", add_default_op=True
             )
         pxr_utils.createXform(self._stage, self._mesh_path, add_default_op=True)
-
-    @staticmethod
-    def gridIndex(x: int, y: int, stride: int) -> int:
-        """
-        Returns the index of the grid point at (x, y) in a grid of width stride.
-
-        Args:
-            x (int): x coordinate of the grid point.
-            y (int): y coordinate of the grid point.
-            stride (int): width of the grid.
-
-        Returns:
-            int: index of the grid point at (x, y)."""
-
-        return y * stride + x
 
     def renderMesh(
         self,
