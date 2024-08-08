@@ -9,13 +9,12 @@ __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
 from typing import List, Tuple, Dict
-import multiprocessing
 import numpy as np
 import dataclasses
 import threading
+import warnings
 import time
 import copy
-import cv2
 
 from src.terrain_management.large_scale_terrain.crater_generation import (
     CraterBuilder,
@@ -130,6 +129,7 @@ class HighResDEMGen:
 
         self.current_block_coord = (0, 0)
         self.sim_is_warm = False
+        self.updating = False
 
         self.sim_lock = False
         self.terrain_is_primed = False
@@ -427,7 +427,7 @@ class HighResDEMGen:
         # Trigger terrain update
         # Generate crater metadata for the new blocks
         if self.settings.generate_craters:
-            self.generate_craters_metadata()
+            self.generate_craters_metadata(new_block_coord)
         # Asynchronous terrain block generation
         self.generate_terrain_blocks()
 
@@ -454,7 +454,9 @@ class HighResDEMGen:
         The function will return True if the DEM has been updated, False otherwise.
         The DEM only gets updated if the coordinate casted in the "block space" is
         different from the current block coordinate. A coordinate in the "block space"
-        is the coordinate of the block that the coordinates are in.
+        is the coordinate of the block that the coordinates are in. The returned value
+        does not indicate if the DEM has been updated, but if the update has been
+        triggered.
 
         Args:
             coords (Tuple[float, float]): Coordinates in meters in the low resolution
@@ -466,17 +468,33 @@ class HighResDEMGen:
 
         block_coordinates = self.cast_coordinates_to_block_space(coords)
         updated = False
+        
+        # Initial map generation
         if not self.sim_is_warm:
+            self.updating = True
             print("Warming up simulation")
             self.shift(block_coordinates)
+            # Threaded update, the function will return before the update is done
             threading.Thread(target=self.threaded_high_res_dem_update).start()
             self.sim_is_warm = True
             updated = True
+            self.updating = False
+
+        # Map update if the block has changed
         if self.current_block_coord != block_coordinates:
+            # Lock the simulation if the high resolution DEM is already updating
+            if self.updating:
+                warnings.warn("High resolution DEM is updating, simulation will paused till update is done.")
+                while self.updating:
+                    time.sleep(0.1)
+                
+            self.updating = True
             print("Triggering high res DEM update")
             self.shift(coords)
+            # Threaded update, the function will return before the update is done
             threading.Thread(target=self.threaded_high_res_dem_update).start()
             updated = True
+            self.updating = False
         return updated
 
     def is_map_done(self) -> bool:
@@ -508,7 +526,7 @@ class HighResDEMGen:
             self.collect_terrain_data()
             time.sleep(0.1)
 
-    def generate_craters_metadata(self) -> None:
+    def generate_craters_metadata(self, new_block_coord) -> None:
         """
         Generates crater metadata for the blocks in the grid. The data is generated for
         the blocks in the grid plus 2 blocks in each direction. This is done to ensure
@@ -520,19 +538,19 @@ class HighResDEMGen:
 
         region = BoundingBox(
             x_min=int(
-                self.current_block_coord[0]
+                new_block_coord[0]
                 - (self.settings.num_blocks + 2) * self.settings.block_size
             ),
             x_max=int(
-                self.current_block_coord[0]
+                new_block_coord[0]
                 + (self.settings.num_blocks + 2) * self.settings.block_size
             ),
             y_min=int(
-                self.current_block_coord[1]
+                new_block_coord[1]
                 - (self.settings.num_blocks + 2) * self.settings.block_size
             ),
             y_max=int(
-                self.current_block_coord[1]
+                new_block_coord[1]
                 + (self.settings.num_blocks + 2) * self.settings.block_size
             ),
         )
