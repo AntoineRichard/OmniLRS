@@ -123,7 +123,7 @@ if __name__ == "__main__":
     setDefaultOps(camera.GetPrim(), (0, 0, 0), (0, 0, 0, 1), (1, 1, 1))
 
     C = 0
-    R = 1000 * 5
+    R = 500 * 5
     max_displacement = 2.0 / 30
     perimeter = 2 * np.pi * R
     rotation_rate = int(perimeter / max_displacement)
@@ -170,14 +170,14 @@ if __name__ == "__main__":
         x_delta = x_new - x
         y_delta = y_new - y
         coords = (x_delta, y_delta)
-        print("New coordinates: ", coords)
-        # LSTM.update_visual_mesh(coords)
-        # setDefaultOps(
-        #    camera.GetPrim(),
-        #    (x_delta, y_delta, LSTM.get_height_local(coords) + 0.5),
-        #    (0.707, 0, 0, 0.707),
-        #    (1, 1, 1),
-        # )
+        #print("New coordinates: ", coords)
+        LSTM.update_visual_mesh(coords)
+        setDefaultOps(
+           camera.GetPrim(),
+           (x_delta, y_delta, LSTM.get_height_local(coords) + 0.5),
+           (0.707, 0, 0, 0.707),
+           (1, 1, 1),
+        )
         world.step(render=True)
         i = (i + 1) % rotation_rate
     #    i2 += spiral_rate
