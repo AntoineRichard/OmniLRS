@@ -28,6 +28,7 @@ class NestedGeometricClipMapManagerCfg:
     coarse_interpolation_method: str = "bilinear"
     fine_acceleration_mode: str = "hybrid"
     coarse_acceleration_mode: str = "hybrid"
+    profiling: bool = False
 
 
 class NestedGeoClipmapManager:
@@ -95,12 +96,14 @@ class NestedGeoClipmapManager:
             interpolation_method=self.settings.fine_interpolation_method,
             acceleration_mode=self.settings.fine_acceleration_mode,
             name_prefix="_fine",
+            profiling=self.settings.profiling,
         )
         self.coarse_clipmap_manager = GeoClipmapManager(
             self.coarse_clipmap_manager_cfg,
             interpolation_method=self.settings.coarse_interpolation_method,
             acceleration_mode=self.settings.coarse_acceleration_mode,
             name_prefix="_coarse",
+            profiling=self.settings.profiling,
         )
         self.fine_clipmap_manager.build(hr_dem, hr_dem_shape)
         self.coarse_clipmap_manager.build(lr_dem, lr_dem_shape)
@@ -111,6 +114,9 @@ class NestedGeoClipmapManager:
         mesh_position = np.array([mesh_position[0], mesh_position[1], 0])
         self.fine_clipmap_manager.updateGeoClipmap(position_fine, mesh_position)
         self.coarse_clipmap_manager.updateGeoClipmap(position_coarse, mesh_position)
+
+    def update_fine_clipmap_dem_buffer(self):
+        self.fine_clipmap_manager.updateDEMBuffer()
 
 
 @dataclasses.dataclass
@@ -161,6 +167,16 @@ class LargeScaleTerrainManager:
 
     def get_height_global(self, coordinates):
         return self.map_manager.get_height(coordinates)
+    
+    def get_normal_local(self, coordinates):
+        global_coordinates = (
+            coordinates[0] + self.initial_coordinates[0],
+            coordinates[1] + self.initial_coordinates[1],
+        )
+        return self.map_manager.get_normal(global_coordinates)
+    
+    def get_normal_global(self, coordinates):
+        return self.map_manager.get_normal(coordinates)
 
     def build(self):
         self.map_manager = MapManager(self.highresdemgen_cfg, self.mapmanager_cfg)
@@ -182,8 +198,8 @@ class LargeScaleTerrainManager:
         self.update_visual_mesh((0, 0))
 
     def update_visual_mesh(self, local_coordinates):
-        print("local_coordinates", local_coordinates)
-        print("last_update_coordinates", self.last_update_coordinates)
+        #print("local_coordinates", local_coordinates)
+        #print("last_update_coordinates", self.last_update_coordinates)
         if self.last_update_coordinates is None:
             self.last_update_coordinates = copy.copy(local_coordinates)
             delta = (0.0, 0.0)
@@ -213,23 +229,26 @@ class LargeScaleTerrainManager:
                 corrected_coordinates[0] + self.initial_coordinates[0],
                 corrected_coordinates[1] + self.initial_coordinates[1],
             )
-            print("initial_coordinates", self.initial_coordinates)
-            print("global_coordinates", global_coordinates)
+            #print("initial_coordinates", self.initial_coordinates)
+            #print("global_coordinates", global_coordinates)
 
             # Update the high resolution DEM
             hr_dem_updated = self.map_manager.update_hr_dem(global_coordinates)
-            self.mesh_position = (
-                self.mesh_position[0] + delta[0],
-                self.mesh_position[1] + delta[1],
-            )
+            # if the DEM was updated, the high DEM inside the warp buffer of the nested clipmap manager
+            # needs to be updated as well.
+
+            #self.mesh_position = (
+            #    self.mesh_position[0] + delta[0],
+            #    self.mesh_position[1] + delta[1],
+            #)
             fine_position = self.map_manager.get_hr_coordinates(global_coordinates)
             coarse_position = self.map_manager.get_lr_coordinates(global_coordinates)
-            print("fine_position", fine_position)
-            print("coarse_position", coarse_position)
-            print("min value lr dem", self.map_manager.get_lr_dem().min())
-            print("max value lr dem", self.map_manager.get_lr_dem().max())
-            print("min value hr dem", self.map_manager.get_hr_dem().min())
-            print("max value hr dem", self.map_manager.get_hr_dem().max())
+            #print("fine_position", fine_position)
+            #print("coarse_position", coarse_position)
+            #print("min value lr dem", self.map_manager.get_lr_dem().min())
+            #print("max value lr dem", self.map_manager.get_lr_dem().max())
+            #print("min value hr dem", self.map_manager.get_hr_dem().min())
+            #print("max value hr dem", self.map_manager.get_hr_dem().max())
             self.nested_clipmap_manager.update_clipmaps(
-                fine_position, coarse_position, self.mesh_position
+                fine_position, coarse_position, corrected_coordinates
             )
