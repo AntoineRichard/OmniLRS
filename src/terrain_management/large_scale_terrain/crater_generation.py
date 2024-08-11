@@ -181,12 +181,27 @@ class CraterBuilder:
             * self.settings.resolution
         )
         return crater
+    
+    def checkIfCraterIsInBlock(self, crater_metadata: CraterMetadata, coords_np: np.ndarray, pad_size: int, dem_size: int) -> bool:
+        is_in_block = True
+        coord = (
+            np.array(crater_metadata.coordinates - coords_np) / self.settings.resolution
+        )
+        c_size = int(crater_metadata.radius * 2 / self.settings.resolution)
+
+        c_size += c_size % 2
+        coord_padded = (coord + pad_size).astype(np.int64)
+        if ((coord_padded[0] - c_size / 2) < 0) or ((coord_padded[1] - c_size / 2) < 0):
+            is_in_block = False
+        elif ((coord_padded[0] + c_size / 2) >= (pad_size * 2 + dem_size)) or ((coord_padded[1] + c_size / 2) >= (pad_size * 2 + dem_size)):
+            is_in_block = False
+        return is_in_block, coord_padded
 
     def generateCraters(
         self,
         craters_data: List[CraterMetadata],
         coords: Tuple[int, int],
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> np.ndarray:
         """
         Generates a DEM with craters.
 
@@ -195,42 +210,29 @@ class CraterBuilder:
             coords (Tuple[int, int]): coordinates of the block.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: DEM with craters, mask.
+            np.ndarray: DEM with craters.
         """
 
         # Creates a padded DEM and mask
         dem_size = int(self.settings.block_size / self.settings.resolution)
         pad_size = int(self.settings.pad_size / self.settings.resolution)
         DEM_padded = np.zeros((pad_size * 2 + dem_size, pad_size * 2 + dem_size))
-        mask_padded = np.ones_like(DEM_padded)
         coords_np = np.array(coords)
         # Adds the craters to the DEM
         for crater_data in craters_data:
-            # rad = int(crater_data.size * 2 / self._resolution)
-            # coord = coord / self._resolution
+            is_in_block, coord_padded = self.checkIfCraterIsInBlock(crater_data, coords_np, pad_size, dem_size)
+            if not is_in_block:
+                continue
+
             c = self.generateCrater(crater_data)
             size = c.shape[0]
-            coord = (
-                np.array(crater_data.coordinates - coords_np) / self.settings.resolution
-            )
-            coord_padded = (coord + pad_size).astype(np.int64)
             coord_offset = (coord_padded - size / 2).astype(np.int64)
             DEM_padded[
                 coord_offset[0] : coord_offset[0] + size,
                 coord_offset[1] : coord_offset[1] + size,
             ] += c
-            mask_padded = cv2.circle(
-                mask_padded,
-                (coord_padded[1], coord_padded[0]),
-                int(size / 4),
-                0,
-                -1,
-            )
 
-        return (
-            DEM_padded[pad_size:-pad_size, pad_size:-pad_size],
-            mask_padded[pad_size:-pad_size, pad_size:-pad_size],
-        )
+        return DEM_padded[pad_size:-pad_size, pad_size:-pad_size]
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ import warnings
 import time
 import copy
 
+from src.terrain_management.large_scale_terrain.utils import ScopedTimer
 from src.terrain_management.large_scale_terrain.crater_generation import (
     CraterBuilder,
     CraterDB,
@@ -118,11 +119,12 @@ class HighResDEMGen:
     The HighResDEMGen class is responsible for generating the high resolution DEM.
     """
 
-    def __init__(self, low_res_dem: np.ndarray, settings: HighResDEMGenCfg) -> None:
+    def __init__(self, low_res_dem: np.ndarray, settings: HighResDEMGenCfg, profiling: bool = True) -> None:
         """
         Args:
             low_res_dem (np.ndarray): The low resolution DEM.
             settings (HighResDEMGenCfg): The settings for the high resolution DEM generation.
+            profiling (bool): True if the profiling is enabled, False otherwise.
         """
         self.low_res_dem = low_res_dem
         self.settings = settings
@@ -130,8 +132,9 @@ class HighResDEMGen:
         self.current_block_coord = (0, 0)
         self.sim_is_warm = False
         self.updating = False
-
+        self.profiling = profiling
         self.sim_lock = False
+        self.thread = None
         self.terrain_is_primed = False
         self.crater_db_is_primed = False
         self.build()
@@ -406,30 +409,37 @@ class HighResDEMGen:
             coordinates (Tuple[float, float]): Coordinates in meters in the low
                 resolution DEM frame
         """
-
-        # Compute initial coordinates in block space
-        new_block_coord = self.cast_coordinates_to_block_space(coordinates)
-        # Compute pixel shift between the new and old block coordinates
-        delta_coord = (
-            new_block_coord[0] - self.current_block_coord[0],
-            new_block_coord[1] - self.current_block_coord[1],
-        )
-        pixel_shift = (
-            -int(delta_coord[0] / self.settings.resolution),
-            -int(delta_coord[1] / self.settings.resolution),
-        )
-        # Shift the block grid
-        self.shift_block_grid(new_block_coord)
-        # Shift the DEM
-        self.shift_dem(pixel_shift)
-        # Sets the current block coordinates to the new one.
-        self.current_block_coord = new_block_coord
-        # Trigger terrain update
-        # Generate crater metadata for the new blocks
-        if self.settings.generate_craters:
-            self.generate_craters_metadata(new_block_coord)
-        # Asynchronous terrain block generation
-        self.generate_terrain_blocks()
+        print("Called shift")
+        with ScopedTimer("Shift", active=self.profiling):
+            # Compute initial coordinates in block space
+            with ScopedTimer("Cast coordinates to block space", active=self.profiling):
+                new_block_coord = self.cast_coordinates_to_block_space(coordinates)
+                # Compute pixel shift between the new and old block coordinates
+                delta_coord = (
+                    new_block_coord[0] - self.current_block_coord[0],
+                    new_block_coord[1] - self.current_block_coord[1],
+                )
+                pixel_shift = (
+                    -int(delta_coord[0] / self.settings.resolution),
+                    -int(delta_coord[1] / self.settings.resolution),
+                )
+            with ScopedTimer("Shift the block grid", active=self.profiling):
+                # Shift the block grid
+                self.shift_block_grid(new_block_coord)
+            with ScopedTimer("Shift the DEM", active=self.profiling):
+                # Shift the DEM
+                self.shift_dem(pixel_shift)
+                # Sets the current block coordinates to the new one.
+                self.current_block_coord = new_block_coord
+            with ScopedTimer("Generate craters metadata", active=self.profiling):
+                # Trigger terrain update
+                # Generate crater metadata for the new blocks
+                if self.settings.generate_craters:
+                    self.generate_craters_metadata(new_block_coord)
+            with ScopedTimer("Add terrain blocks to queues", active=self.profiling):
+                # Asynchronous terrain block generation
+                self.generate_terrain_blocks()
+        print("Shift done")
 
     def get_height(self, coordinates: Tuple[float, float]) -> float:
         """
@@ -447,6 +457,78 @@ class HighResDEMGen:
         x = local_coordinates[0] / self.settings.resolution
         y = local_coordinates[1] / self.settings.resolution
         return self.high_res_dem[int(x), int(y)]
+    
+    def euler_to_quaternion(self, roll: float, pitch: float, yaw:float) -> Tuple[float, float, float, float]:
+        """
+        Converts the euler angles to a quaternion.
+
+        Args:
+            roll (float): Roll angle in radians.
+            pitch (float): Pitch angle in radians.
+            yaw (float): Yaw angle in radians.
+
+        Returns:
+            Tuple[float, float, float, float]: Quaternion.
+        """
+
+        cr = np.cos(roll * 0.5)
+        sr = np.sin(roll * 0.5)
+        cp = np.cos(pitch * 0.5)
+        sp = np.sin(pitch * 0.5)
+        cy = np.cos(yaw * 0.5)
+        sy = np.sin(yaw * 0.5)
+
+        x = sr * cp * cy - cr * sp * sy
+        y = cr * sp * cy + sr * cp * sy
+        z = cr * cp * sy - sr * sp * cy
+        w = cr * cp * cy + sr * sp * sy
+        return (x, y, z, w)
+
+    
+    def get_normal(self, coordinates: Tuple[float, float]) -> Tuple[float, float, float, float]:
+        """
+        Returns the normal of the high resolution DEM at the given coordinates.
+
+        Args:
+            coordinates (Tuple[float, float]): Coordinates in meters in the
+                low resolution DEM frame.
+
+        Returns:
+            Tuple[float, float]: Normal of the high resolution DEM at the given coordinates.
+        """
+
+        local_coordinates = self.get_coordinates(coordinates)
+        x = local_coordinates[0] / self.settings.resolution
+        y = local_coordinates[1] / self.settings.resolution
+
+        # Compute the normal
+        dx = self.high_res_dem[int(x) + 1, int(y)] - self.high_res_dem[int(x) - 1, int(y)]
+        dx = dx / (self.settings.resolution * 2)
+        dy = self.high_res_dem[int(x), int(y) + 1] - self.high_res_dem[int(x), int(y) - 1]
+        dy = dy / (self.settings.resolution * 2)
+        rot_x = np.arctan2(dx, 1)
+        rot_y = np.arctan2(dy, 1)
+
+        quaternion = self.euler_to_quaternion(-rot_y, -rot_x, 0)
+        return quaternion
+    
+    def list_missing_blocks(self) -> List[Tuple[int, int]]:
+        """
+        Lists the blocks that are missing the terrain data.
+
+        Returns:
+            List[Tuple[int, int]]: List of blocks that are missing the terrain data.
+        """
+
+        return [
+            coords
+            for coords in self.map_grid_block2coords.values()
+            if not self.is_block_complete(coords)
+        ]
+    
+    def is_block_complete(self, coord) -> bool:
+        block = self.block_grid_tracker[coord]
+        return block["has_crater_metadata"] and block["has_crater_data"] and block["has_terrain_data"]
 
     def update_high_res_dem(self, coords: Tuple[float, float]) -> bool:
         """
@@ -471,30 +553,38 @@ class HighResDEMGen:
         
         # Initial map generation
         if not self.sim_is_warm:
-            self.updating = True
             print("Warming up simulation")
             self.shift(block_coordinates)
             # Threaded update, the function will return before the update is done
             threading.Thread(target=self.threaded_high_res_dem_update).start()
             self.sim_is_warm = True
             updated = True
-            self.updating = False
 
         # Map update if the block has changed
         if self.current_block_coord != block_coordinates:
-            # Lock the simulation if the high resolution DEM is already updating
-            if self.updating:
-                warnings.warn("High resolution DEM is updating, simulation will paused till update is done.")
-                while self.updating:
-                    time.sleep(0.1)
-                
-            self.updating = True
             print("Triggering high res DEM update")
-            self.shift(coords)
+            if not self.terrain_is_primed:
+                print("Map is not done, waiting for the terrain data")
+                while not self.terrain_is_primed:
+                    time.sleep(0.2)
+                    print([self.block_grid_tracker[coord] for coord in self.list_missing_blocks()])
+                    print(self.crater_builder_manager.get_load_per_worker())
+                    print(self.interpolator_manager.get_load_per_worker())
+                print("Map is done carrying on")
             # Threaded update, the function will return before the update is done
-            threading.Thread(target=self.threaded_high_res_dem_update).start()
+            if self.thread is None:
+                self.shift(coords)
+                self.thread = threading.Thread(target=self.threaded_high_res_dem_update).start()
+            elif self.thread.is_alive():
+                print("Thread is alive waiting for it to finish")
+                while self.thread.is_alive():
+                    time.sleep(0.1)
+                self.shift(coords)
+                self.thread = threading.Thread(target=self.threaded_high_res_dem_update).start()
+            else:
+                self.shift(coords)
+                self.thread = threading.Thread(target=self.threaded_high_res_dem_update).start()
             updated = True
-            self.updating = False
         return updated
 
     def is_map_done(self) -> bool:
@@ -521,10 +611,13 @@ class HighResDEMGen:
         Threaded function to update the high resolution DEM. It will wait untill the
         terrain data and crater data is available for the blocks in the grid.
         """
-
+        print("Opening thread")
+        self.terrain_is_primed = False
         while not self.is_map_done():
             self.collect_terrain_data()
             time.sleep(0.1)
+        print("Thread closing map is done")
+        self.terrain_is_primed = True
 
     def generate_craters_metadata(self, new_block_coord) -> None:
         """
@@ -645,7 +738,7 @@ class HighResDEMGen:
             grid_coords = self.map_grid_block2coords[grid_key]
             if not self.block_grid_tracker[grid_coords]["has_crater_data"]:
                 self.crater_builder_manager.process_data(
-                    coords, self.crater_db.get_block_data(coords)
+                    coords, self.crater_db.get_block_data_with_neighbors(coords)
                 )
             if not self.block_grid_tracker[grid_coords]["has_terrain_data"]:
                 self.interpolator_manager.process_data(
@@ -665,7 +758,7 @@ class HighResDEMGen:
             * self.settings.block_size
             / self.settings.resolution
         )
-
+        print("collecting...")
         # Collect the results from the workers responsible for adding craters
         crater_results = self.crater_builder_manager.collect_results()
         for coords, data in crater_results:
@@ -683,7 +776,7 @@ class HighResDEMGen:
                     (y_c + self.settings.block_size) / self.settings.resolution
                 )
                 + offset,
-            ] += data[0]
+            ] += data
             self.block_grid_tracker[local_coords]["has_crater_data"] = True
 
         # Collect the results from the workers responsible for interpolating the terrain
