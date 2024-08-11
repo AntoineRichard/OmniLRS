@@ -1,6 +1,6 @@
 __author__ = "Antoine Richard, Junnosuke Kahamora"
 __copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+    "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
 __license__ = "GPL"
 __version__ = "1.0.0"
@@ -23,7 +23,8 @@ import omni.replicator.core as rep
 
 class AutonomousLabeling:
     """
-    AutonomousLabeling class. It is used to generate synthetic data from a USD scene."""
+    AutonomousLabeling class. It is used to generate synthetic data from a USD scene.
+    """
 
     def __init__(
         self,
@@ -75,6 +76,7 @@ class AutonomousLabeling:
             "rgb": self.enableRGBData,
             "instance_segmentation": self.enableInstanceData,
             "semantic_segmentation": self.enableSemanticData,
+            "depth": self.enableDepthData,
         }
 
         self.stage = omni.usd.get_context().get_stage()
@@ -98,7 +100,8 @@ class AutonomousLabeling:
         Find the camera prim and path of the camera that will be used to generate the synthetic data.
 
         Args:
-            camera_name (str): The name of the camera."""
+            camera_name (str): The name of the camera.
+        """
 
         for prim in Usd.PrimRange(self.meta_prim):
             if prim.GetName() == camera_name:
@@ -128,15 +131,27 @@ class AutonomousLabeling:
 
     def enableRGBData(self) -> None:
         """
-        Enable the collection of RGB data."""
+        Enable the collection of RGB data.
+        """
 
         rgb_annot = rep.AnnotatorRegistry.get_annotator("rgb")
         self.annotator["rgb"] = rgb_annot
         rgb_annot.attach([self.render_product])
 
+    def enableDepthData(self) -> None:
+        """
+        Enable the collection of RGB data.
+        """
+
+        rgb_annot = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
+        self.annotator["depth"] = rgb_annot
+        rgb_annot.attach([self.render_product])
+
+
     def enableSemanticData(self) -> None:
         """
-        Enable the collection of semantic segmentation data."""
+        Enable the collection of semantic segmentation data.
+        """
 
         semantic_annot = rep.AnnotatorRegistry.get_annotator(
             "semantic_segmentation", init_params={"colorize": True}
@@ -146,7 +161,8 @@ class AutonomousLabeling:
 
     def enableInstanceData(self) -> None:
         """
-        Enable the collection of instance segmentation data."""
+        Enable the collection of instance segmentation data.
+        """
 
         instance_annotator = rep.AnnotatorRegistry.get_annotator(
             "instance_segmentation", init_params={"colorize": True}
@@ -156,7 +172,8 @@ class AutonomousLabeling:
 
     def record(self) -> None:
         """
-        Record a frame of synthetic data."""
+        Record a frame of synthetic data.
+        """
 
         for name, annotator in self.annotator.items():
             self.synthetic_writers[name].write(annotator.get_data())

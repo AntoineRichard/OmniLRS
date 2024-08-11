@@ -1,6 +1,6 @@
 __author__ = "Antoine Richard, Junnosuke Kahamora"
 __copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+    "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 )
 __license__ = "GPL"
 __version__ = "1.0.0"
@@ -13,13 +13,25 @@ import numpy as np
 import json
 import cv2
 import os
-import inspect
 
 
 class BaseWriter:
+    """
+    Base class for writers.
+    """
+
     def __init__(
         self, root_path: str, name: str, element_per_folder: int = 1000, **kwargs
     ) -> None:
+        """
+        Initialize the BaseWriter class.
+
+        Args:
+            root_path (str): The root path of the data.
+            name (str): The name of the data.
+            element_per_folder (int, optional): The number of elements per folder. Defaults to 1000.
+        """
+
         self.root_path = root_path
         self.data_path = os.path.join(root_path, name)
         self.element_per_folder = element_per_folder
@@ -29,7 +41,8 @@ class BaseWriter:
 
     def makeFolder(self) -> None:
         """
-        Make a folder to store the data."""
+        Make a folder to store the data.
+        """
 
         if self.counter % self.element_per_folder == 0:
             self.current_folder = os.path.join(self.data_path, str(self.folder_counter))
@@ -43,14 +56,16 @@ class BaseWriter:
 
         Args:
             data (np.ndarray): The data to write.
-            **kwargs: Additional arguments."""
+            **kwargs: Additional arguments.
+        """
 
         raise NotImplementedError
 
 
 class WriteRGBData(BaseWriter):
     """
-    Write RGB data to a file."""
+    Write RGB data to a file.
+    """
 
     def __init__(
         self,
@@ -90,7 +105,8 @@ class WriteRGBData(BaseWriter):
             data_in (np.ndarray): The RGB data.
 
         Returns:
-            np.ndarray: The RGB data with Gaussian noise."""
+            np.ndarray: The RGB data with Gaussian noise.
+        """
 
         return (
             data_in + self.rng.normal(loc=0.0, scale=self.sigma, size=data_in.shape)
@@ -102,7 +118,8 @@ class WriteRGBData(BaseWriter):
 
         Args:
             data (np.ndarray): The RGB data.
-            **kwargs: Additional arguments."""
+            **kwargs: Additional arguments.
+        """
 
         rgb_image = np.frombuffer(data, dtype=np.uint8).reshape(*data.shape, -1)
         rgb_image = np.squeeze(rgb_image)
@@ -119,10 +136,50 @@ class WriteRGBData(BaseWriter):
         )
         self.counter += 1
 
+class WriteDepthData(BaseWriter):
+    """
+    Write Depth data to a file.
+    """
+
+    def __init__(self, root_path: str,
+                       name: str = "depth",
+                       element_per_folder: int = 1000,
+                       **kwargs) -> None:
+        """
+        Initialize the WriteRGBData class.
+        
+        Args:
+            root_path (str): The root path of the data.
+            name (str, optional): The name of the data. Defaults to "depth".
+            element_per_folder (int, optional): The number of elements per folder. Defaults to 10000.
+            image_format (str, optional): The image format. Defaults to "png".
+        """
+        
+        image_format = "npz"
+        super().__init__(root_path, name, element_per_folder)
+        self.image_format = image_format
+
+
+    def write(self, data: np.ndarray, **kwargs) -> None:
+        """
+        Write Depth data to a file.
+        
+        Args:
+            data (np.ndarray): The Depth data.
+            **kwargs: Additional arguments.
+        """
+        
+        depth_image = np.frombuffer(data, dtype=np.float32).reshape(*data.shape, -1)
+        depth_image = np.squeeze(depth_image)
+        self.makeFolder()
+        np.savez_compressed(os.path.join(self.current_folder, f'{self.counter:0{self.image_fix_name_size}d}.'+self.image_format), depth=depth_image)
+        self.counter += 1
+
 
 class WriteSemanticData(BaseWriter):
     """
-    Write semantic segmentation data to a file."""
+    Write semantic segmentation data to a file.
+    """
 
     def __init__(
         self,
@@ -142,7 +199,8 @@ class WriteSemanticData(BaseWriter):
             element_per_folder (int, optional): The number of elements per folder. Defaults to 10000.
             image_format (str, optional): The image format. Defaults to "png".
             annot_format (str, optional): The annotation format. Defaults to "json".
-            **kwargs: Additional arguments."""
+            **kwargs: Additional arguments.
+        """
 
         super().__init__(root_path, name, element_per_folder)
         self.image_format = image_format
@@ -150,7 +208,8 @@ class WriteSemanticData(BaseWriter):
 
     def makeFolder(self) -> None:
         """
-        Make a folder to store the data."""
+        Make a folder to store the data.
+        """
 
         if self.counter % self.element_per_folder == 0:
             self.current_folder_image = os.path.join(
@@ -170,7 +229,8 @@ class WriteSemanticData(BaseWriter):
 
         Args:
             data (Dict): The semantic segmentation data.
-            **kwargs: Additional arguments."""
+            **kwargs: Additional arguments.
+        """
 
         id_to_labels = data["info"]["idToLabels"]
         sem_image_data = np.frombuffer(data["data"], dtype=np.uint8).reshape(
@@ -199,7 +259,8 @@ class WriteSemanticData(BaseWriter):
 
 class WriteInstanceData(BaseWriter):
     """
-    Write instance semantic segmentation data to a file."""
+    Write instance semantic segmentation data to a file.
+    """
 
     def __init__(
         self,
@@ -219,7 +280,8 @@ class WriteInstanceData(BaseWriter):
             element_per_folder (int, optional): The number of elements per folder. Defaults to 10000.
             image_format (str, optional): The image format. Defaults to "png".
             annot_format (str, optional): The annotation format. Defaults to "json".
-            **kwargs: Additional arguments."""
+            **kwargs: Additional arguments.
+        """
 
         super().__init__(root_path, name, element_per_folder)
         self.image_format = image_format
@@ -227,7 +289,8 @@ class WriteInstanceData(BaseWriter):
 
     def makeFolder(self) -> None:
         """
-        Make a folder to store the data."""
+        Make a folder to store the data.
+        """
 
         if self.counter % self.element_per_folder == 0:
             self.current_folder_image = os.path.join(
@@ -251,7 +314,8 @@ class WriteInstanceData(BaseWriter):
 
         Args:
             data (Dict): The instance segmentation data.
-            **kwargs: Additional arguments."""
+            **kwargs: Additional arguments.
+        """
 
         id_to_labels = data["info"]["idToLabels"]
         id_to_semantic = data["info"]["idToSemantics"]
@@ -289,7 +353,8 @@ class WriteInstanceData(BaseWriter):
 
 class WriterFactory:
     """
-    A factory class to create writers."""
+    A factory class to create writers.
+    """
 
     def __init__(self):
         self.writers = {}
@@ -301,7 +366,8 @@ class WriterFactory:
         Args:
             name (str): The name of the writer.
             writer (BaseWriter): The writer to register.
-            **kwargs: Additional arguments."""
+            **kwargs: Additional arguments.
+        """
 
         self.writers[name] = writer
 
@@ -317,7 +383,8 @@ class WriterFactory:
             BaseWriter: The writer.
 
         Raises:
-            AssertionError: If the writer is not registered."""
+            AssertionError: If the writer is not registered.
+        """
 
         assert name in self.writers, f"Writer {name} not registered"
 
@@ -326,5 +393,6 @@ class WriterFactory:
 
 writerFactory = WriterFactory()
 writerFactory.registerWriter("rgb", WriteRGBData)
+writerFactory.registerWriter("depth", WriteDepthData)
 writerFactory.registerWriter("semantic_segmentation", WriteSemanticData)
 writerFactory.registerWriter("instance_segmentation", WriteInstanceData)
