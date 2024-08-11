@@ -324,6 +324,9 @@ class MapManager:
         """
 
         return self.hr_dem_gen.get_height(coordinates)
+    
+    def get_normal(self, coordinates: Tuple[float, float]) -> Tuple[float, float, float, float]:
+        return self.hr_dem_gen.get_normal(coordinates)
 
     def initialize_hr_dem(self, coordinates: Tuple[float, float]) -> None:
         """
