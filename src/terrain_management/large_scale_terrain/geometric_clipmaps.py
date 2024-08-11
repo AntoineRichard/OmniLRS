@@ -74,6 +74,7 @@ class GeoClipmap:
         specs: GeoClipmapSpecs,
         interpolation_method: str = "bilinear",
         acceleration_mode: str = "hybrid",
+        profiling: bool = False,
     ) -> None:
         """
         Args:
@@ -93,6 +94,7 @@ class GeoClipmap:
         self.dem_shape = None
         self.interpolation_method = interpolation_method
         self.acceleration_mode = acceleration_mode
+        self.profiling = profiling
         self.initMesh()
 
     def build(self, dem: np.ndarray, dem_shape: Tuple[int, int]) -> None:
@@ -111,6 +113,7 @@ class GeoClipmap:
             self.points,
             interpolation_method=self.interpolation_method,
             acceleration_mode=self.acceleration_mode,
+            profiling=self.profiling,
         )
 
     @staticmethod
@@ -230,6 +233,7 @@ class DEMSampler:
         points,
         interpolation_method="bilinear",
         acceleration_mode="hybrid",
+        profiling=False,
     ) -> None:
         """
         Args:
@@ -240,12 +244,14 @@ class DEMSampler:
             interpolation_method (str): method to use for interpolation. Can be "bilinear"
                 or "bicubic".
             acceleration_mode (str): mode to use for acceleration. Can be "hybrid" or "gpu".
+            profiling (bool): flag to enable profiling.
         """
 
         self.dem = dem  # Reference (read only)
         self.dem_size = dem_size  # Reference (read only)
         self.specs = specs  # Reference (read only)
         self.points = points  # Reference (read only)
+        self.profiling = profiling
 
         self.interpolation_method = interpolation_method
         self.acceleration_mode = acceleration_mode
@@ -272,7 +278,7 @@ class DEMSampler:
         """
 
         if self.acceleration_mode == "gpu":
-            with wp.ScopedTimer("update DEM data"):
+            with wp.ScopedTimer("update DEM data", active=self.profiling):
                 self.dem_wp.assign(self.dem.flatten())
 
     def initialize_warp_buffers_hybrid_mode(self) -> None:
@@ -372,7 +378,7 @@ class DEMSampler:
             position (np.ndarray): position to query the elevation from (in meters).
         """
 
-        with wp.ScopedTimer("preprocess_Hybrid", active=True):
+        with wp.ScopedTimer("preprocess_Hybrid", active=self.profiling):
             position_in_pixel = position * (1.0 / self.specs.source_resolution)
             coords = wp.vec2f(position_in_pixel[0], position_in_pixel[1])
             wp.launch(
@@ -403,7 +409,7 @@ class DEMSampler:
         Perform bilinear interpolation using the "hybrid" mode.
         """
 
-        with wp.ScopedTimer("get_values_wp_Hybrid", active=True):
+        with wp.ScopedTimer("get_values_wp_Hybrid", active=self.profiling):
             wp.launch(
                 kernel=_get_values_wp_2x2,
                 dim=self.points.shape[0],
@@ -418,7 +424,7 @@ class DEMSampler:
             )
             self.q_cuda.assign(self.q_cpu)
 
-        with wp.ScopedTimer("bilinear_interpolation_Hybrid", active=True):
+        with wp.ScopedTimer("bilinear_interpolation_Hybrid", active=self.profiling):
             wp.launch(
                 kernel=_bilinear_interpolation,
                 dim=self.points.shape[0],
@@ -436,7 +442,7 @@ class DEMSampler:
         Perform bicubic interpolation using the "hybrid" mode.
         """
 
-        with wp.ScopedTimer("get_values_wp_4x4_Hybrid", active=True):
+        with wp.ScopedTimer("get_values_wp_4x4_Hybrid", active=self.profiling):
             wp.launch(
                 kernel=_get_values_wp_4x4,
                 dim=self.points.shape[0],
@@ -451,7 +457,7 @@ class DEMSampler:
             )
             self.q_cuda.assign(self.q_cpu)
 
-        with wp.ScopedTimer("bicubic_interpolation_Hybrid", active=True):
+        with wp.ScopedTimer("bicubic_interpolation_Hybrid", active=self.profiling):
             wp.launch(
                 kernel=_bicubic_interpolation,
                 dim=self.points.shape[0],
@@ -473,7 +479,7 @@ class DEMSampler:
             position (np.ndarray): position to query the elevation from (in meters).
         """
 
-        with wp.ScopedTimer("preprocess_GPU", active=True):
+        with wp.ScopedTimer("preprocess_GPU", active=self.profiling):
             position_in_pixel = position * (1.0 / self.specs.source_resolution)
             coords = wp.vec2f(position_in_pixel[0], position_in_pixel[1])
             wp.launch(
@@ -501,7 +507,7 @@ class DEMSampler:
         Perform bilinear interpolation using the "gpu" mode.
         """
 
-        with wp.ScopedTimer("get_values_wp_GPU", active=True):
+        with wp.ScopedTimer("get_values_wp_GPU", active=self.profiling):
             wp.launch(
                 kernel=_get_values_wp_2x2,
                 dim=self.points.shape[0],
@@ -515,7 +521,7 @@ class DEMSampler:
                 device="cuda",
             )
 
-        with wp.ScopedTimer("bilinear_interpolation_GPU", active=True):
+        with wp.ScopedTimer("bilinear_interpolation_GPU", active=self.profiling):
             wp.launch(
                 kernel=_bilinear_interpolation,
                 dim=self.points.shape[0],
@@ -534,7 +540,7 @@ class DEMSampler:
         Perform bicubic interpolation using the "gpu" mode.
         """
 
-        with wp.ScopedTimer("get_values_wp_4x4_GPU", active=True):
+        with wp.ScopedTimer("get_values_wp_4x4_GPU", active=self.profiling):
             wp.launch(
                 kernel=_get_values_wp_4x4,
                 dim=self.points.shape[0],
@@ -548,7 +554,7 @@ class DEMSampler:
                 device="cuda",
             )
 
-        with wp.ScopedTimer("bicubic_interpolation_GPU", active=True):
+        with wp.ScopedTimer("bicubic_interpolation_GPU", active=self.profiling):
             wp.launch(
                 kernel=_bicubic_interpolation,
                 dim=self.points.shape[0],

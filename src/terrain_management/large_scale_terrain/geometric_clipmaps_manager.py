@@ -50,6 +50,7 @@ class GeoClipmapManager:
         interpolation_method: str = "bilinear",
         acceleration_mode: str = "hybrid",
         name_prefix: str = "",
+        profiling: bool = False,
     ) -> None:
         """
         Args:
@@ -66,6 +67,7 @@ class GeoClipmapManager:
             acceleration_mode=acceleration_mode,
         )
         self._root_path = cfg.root_path
+        self.profiling = profiling
 
         self._mesh_pos = cfg.mesh_position
         self._mesh_rot = cfg.mesh_orientation
@@ -103,9 +105,9 @@ class GeoClipmapManager:
             position (np.ndarray): position to use for the update (in meters).
             mesh_position (np.ndarray): position of the mesh (in meters).
         """
-        with wp.ScopedTimer("complete update loop"):
+        with wp.ScopedTimer("complete update loop", active=self.profiling):
             self._geo_clipmap.updateElevation(position)
-            with wp.ScopedTimer("mesh update"):
+            with wp.ScopedTimer("mesh update", active=self.profiling):
                 self.renderMesh(
                     self._geo_clipmap.points,
                     self._geo_clipmap.indices,
