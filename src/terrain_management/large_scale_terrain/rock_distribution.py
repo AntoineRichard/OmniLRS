@@ -78,7 +78,7 @@ class ThomasPointProcess:
     def sample(self, region: BoundingBox):
         parent_coords, num_parents = self.sample_parents(region)
         children_coords, num_children = self.sample_children(parent_coords, num_parents)
-        return parent_coords, children_coords, num_parents, num_children
+        return children_coords, num_children
 
 @dataclasses.dataclass
 class Uniform:
@@ -184,133 +184,10 @@ class DynamicDistribute:
         self.settings = settings
         self._rng = np.random.default_rng(self.settings.seed)
 
-    def sampleFromPoisson(
-        self,
-        region: BoundingBox,
-        l: float,
-        r_minmax: Tuple[float, float],
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Samples from a Poisson process.
-
-        Args:
-            region (BoundingBox): region to sample from.
-            l (float): density of the Poisson process (in units per square meters).
-            r_minmax (Tuple[float,float]): minimum and maximum radius of the craters (in meters).
-
-        Returns:
-            Tuple[np.ndarray, np.ndarray]: coordinates and radius of the craters.
-        """
-
-        area = (region.x_max - region.x_min) * (region.y_max - region.y_min)
-        num_points = self._rng.poisson(area * l)
-        radius = self._rng.uniform(r_minmax[0], r_minmax[1], num_points)
-        x_coords = self._rng.uniform(region.x_min, region.x_max, num_points)
-        y_coords = self._rng.uniform(region.y_min, region.y_max, num_points)
-        return np.stack([x_coords, y_coords]).T, radius
-
-    def checkPrevious(
-        self, new_coords: np.ndarray, radius: np.ndarray, prev_coords: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Checks if the new craters are not contained in the previous craters.
-
-        Args:
-            new_coords (np.ndarray): coordinates of the new craters.
-            radius (np.ndarray): radii of the new craters.
-            prev_coords (np.ndarray): coordinates of the previous craters.
-
-        Returns:
-            Tuple[np.ndarray, np.ndarray]: the coordinates of the new craters, the radii of the new craters.
-        """
-
-        boole_keep = np.ones(new_coords.shape[0], dtype=bool)
-        if prev_coords is None:
-            boole_keep = np.ones(new_coords.shape[0], dtype=bool)
-        else:
-            for i in range(prev_coords[0].shape[0]):
-                dist_tmp = np.linalg.norm(prev_coords[0][i] - new_coords, axis=-1)
-                in_disk = (dist_tmp < prev_coords[1][i]) & (dist_tmp > 0)
-                boole_keep[in_disk] = False
-        return new_coords[boole_keep], radius[boole_keep]
-
-    def simulatePoissonProcess(
-        self,
-        region: BoundingBox,
-        l: float,
-        r_minmax: Tuple[float],
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Simulates a Poisson process.
-
-        Args:
-            region (BoundingBox): region to sample from.
-            l (float): density of the Poisson process (in units per square meters).
-            r_minmax (tuple): minimum and maximum radius of the craters (in meters).
-            prev_coords (np.ndarray): coordinates of the previous craters (in meters).
-
-        Returns:
-            tuple: coordinates of the craters, radii of the craters.
-        """
-
-        coords, radius = self.sampleFromPoisson(region, l, r_minmax)
-        return coords, radius
-
-    def run_NHC(
-        self, region: BoundingBox) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Runs the Poisson process for all the densities and radius in order.
-        Unlike the hardcore rejection, this method does not reject craters that are too close
-        to each other.
-
-        Args:
-            region (BoundingBox): region to sample from.
-            prev_coords (tuple): coordinates of the previous craters.
-
-        Returns:
-            tuple: coordinates of the craters, radii of the craters.
-        """
-
-        new_coords, new_radius = self.simulatePoissonProcess(region, d, r_minmax)
-            coords_to_save.append(new_coords)
-            rads_to_save.append(new_radius)
-            if prev_coords is not None:
-                prev_coords = (
-                    np.concatenate([prev_coords[0], new_coords], axis=0),
-                    np.concatenate([prev_coords[1], new_radius], axis=0),
-                )
-            else:
-                prev_coords = (new_coords, new_radius)
-
-        to_save = (
-            np.concatenate(coords_to_save, axis=0),
-            np.concatenate(rads_to_save, axis=0),
-        )
-        return to_save
-
-    def run(
-        self,
-        region: BoundingBox,
-        prev_coords: Tuple[np.ndarray, np.ndarray] = None,
-        use_hc: bool = False,
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Runs the Poisson process for all the densities and radius in order.
-
-        Args:
-            region (BoundingBox): region to sample from.
-            prev_coords (Tuple[np.ndarray, np.ndarray]): coordinates of the previous craters.
-            use_hc (bool): whether to use hardcore rejection or not.
-
-        Returns:
-            Tuple[np.ndarray, np.ndarray]: coordinates of the craters, radii of the craters.
-        """
-
-        if use_hc:
-            return self.run_HC(region, prev_coords)
-        else:
-            return self.run_NHC(region, prev_coords)
-
+    def build_samplers(self):
+        self.position_sampler = self.settings.position_distribution
+        self.scale_sampler = self.settings.scale_distribution
+        self.rotation_sampler = distribution_factory.create(random_rotation)
 
 
 @dataclasses.dataclass
