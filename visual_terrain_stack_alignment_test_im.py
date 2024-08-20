@@ -105,8 +105,8 @@ if __name__ == "__main__":
     # from WorldBuilders.pxr_utils import setDefaultOps, addDefaultOps
     import numpy as np
 
-    from src.terrain_management.map_manager import MapManagerCfg, MapManager
-    from src.terrain_management.high_res_dem_gen import HighResDEMGenCfg
+    from src.terrain_management.large_scale_terrain.map_manager import MapManagerCfg, MapManager
+    from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator import HighResDEMGenCfg
 
     # from src.terrain_management.large_scale_terrain_manager import (
     #    NestedGeometricClipMapManagerCfg,

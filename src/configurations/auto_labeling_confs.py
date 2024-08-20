@@ -68,7 +68,7 @@ class AutoLabelingConf:
             len(self.camera_resolution) == 2
         ), "camera_resolution must be a tuple of length 2"
         assert self.element_per_folder > 0, "element_per_folder must be greater than 0"
-        assert self.sigma > 0, "sigma must be greater than 0"
+        assert self.sigma >= 0, "sigma must be greater or equal than 0"
         assert self.image_format in [
             "png",
             "jpeg",

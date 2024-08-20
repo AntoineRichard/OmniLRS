@@ -49,7 +49,17 @@ def EMAquat(q1, q2, alpha):
 #    )
 
 
-simulation_app = SimulationApp({"headless": True})
+cfg = {
+  "renderer": "PathTracing",
+  "headless": True,
+  "samples_per_pixel_per_frame": 32,
+  "max_bounces": 6,
+  "max_specular_transmission_bounces": 6,
+  "max_volume_bounces": 4,
+  "subdiv_refinement_level": 0,
+}
+simulation_app = SimulationApp(cfg)
+
 HRDEMCfg_D = {
     "num_blocks": 4,
     "block_size": 50,

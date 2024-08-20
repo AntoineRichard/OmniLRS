@@ -289,3 +289,60 @@ def _bicubic_interpolation(
         + a2 * coeffs[tid][2]
         + a3 * coeffs[tid][3]
     )
+
+@wp.func
+def _normal_on_grid(q: wp.mat22f, grid_size: float) -> wp.vec3f:
+    """
+    Computes the normal of a quad on a regular grid.
+    It makes the following assumptions:
+
+    q[0,0] (a) ---- q[0,1] (b)
+       |               |
+       |       X       | grid_size
+       |               |
+    q[1,0] (c) ---- q[1,1] (d)
+    
+    a = (0, 0, a_z)
+    b = (grid_size, 0, b_z)
+    c = (0, grid_size, c_z)
+    d = (grid_size, grid_size, d_z)
+
+    Compute cross r1 = (b - a, c - a)
+    Compute cross r2 = (b - d, c - d)
+    normal = (r1 + r2) / 2
+
+    b - a = (0, grid_size, b_z - a_z),  c - a = (grid_size, 0, c_z - a_z)
+    b - d = (-grid_size, 0, b_z - d_z), c - d = (0, -grid_size, c_z - d_z)
+
+    u = (u0, u1, u2), v = (v0, v1, v2)
+    u x v = (u1v2 - u2v1, u2v0 - u0v2, u0v1 - u1v0)
+
+    r1 = ((c_z - a_z) * grid_size, grid_size * (b_z - a_z), - grid_size * grid_size)
+    r2 = (grid_size * (b_z - d_z), (c_z - d_z) * grid_size, grid_size * grid_size)
+
+    Take the average:
+    Flip r1 to ensure both vectors are pointing up (they can't point down since the surface is always oriented upwards)
+    (-r1 + r2) / 2 = ( grid_size * (b_z - d_z - c_z + a_z) / 2, grid_size * (c_z - d_z - b_z + a_z) / 2, grid_size * grid_size)
+    """
+
+    return wp.vec3f(grid_size / 2 * (q[0,1] - q[1,1] - q[1,0] + q[0,0]), grid_size / 2 * (q[1,0] - q[1,1] - q[0,1] - q[0,0]), grid_size * grid_size)
+
+@wp.kernel
+def _4points_normal(q: wp.array(dtype=wp.mat22f),
+                    grid_size: float,
+                    normal: wp.array(dtype=wp.vec3f)):
+    tid = wp.tid()
+    normal[tid] = _normal_on_grid(q[tid], grid_size)
+
+@wp.func
+def _get_random_tangent_vector(normal: wp.vec3f) -> wp.quatf:
+    vx = wp.vec3f(0,0,0)
+    vx = wp.cross(normal, vx)
+    vx = vx / 
+    vy = wp.cross(normal, vx)
+
+    return 
+
+@wp.kernel
+def _get_random_orientation(normal: wp.array(dtype=wp.vec3f), quat: wp.array(dtype=wp.quatf)):
+

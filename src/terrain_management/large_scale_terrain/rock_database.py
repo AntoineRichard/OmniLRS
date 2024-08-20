@@ -34,7 +34,7 @@ class RockDBCfg:
 
 class RockDB:
     """
-    Class to manage the crater database.
+    Class to manage the rock database.
     """
 
     def __init__(self, cfg: RockDBCfg) -> None:
@@ -51,11 +51,11 @@ class RockDB:
         self, block_data: RockBlockData, block_coordinates: Tuple[float, float]
     ) -> None:
         """
-        Adds a block of data to the database. That is, a list of crater metadata
+        Adds a block of data to the database. That is, a RockBlockData object
         indexed by the block coordinates.
 
         Args:
-            block_data (List[CraterMetadata]): list of crater metadata.
+            block_data (RockBlockData): Position, orientation, scale and Ids of the rocks.
             block_coordinates (Tuple[float, float]): coordinates of the block.
         """
 
@@ -115,7 +115,7 @@ class RockDB:
             block_coordinates (Tuple[float, float]): coordinates of the block.
 
         Returns:
-            List[CraterMetadata]: list of crater metadata.
+            RockBlockData: list of crater metadata.
         """
 
         blocks = []
@@ -178,7 +178,7 @@ class RockDB:
             region (BoundingBox): region to check for blocks.
 
         Returns:
-            List[CraterMetadata]: list of crater metadata.
+            RockDataBlock: list of crater metadata.
         """
 
         blocks = []
@@ -229,7 +229,7 @@ class RockDB:
             region (BoundingBox): region to check for blocks.
 
         Returns:
-            List[CraterMetadata]: list of crater metadata.
+            RockDataBlock: list of crater metadata.
         """
 
         blocks = []
@@ -274,7 +274,7 @@ class RockDB:
         Gets all the blocks in the database.
 
         Returns:
-            List[CraterMetadata]: list of crater metadata.
+            RockDataBlock: list of crater metadata.
         """
 
         blocks = []

@@ -14,6 +14,7 @@ import dataclasses
 import numpy as np
 import colorsys
 import pickle
+import math
 
 from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBlockData
 from src.terrain_management.large_scale_terrain.rock_database import RockDB
@@ -21,7 +22,15 @@ from src.terrain_management.large_scale_terrain.rock_database import RockDB
 # Poisson, thomas point process
 
 @dataclasses.dataclass
-class Poisson:
+class BaseDistribution:
+    name: str = dataclasses.field(default_factory=str)
+
+    def sample(self, **kwargs):
+        raise NotImplementedError
+
+
+@dataclasses.dataclass
+class Poisson(BaseDistribution):
     name: str = "poisson"
     density: float = 0.0
     seed: int = 42
@@ -35,7 +44,7 @@ class Poisson:
         area = (region.x_max - region.x_min) * (region.y_max - region.y_min)
         return self.rng.poisson(area * self.density)
 
-    def sample(self, region: BoundingBox):
+    def sample(self, region: BoundingBox, **kwargs):
         num_points = self.get_num_points(region)
         x_coords = self.rng.uniform(region.x_min, region.x_max, num_points)
         y_coords = self.rng.uniform(region.y_min, region.y_max, num_points)
@@ -43,7 +52,7 @@ class Poisson:
 
 
 @dataclasses.dataclass
-class ThomasPointProcess:
+class ThomasPointProcess(BaseDistribution):
     name: str = "thomas_point_process"
     parent_density: float = 0.0
     child_density: float = 0.0
@@ -75,13 +84,13 @@ class ThomasPointProcess:
         children_coords = children_coords + np.repeat(parent_coords, num_child, axis=0)
         return children_coords, num_points
     
-    def sample(self, region: BoundingBox):
+    def sample(self, region: BoundingBox, **kwargs):
         parent_coords, num_parents = self.sample_parents(region)
         children_coords, num_children = self.sample_children(parent_coords, num_parents)
         return children_coords, num_children
 
 @dataclasses.dataclass
-class Uniform:
+class Uniform(BaseDistribution):
     name: str = "uniform"
     min: float = 0.0
     max: float = 0.0
@@ -94,11 +103,11 @@ class Uniform:
         self.seed = int(self.seed)
         self.rng = np.random.default_rng(self.seed)
 
-    def sample(self, num_points, dim=1):
+    def sample(self, num_points, dim=1, **kwargs):
         return self.rng.uniform(self.min, self.max, (num_points, dim))
 
 @dataclasses.dataclass
-class Normal:
+class Normal(BaseDistribution):
     name: str = "normal"
     mean: float = 0.0
     std: float = 0.0
@@ -110,7 +119,7 @@ class Normal:
         self.std = float(self.std)
         self.seed = int(self.seed)
     
-    def sample(self, num_points, dim=1):
+    def sample(self, num_points, dim=1, **kwargs):
         rng = np.random.default_rng(self.seed)
         return rng.normal(self.mean, self.std, (num_points, dim))
     
@@ -161,6 +170,7 @@ class RockDynamicDistributionCfg:
 
     position_distribution: dict = dataclasses.field(default_factory=dict)
     scale_distribution: dict = dataclasses.field(default_factory=dict)
+    seed: int = dataclasses.field(default_factory=int)
 
     def __post_init__(self):
         self.position_distribution = distribution_factory.create(self.position_distribution)
@@ -185,22 +195,28 @@ class DynamicDistribute:
         self._rng = np.random.default_rng(self.settings.seed)
 
     def build_samplers(self):
+        rotation = {
+            "name": "uniform",
+            "min": 0,
+            "max": math.pi * 2,
+            "seed": self.settings.seed
+        }
         self.position_sampler = self.settings.position_distribution
         self.scale_sampler = self.settings.scale_distribution
-        self.rotation_sampler = distribution_factory.create(random_rotation)
+        self.rotation_sampler = distribution_factory.create(rotation)
 
 
 @dataclasses.dataclass
-class CraterSamplerCfg:
+class RockSamplerCfg:
     """
     Args:
         block_size (int): size of the blocks.
-        crater_gen_cfg (CraterGeneratorCfg): configuration for the crater generator.
-        crater_dist_cfg (CraterDynamicDistributionCfg): configuration for the crater distribution
+        crater_gen_cfg (CraterGeneratorCfg): configuration for the rock generator.
+        crater_dist_cfg (CraterDynamicDistributionCfg): configuration for the rock distribution
     """
 
     block_size: int = 50
-    crater_dist_cfg: CraterDynamicDistributionCfg = dataclasses.field(
+    rock_dist_cfg: RockDynamicDistributionCfg = dataclasses.field(
         default_factory=dict
     )
 
@@ -212,7 +228,7 @@ class CraterSamplerCfg:
             self.crater_dist_cfg is not None
         ), "Crater distribution configuration must be provided."
 
-        self.crater_dist_cfg = CraterDynamicDistributionCfg(**self.crater_dist_cfg)
+        self.crater_dist_cfg = RockDynamicDistributionCfg(**self.rock_dist_cfg)
 
 
 class RockSampler:
@@ -221,7 +237,7 @@ class RockSampler:
     generation and the crater database to generate craters' metadata on the fly.
     """
 
-    def __init__(self, crater_sampler_cfg: CraterSamplerCfg, db: CraterDB) -> None:
+    def __init__(self, crater_sampler_cfg: RockSamplerCfg, db: RockDB) -> None:
         """
         Args:
             crater_sampler_cfg (CraterSamplerCfg): configuration for the crater sampler.
@@ -229,10 +245,14 @@ class RockSampler:
         """
 
         self.settings = crater_sampler_cfg
-        self.crater_dist_gen = DynamicDistribute(self.settings.crater_dist_cfg)
-        self.crater_metadata_gen = CraterMetadataGenerator(self.settings.crater_gen_cfg)
+        self.rock_dist_gen = DynamicDistribute(self.settings.crater_dist_cfg)
         self.rock_db = db
-        self.add_profiles_to_db()
+
+    def generate_rocks(self, region: BoundingBox):
+        xy_position,  num_points = self.rock_dist_gen.position_sampler(region)
+        scale = self.rock_dist_gen.scale_sampler(num_points)
+        z_rotation = self.rock_dist_gen.rotation_sampler(num_points)
+        
 
     @staticmethod
     def compute_largest_rectangle(matrix: np.ndarray) -> Tuple[int, int]:
@@ -298,11 +318,11 @@ class RockSampler:
         """
 
         # Checks if the block is valid
-        self.crater_db.is_valid(block_coordinates)
+        self.rock_db.is_valid(block_coordinates)
 
         # Checks if the block already contains craters
-        if self.crater_db.check_block_exists(block_coordinates):
-            block = self.crater_db.get_block_data(block_coordinates)
+        if self.rock_db.check_block_exists(block_coordinates):
+            block = self.rock_db.get_block_data(block_coordinates)
         else:
             # Converts the metadatas into numpy arrays
             bb = BoundingBox(
@@ -361,7 +381,7 @@ class RockSampler:
         # Process by regions until the largest rectangle is smaller or equal to 1 block
         process_by_regions = True
         while process_by_regions:
-            _, _, matrix = self.crater_db.get_blocks_within_region_with_neighbors(
+            _, _, matrix = self.rock_db.get_blocks_within_region_with_neighbors(
                 region
             )
             # Computes the largest rectangle in the region that does not contain any craters
@@ -382,7 +402,7 @@ class RockSampler:
 
             # Get all the existing craters in the region (should be empty except
             # for the neighbors). This is done for the hardcore rejection.
-            blocks, _, _ = self.crater_db.get_blocks_within_region_with_neighbors(
+            blocks, _, _ = self.rock_db.get_blocks_within_region_with_neighbors(
                 new_region
             )
 
@@ -400,13 +420,13 @@ class RockSampler:
                 new_blocks_list, block_coordinates_list
             ):
                 metadata = self.crater_metadata_gen.run(coordinates, radius)
-                self.crater_db.add_block_data(metadata, block_coordinates)
+                self.rock_db.add_block_data(metadata, block_coordinates)
 
         # If the largest rectangle is smaller or equal to 1 block, we sample craters
         # on a per block basis.
-        coordinates = self.crater_db.get_missing_blocks(region)
+        coordinates = self.rock_db.get_missing_blocks(region)
         for coord in coordinates:
-            self.sample_craters_by_block(coord)
+            self.sample_rocks_by_block(coord)
 
     def display_block(self, coordinates: Tuple[float, float]):
         """
@@ -416,8 +436,8 @@ class RockSampler:
             coordinates (Tuple[float,float]): coordinates of the block.
         """
         fig = plt.figure(figsize=(10, 10), dpi=300)
-        if self.crater_db.check_block_exists(coordinates):
-            block = self.crater_db.get_block_data(coordinates)
+        if self.rock_db.check_block_exists(coordinates):
+            block = self.rock_db.get_block_data(coordinates)
             coordinates, radius = self.crater_metadata_gen.castMetadata(block)
             ppm = 3000 / self.settings.block_size / 5
             plt.scatter(coordinates[:, 0], coordinates[:, 1], s=radius * ppm)
@@ -431,7 +451,7 @@ class RockSampler:
             coords (List[Tuple[float,float]]): list of coordinates of the blocks.
         """
         fig = plt.figure(figsize=(10, 10), dpi=300)
-        blocks = [self.crater_db.get_block_data(coord) for coord in coords]
+        blocks = [self.rock_db.get_block_data(coord) for coord in coords]
 
         color_interp = np.linspace(0, 1, len(blocks), endpoint=False)
         colors = [colorsys.hsv_to_rgb(i, 1, 1) for i in color_interp]
@@ -453,7 +473,7 @@ class RockSampler:
         """
 
         fig = plt.figure(figsize=(10, 10), dpi=300)
-        blocks, _, _ = self.crater_db.get_blocks_within_region(region)
+        blocks, _, _ = self.rock_db.get_blocks_within_region(region)
         coordinates, radius = self.crater_metadata_gen.castMetadata(blocks)
         blocks, block_coordinates = self.dissect_region_blocks(
             (coordinates, radius), region
