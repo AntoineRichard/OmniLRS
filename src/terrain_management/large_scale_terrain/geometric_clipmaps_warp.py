@@ -290,18 +290,20 @@ def _bicubic_interpolation(
         + a3 * coeffs[tid][3]
     )
 
+
 @wp.func
 def _normal_on_grid(q: wp.mat22f, grid_size: float) -> wp.vec3f:
     """
-    Computes the normal of a quad on a regular grid.
-    It makes the following assumptions:
+    Computes the normal of a quad on a regular grid. The quad can be split into two triangles.
+    We thus compute the normal of each triangle and take the average. To do so, we make the
+    following assumptions:
 
     q[0,0] (a) ---- q[0,1] (b)
        |               |
        |       X       | grid_size
        |               |
     q[1,0] (c) ---- q[1,1] (d)
-    
+
     a = (0, 0, a_z)
     b = (grid_size, 0, b_z)
     c = (0, grid_size, c_z)
@@ -325,24 +327,51 @@ def _normal_on_grid(q: wp.mat22f, grid_size: float) -> wp.vec3f:
     (-r1 + r2) / 2 = ( grid_size * (b_z - d_z - c_z + a_z) / 2, grid_size * (c_z - d_z - b_z + a_z) / 2, grid_size * grid_size)
     """
 
-    return wp.vec3f(grid_size / 2 * (q[0,1] - q[1,1] - q[1,0] + q[0,0]), grid_size / 2 * (q[1,0] - q[1,1] - q[0,1] - q[0,0]), grid_size * grid_size)
+    return wp.vec3f(
+        grid_size / 2 * (q[0, 1] - q[1, 1] - q[1, 0] + q[0, 0]),
+        grid_size / 2 * (q[1, 0] - q[1, 1] - q[0, 1] - q[0, 0]),
+        grid_size * grid_size,
+    )
+
 
 @wp.kernel
-def _4points_normal(q: wp.array(dtype=wp.mat22f),
-                    grid_size: float,
-                    normal: wp.array(dtype=wp.vec3f)):
+def _preprocess_multi_points(
+    x: wp.array(dtype=float),
+    y: wp.array(dtype=float),
+    coord: wp.vec2f,
+    mpp: float,
+):
+    tid = wp.tid()
+    x[tid] = x[tid] / mpp - coord[0]
+    y[tid] = y[tid] / mpp - coord[1]
+
+
+@wp.kernel
+def _bilinear_interpolation_and_random_orientation(
+    x: wp.array(dtype=float),
+    y: wp.array(dtype=float),
+    q: wp.array(dtype=wp.mat22f),
+    grid_size: float,
+    normal: wp.array(dtype=wp.vec3f),
+    quat: wp.array(dtype=wp.quatf),
+    height: wp.array(dtype=float),
+    seed: wp.uint32,
+):
     tid = wp.tid()
     normal[tid] = _normal_on_grid(q[tid], grid_size)
+    quat[tid] = _get_random_tangent_vector(normal[tid], wp.rand_init(seed, tid * 3))
+    height[tid] = _bilinear_interpolator(x[tid], y[tid], q[tid])
+
 
 @wp.func
-def _get_random_tangent_vector(normal: wp.vec3f) -> wp.quatf:
-    vx = wp.vec3f(0,0,0)
+def _get_random_tangent_vector(normal: wp.vec3f, state: wp.uint32) -> wp.quatf:
+    vx = wp.vec3f(
+        wp.randf(state, -1.0, 1.0),
+        wp.randf(state + 1, -1.0, 1.0),
+        wp.randf(state + 2, -1.0, 1.0),
+    )
     vx = wp.cross(normal, vx)
-    vx = vx / 
+    vx = vx / wp.length(vx)
     vy = wp.cross(normal, vx)
-
-    return 
-
-@wp.kernel
-def _get_random_orientation(normal: wp.array(dtype=wp.vec3f), quat: wp.array(dtype=wp.quatf)):
-
+    mat = wp.mat33f(vx, vy, normal)
+    return wp.quatf(mat)

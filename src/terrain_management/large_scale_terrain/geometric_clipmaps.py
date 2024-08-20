@@ -24,6 +24,8 @@ from src.terrain_management.large_scale_terrain.geometric_clipmaps_warp import (
     _bicubic_interpolation,
     _get_values_wp_2x2,
     _get_values_wp_4x4,
+    _preprocess_multi_points,
+    _bilinear_interpolation_and_random_orientation,
 )
 from src.terrain_management.large_scale_terrain.utils import ScopedTimer
 
@@ -191,7 +193,7 @@ class GeoClipmap:
         else:
             self.buildMesh()
             self.saveMesh()
-    
+
     def updateDEMBuffer(self) -> None:
         """
         Updates the DEM buffer. Note that since the DEM is passed to the DEM sampler as a reference,
@@ -208,6 +210,11 @@ class GeoClipmap:
             coordinates (Tuple[float, float]): coordinates to update from (in meters).
         """
         self.DEM_sampler.getElevation(coordinates)
+
+    def get_height_and_random_orientation(
+        self, x: np.ndarray, y: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        return self.DEM_sampler.bilinear_interpolation_and_normal_CPU(x, y)
 
 
 class DEMSampler:
@@ -268,11 +275,11 @@ class DEMSampler:
             self.initialize_warp_buffers_gpu_mode()
         else:
             raise ValueError("Invalid acceleration mode")
-        
+
     def updateDEM(self) -> None:
         """
         Update the DEM buffer.
-        
+
         This method should only be called in GPU mode. In hybrid mode,
         warp is using a reference to the DEM data, so there is no need to update it.
         """
@@ -287,7 +294,10 @@ class DEMSampler:
         """
 
         self.dem_wp = wp.array(
-            self.dem, dtype=float, device="cpu", copy=False,
+            self.dem,
+            dtype=float,
+            device="cpu",
+            copy=False,
         )
         self.points_wp = wp.array(self.points[:, :2], dtype=wp.vec2f, device="cuda")
         self.x_wp = wp.zeros((self.points.shape[0]), dtype=float, device="cuda")
@@ -568,6 +578,85 @@ class DEMSampler:
                 device="cuda",
             )
             self.points[:, -1] = self.z_cuda.numpy()
+
+    def bilinear_interpolation_and_normal_CPU(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        seed: int = 0,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        This method samples the DEM at the coordinates (x, y) and returns the elevation and
+        a random orientation that is tangent to the DEM surface.
+
+        To do this, we need to instantiate a set of buffers for every single call, as the
+        number of points is changing every time. Then, the coordinates must be brought to the
+        pixel space to query the DEM. The bilinear interpolation is then performed to get the
+        elevation. Warp kernels are used to querry the normal from the mesh, and a random
+        quaternion that is parallel to the DEM surface is generated.
+
+        Args:
+            x (np.ndarray): x coordinates.
+            y (np.ndarray): y coordinates.
+            seed (int): seed for the random orientation.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: elevation and random orientation.
+        """
+
+        with wp.ScopedTimer(
+            "bilinear_interpolation_and_normal_CPU", active=self.profiling
+        ):
+            with wp.ScopedTimer("creating buffers", active=self.profiling):
+                # Create buffers
+                x_wp = wp.array(x, dtype=float, device="cpu", copy=True)
+                y_wp = wp.array(y, dtype=float, device="cpu", copy=True)
+                z = wp.zeros(x.shape[0], dtype=float, device="cpu")
+                q = wp.zeros(x.shape[0], dtype=wp.mat22f, device="cpu")
+                normals = wp.zeros(x.shape[0], dtype=wp.vec3f, device="cpu")
+                quat = wp.zeros(x.shape[0], dtype=wp.quatf, device="cpu")
+            with wp.ScopedTimer("preprocessing", self.profiling):
+                wp.launch(
+                    kernel=_preprocess_multi_points,
+                    dim=x.shape[0],
+                    inputs=[
+                        x_wp,
+                        y_wp,
+                        self.coords_wp,
+                        self.specs.source_resolution,
+                    ],
+                )
+            with wp.ScopedTimer("get_values_wp_2x2", active=self.profiling):
+                wp.launch(
+                    kernel=_get_values_wp_2x2,
+                    dim=x.shape[0],
+                    inputs=[
+                        self.dem_wp.flatten(),
+                        self.dem_shape_wp,
+                        x_wp,
+                        y_wp,
+                        q,
+                    ],
+                    device="cpu",
+                )
+            with wp.ScopedTimer(
+                "interpolation_and_random_orientation", active=self.profiling
+            ):
+                wp.launch(
+                    kernel=_bilinear_interpolation_and_random_orientation,
+                    dim=x.shape[0],
+                    inputs=[
+                        x_wp,
+                        y_wp,
+                        q,
+                        self.specs.source_resolution,
+                        normals,
+                        quat,
+                        z,
+                        seed,
+                    ],
+                )
+            return z.numpy(), quat.numpy()
 
 
 if __name__ == "__main__":

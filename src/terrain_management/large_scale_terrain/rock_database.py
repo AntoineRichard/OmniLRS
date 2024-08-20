@@ -78,6 +78,9 @@ class RockDB:
 
         Returns:
             bool: True if the block coordinates are valid.
+
+        Raises:
+            AssertionError: if the block coordinates are not valid.
         """
 
         assert (
@@ -88,9 +91,7 @@ class RockDB:
         ), "Block y-coordinate must be a multiple of the block size."
         return True
 
-    def get_block_data(
-        self, block_coordinates: Tuple[float, float]
-    ) -> RockBlockData:
+    def get_block_data(self, block_coordinates: Tuple[float, float]) -> RockBlockData:
         """
         Gets the block data with the given coordinates.
 
