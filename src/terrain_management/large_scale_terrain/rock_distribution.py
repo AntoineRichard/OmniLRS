@@ -13,17 +13,33 @@ from typing import List, Tuple
 import dataclasses
 import numpy as np
 import colorsys
-import pickle
-import math
 
 from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBlockData
 from src.terrain_management.large_scale_terrain.rock_database import RockDB
 
-# Poisson, thomas point process
+# TODO (antoine.richard / JAOPS): The current implementation can be extremely costly in terms of memory.
+# For small rocks, whose density can be very high, the memory footprint will be very large.
+# Sampling them on the fly could be a better solution, but the required compute, and added complexity
+# may not be worth it. It may be more relevant to sample the rocks in a narrow region around the robot
+# and call it a day. Alternatively, we could switch to an SQLite database to reduce memory usage, but
+# this would then impact the disk lifespan. The data is already compressed with best in class algorithm (ZFP
+# from the Lawrence Livermore National Laboratory), so there is not much we can do on that side.
 
 
 def mock_call(x: np.ndarray, y: np.ndarray, seed: int) -> Tuple[np.ndarray, np.ndarray]:
-    # quat convention is x,y,z,w
+    """
+    Mock function to generate the z and quaternion values.
+    Quaternions values are given as [x, y, z, w].
+
+    Args:
+        x (np.ndarray): x coordinates.
+        y (np.ndarray): y coordinates.
+        seed (int): seed for the random number generator.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: z coordinates, quaternion values.
+    """
+
     z = np.zeros_like(x)
     quat = np.zeros((x.shape[0], 4))
     quat[:, -1] = 1
@@ -32,6 +48,13 @@ def mock_call(x: np.ndarray, y: np.ndarray, seed: int) -> Tuple[np.ndarray, np.n
 
 @dataclasses.dataclass
 class BaseDistribution:
+    """
+    Base class for distributions.
+
+    Args:
+        name (str): name of the distribution.
+    """
+
     name: str = dataclasses.field(default_factory=str)
 
     def sample(self, **kwargs):
@@ -43,6 +66,15 @@ class BaseDistribution:
 
 @dataclasses.dataclass
 class Poisson(BaseDistribution):
+    """
+    Sample from a Poisson distribution.
+
+    Args:
+        name (str): name of the distribution.
+        density (float): density of the distribution.
+        seed (int): seed for the random number generator.
+    """
+
     name: str = "poisson"
     density: float = 0.0
     seed: int = 42
@@ -69,6 +101,17 @@ class Poisson(BaseDistribution):
 
 @dataclasses.dataclass
 class ThomasPointProcess(BaseDistribution):
+    """
+    Sample from a Thomas point process.
+
+    Args:
+        name (str): name of the distribution.
+        parent_density (float): density of the parent process.
+        child_density (float): density of the child process.
+        sigma (float): standard deviation of the normal distribution.
+        seed (int): seed for the random number generator.
+    """
+
     name: str = "thomas_point_process"
     parent_density: float = 0.0
     child_density: float = 0.0
@@ -84,7 +127,17 @@ class ThomasPointProcess(BaseDistribution):
         self.normal = Normal(name="normal", mean=0, std=self.sigma, seed=self.seed)
         self.extension = 7 * self.sigma
 
-    def sample_parents(self, region: BoundingBox):
+    def sample_parents(self, region: BoundingBox) -> Tuple[np.ndarray, int]:
+        """
+        Sample parents of the thomas point process.
+
+        Args:
+            region (BoundingBox): region to sample the parents from.
+
+        Returns:
+            Tuple[np.ndarray, int]: coordinates of the parents, number of parents.
+        """
+
         region_ext = BoundingBox(region.x_min, region.x_max, region.y_min, region.y_max)
         region_ext.x_min = region.x_min - self.extension
         region_ext.x_max = region.x_max + self.extension
@@ -101,17 +154,43 @@ class ThomasPointProcess(BaseDistribution):
         parent_coords, num_parents = self.parent.sample(
             region, density=adjusted_density
         )
-        print(num_parents)
         return parent_coords, num_parents
 
-    def sample_children(self, parent_coords, num_parents):
+    def sample_children(
+        self, parent_coords: np.ndarray, num_parents: int
+    ) -> Tuple[np.ndarray, int]:
+        """
+        Sample children of the thomas point process.
+
+        Args:
+            parent_coords (np.ndarray): coordinates of the parents.
+            num_parents (int): number of parents.
+        """
+
         num_child = self.rng.poisson(self.child_density, num_parents)
         num_points = np.sum(num_child)
         children_coords = self.normal.sample(num_points, 2)
         children_coords = children_coords + np.repeat(parent_coords, num_child, axis=0)
         return children_coords, num_points
 
-    def sample(self, region: BoundingBox = BoundingBox(), **kwargs):
+    def sample(
+        self, region: BoundingBox = BoundingBox(), **kwargs
+    ) -> Tuple[np.ndarray, int]:
+        """
+        Sample from a Thomas point process.
+        It first samples the number of parents in the region using a Poisson distribution.
+        Then, it samples the coordinates of the parents in the 2D space defined by the region.
+        Using the parent coordinates, it samples the number of children for each parent using a
+        Poisson distribution. Finally, it samples the children coordinates using a normal distribution
+        centered around the parent coordinates.
+
+        Args:
+            region (BoundingBox): region to sample the points from.
+
+        Returns:
+            Tuple[np.ndarray, int]: coordinates of the points, number of points.
+        """
+
         parent_coords, num_parents = self.sample_parents(region)
         children_coords, num_children = self.sample_children(parent_coords, num_parents)
         return children_coords, num_children
@@ -119,6 +198,16 @@ class ThomasPointProcess(BaseDistribution):
 
 @dataclasses.dataclass
 class Uniform(BaseDistribution):
+    """
+    Sample from a uniform distribution.
+
+    Args:
+        name (str): name of the distribution.
+        min (float): minimum value.
+        max (float): maximum value.
+        seed (int): seed for the random number generator.
+    """
+
     name: str = "uniform"
     min: float = 0.0
     max: float = 0.0
@@ -132,11 +221,32 @@ class Uniform(BaseDistribution):
         self.rng = np.random.default_rng(self.seed)
 
     def sample(self, num_points: int = 1, dim: int = 1, **kwargs):
+        """
+        Sample from a uniform distribution.
+        dim is used to specify the dimension of the output.
+        That is, if dim is 1: the output will be [num_points], if dim is 2: the output will be [num_points, 2],
+        if dim is 3: the output will be [num_points, 3], etc.
+
+        Args:
+            num_points (int): number of points to sample.
+            dim (int): dimension of the generated output.
+            **kwargs: additional arguments.
+        """
         return self.rng.uniform(self.min, self.max, (num_points, dim))
 
 
 @dataclasses.dataclass
 class Normal(BaseDistribution):
+    """
+    Sample from a normal distribution.
+
+    Args:
+        name (str): name of the distribution.
+        mean (float): mean of the distribution.
+        std (float): standard deviation of the distribution.
+        seed (int): seed for the random number generator.
+    """
+
     name: str = "normal"
     mean: float = 0.0
     std: float = 0.0
@@ -150,11 +260,33 @@ class Normal(BaseDistribution):
         self.rng = np.random.default_rng(self.seed)
 
     def sample(self, num_points: int = 1, dim: int = 1, **kwargs):
+        """
+        Sample from a normal distribution.
+        dim is used to specify the dimension of the output.
+        That is, if dim is 1: the output will be [num_points], if dim is 2: the output will be [num_points, 2],
+        if dim is 3: the output will be [num_points, 3], etc.
+
+        Args:
+            num_points (int): number of points to sample.
+            dim (int): dimension of the generated output.
+            **kwargs: additional arguments.
+        """
+
         return self.rng.normal(self.mean, self.std, (num_points, dim))
 
 
 @dataclasses.dataclass
 class Integer(BaseDistribution):
+    """
+    Sample integer uniformly between min and max.
+
+    Args:
+        name (str): name of the distribution.
+        min (int): minimum value.
+        max (int): maximum value.
+        seed (int): seed for the random number generator.
+    """
+
     name: str = "integer"
     min: int = 0
     max: int = 1
@@ -168,6 +300,14 @@ class Integer(BaseDistribution):
         self.rng = np.random.default_rng(self.seed)
 
     def sample(self, num_points: int = 1, **kwargs):
+        """
+        Sample integer uniformly between min and max.
+
+        Args:
+            num_points (int): number of points to sample.
+            **kwargs: additional arguments.
+        """
+
         return self.rng.integers(self.min, self.max, num_points)
 
 
@@ -232,7 +372,7 @@ class RockDynamicDistributionCfg:
 
 class DynamicDistribute:
     """
-    Distributes craters on a DEM using a Poisson process with hardcore rejection.
+    Distributes rocks on a DEM using the distribution given in the configuration.
     """
 
     def __init__(
@@ -242,7 +382,8 @@ class DynamicDistribute:
     ) -> None:
         """
         Args:
-            settings (CraterDynamicDistributionCfg): settings for the crater distribution.
+            settings (RockDynamicDistributionCfg): settings for the rock distribution.
+            sampling_func (callable): function to sample the z and quaternion values.
         """
 
         self.settings = settings
@@ -251,7 +392,16 @@ class DynamicDistribute:
 
         self.build_samplers()
 
-    def build_samplers(self):
+    def build_samplers(self) -> None:
+        """
+        Builds the samplers for the position and scale distributions.
+        Note that the orientation is note sampled from here. For the rocks,
+        we assume their z axis is aligned with the normal to the terrain
+        surface, and apply a random rotation around this axis.
+
+        This process is handed over to the sampling function. (self.sampling_func)
+        """
+
         self.position_sampler = self.settings.position_distribution
         self.scale_sampler = self.settings.scale_distribution
         id_sampler_cfg = {
@@ -263,6 +413,16 @@ class DynamicDistribute:
         self.id_sampler = distribution_factory.create(id_sampler_cfg)
 
     def run(self, region: BoundingBox) -> RockBlockData:
+        """
+        Runs the rock distribution.
+
+        Args:
+            region (BoundingBox): region to sample the rocks from.
+
+        Returns:
+            RockBlockData: block of rocks.
+        """
+
         xy_position, num_points = self.position_sampler(region=region)
         scale = self.scale_sampler(num_points=num_points, dim=3)
         ids = self.id_sampler(num_points=num_points)
@@ -275,6 +435,16 @@ class DynamicDistribute:
         return block
 
     def get_xy_coordinates_from_block(self, block: RockBlockData) -> np.ndarray:
+        """
+        Extracts the xy coordinates from the block.
+
+        Args:
+            block (RockBlockData): block of rocks.
+
+        Returns:
+            np.ndarray: xy coordinates.
+        """
+
         return block.coordinates[:, :2]
 
 
@@ -283,42 +453,37 @@ class RockSamplerCfg:
     """
     Args:
         block_size (int): size of the blocks.
-        crater_gen_cfg (CraterGeneratorCfg): configuration for the rock generator.
-        crater_dist_cfg (CraterDynamicDistributionCfg): configuration for the rock distribution
+        rock_dist_cfg (RockDynamicDistributionCfg): configuration for the rock distribution
     """
 
     block_size: int = 50
     rock_dist_cfg: RockDynamicDistributionCfg = dataclasses.field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        assert (
-            self.rock_dist_cfg is not None
-        ), "Crater distribution configuration must be provided."
-
-        self.crater_dist_cfg = RockDynamicDistributionCfg(**self.rock_dist_cfg)
+        self.rock_dist_cfg = RockDynamicDistributionCfg(**self.rock_dist_cfg)
 
 
 class RockSampler:
     """
-    Class to scatter rocks on a DEM. It aggregates the crater distribution, the crater
-    generation and the crater database to generate craters' metadata on the fly.
+    Class to scatter rocks on a DEM. It aggregates the rock distribution, the rock
+    generation and the rock database to generate rocks on the fly.
     """
 
     def __init__(
         self,
-        crater_sampler_cfg: RockSamplerCfg,
+        rock_sampler_cfg: RockSamplerCfg,
         db: RockDB,
         map_sampling_func: callable = mock_call,
     ) -> None:
         """
         Args:
-            crater_sampler_cfg (CraterSamplerCfg): configuration for the crater sampler.
-            db (CraterDB): database to store the craters.
+            rock_sampler_cfg (RockSamplerCfg): configuration for the rock sampler.
+            db (RockDB): database to store the rocks.
         """
 
-        self.settings = crater_sampler_cfg
+        self.settings = rock_sampler_cfg
         self.rock_dist_gen = DynamicDistribute(
-            self.settings.crater_dist_cfg, sampling_func=map_sampling_func
+            self.settings.rock_dist_cfg, sampling_func=map_sampling_func
         )
         self.rock_db = db
 
@@ -326,7 +491,7 @@ class RockSampler:
     def compute_largest_rectangle(matrix: np.ndarray) -> Tuple[int, int]:
         """
         Computes the largest rectangle in a binary matrix.
-        This is used to find the largest region without craters in the matrix.
+        This is used to find the largest region without rocks in the matrix.
 
         Args:
             matrix (np.ndarray): binary matrix.
@@ -406,14 +571,14 @@ class RockSampler:
         Dissects the region into blocks and returns the rocks in each block.
 
         Args:
-            blocks (Tuple[np.ndarray, np.ndarray]): coordinates and radii of the rocks.
+            blocks RockBlockData: the data block containing the rocks.
             region (BoundingBox): region to dissect.
 
         Returns:
-            Tuple[List[Tuple[np.ndarray, np.ndarray]], List[Tuple[float, float]]]: list of
-                rocks in each block, coordinates of the blocks.
+            Tuple[List[RockBlockData], List[Tuple[float, float]]]: list of
+            rock data for each block,  coordinates of the blocks.
         """
-        print(region)
+
         block_list = []
         coordinate_list = []
 
@@ -438,7 +603,6 @@ class RockSampler:
                 else:
                     c1 = xy[:, 0] >= x
                 if i == (region.x_max - region.x_min - 1) // self.settings.block_size:
-                    print("here x")
                     c2 = np.ones_like(xy[:, 0], dtype=bool)
                 else:
                     c2 = xy[:, 0] < x + self.settings.block_size
@@ -447,7 +611,6 @@ class RockSampler:
                 else:
                     c3 = xy[:, 1] >= y
                 if j == (region.y_max - region.y_min - 1) // self.settings.block_size:
-                    print("here y")
                     c4 = np.ones_like(xy[:, 1], dtype=bool)
                 else:
                     c4 = xy[:, 1] < y + self.settings.block_size
@@ -469,22 +632,22 @@ class RockSampler:
 
     def sample_rocks_by_region(self, region: BoundingBox) -> None:
         """
-        Samples craters by region. This method is used to sample craters in a region.
-        It will sample craters only in the blocks that do not contain any craters.
+        Samples rocks by region. This method is used to sample rocks in a region.
+        It will sample rocks only in the blocks that do not contain any rocks.
         To optimize the process, it finds the largest rectangle in the region that does not
-        contain any craters and samples craters in this region. This process is repeated
+        contain any rocks and samples rocks in this region. This process is repeated
         until the largest rectangle is smaller than a certain threshold. After that,
-        the method samples craters in the remaining blocks that do not contain any craters.
+        the method samples rocks in the remaining blocks that do not contain any rocks.
 
         Args:
-            region (BoundingBox): region to sample craters from.
+            region (BoundingBox): region to sample rocks from.
         """
 
         # Process by regions until the largest rectangle is smaller or equal to 1 block
         process_by_regions = True
         while process_by_regions:
             _, _, matrix = self.rock_db.get_blocks_within_region_with_neighbors(region)
-            # Computes the largest rectangle in the region that does not contain any craters
+            # Computes the largest rectangle in the region that does not contain any rocks
             area, coords = self.compute_largest_rectangle(matrix)
             # If the area is smaller or equal to 1 block, we stop the process
             # and fallback to the block sampling method
@@ -492,7 +655,7 @@ class RockSampler:
                 process_by_regions = False
                 break
 
-            # Region to sample craters from
+            # Region to sample rocks from
             new_region = BoundingBox(
                 region.x_min + coords[0][0] * self.settings.block_size,
                 region.x_min + coords[0][1] * self.settings.block_size,
@@ -500,14 +663,11 @@ class RockSampler:
                 region.y_min + coords[1][1] * self.settings.block_size,
             )
 
-            # Samples craters in the region
+            # Samples rocks in the region
             new_block = self.rock_dist_gen.run(new_region)
-            plt.figure()
             coords = self.rock_dist_gen.get_xy_coordinates_from_block(new_block)
-            plt.scatter(coords[:, 0], coords[:, 1])
-            plt.axis("equal")
 
-            # Dissects the region into blocks and adds the craters to the database
+            # Dissects the region into blocks and adds the rocks to the database
             new_blocks_list, block_coordinates_list = self.dissect_region_blocks(
                 new_block, new_region
             )
@@ -516,7 +676,7 @@ class RockSampler:
             ):
                 self.rock_db.add_block_data(block_data, block_coordinates)
 
-        # If the largest rectangle is smaller or equal to 1 block, we sample craters
+        # If the largest rectangle is smaller or equal to 1 block, we sample rocks
         # on a per block basis.
         coordinates = self.rock_db.get_missing_blocks(region)
         for coord in coordinates:
@@ -524,11 +684,12 @@ class RockSampler:
 
     def display_block(self, coordinates: Tuple[float, float]):
         """
-        Displays the craters in a block.
+        Displays the rocks in a block.
 
         Args:
             coordinates (Tuple[float,float]): coordinates of the block.
         """
+
         fig = plt.figure(figsize=(10, 10), dpi=300)
         if self.rock_db.check_block_exists(coordinates):
             block = self.rock_db.get_block_data(coordinates)
@@ -543,6 +704,7 @@ class RockSampler:
         Args:
             coords (List[Tuple[float,float]]): list of coordinates of the blocks.
         """
+
         fig = plt.figure(figsize=(10, 10), dpi=300)
         blocks = [self.rock_db.get_block_data(coord) for coord in coords]
 
@@ -555,7 +717,7 @@ class RockSampler:
 
     def display_region(self, region: BoundingBox):
         """
-        Displays the craters in a region. Each block is represented by a different color.
+        Displays the rocks in a region. Each block is represented by a different color.
 
         Args:
             region (BoundingBox): region to display.

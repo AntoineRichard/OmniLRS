@@ -13,7 +13,11 @@ import numpy as np
 import dataclasses
 import sys
 
-from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBlockData
+from src.terrain_management.large_scale_terrain.utils import (
+    BoundingBox,
+    RockBlockData,
+    CompressedRockBlockData,
+)
 
 
 @dataclasses.dataclass
@@ -65,7 +69,7 @@ class RockDB:
             block_coordinates[1] % self.rock_db_config.block_size == 0
         ), "Block y-coordinate must be a multiple of the block size."
 
-        self.rock_db[block_coordinates] = block_data
+        self.rock_db[block_coordinates] = block_data.compress()
 
     def is_valid(self, block_coordinates) -> bool:
         """
@@ -101,7 +105,7 @@ class RockDB:
             List[RockBlockData]: list of rock blocks.
         """
 
-        return self.rock_db[block_coordinates]
+        return self.rock_db[block_coordinates].decompress()
 
     def get_block_data_with_neighbors(
         self, block_coordinates: Tuple[float, float]
@@ -279,6 +283,19 @@ class RockDB:
 
         blocks = []
         for block in self.rock_db.values():
+            blocks += [block.decompress()]
+        return blocks
+
+    def get_all_blocks_compressed(self) -> List[CompressedRockBlockData]:
+        """
+        Gets all the blocks in the database in their compressed form.
+
+        Returns:
+            List[CompressedRockBlockData]: list of compressed rock blocks.
+        """
+
+        blocks = []
+        for block in self.rock_db.values():
             blocks += [block]
         return blocks
 
@@ -290,7 +307,10 @@ class RockDB:
             int: memory footprint of the database in bytes.
         """
         allowed_units = ["bytes", "KB", "MB", "GB"]
-        size = np.sum([sys.getsizeof(block) for block in self.get_all_blocks()])
+
+        size = np.sum(
+            [sys.getsizeof(block) for block in self.get_all_blocks_compressed()]
+        )
         if unit == "bytes":
             pass
         elif unit == "KB":

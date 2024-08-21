@@ -14,6 +14,7 @@ import dataclasses
 import numpy as np
 import threading
 import time
+import zfpy
 
 
 @dataclasses.dataclass
@@ -41,6 +42,50 @@ class RockBlockData:
             + self.scale.nbytes
             + self.ids.nbytes
         )
+
+    def compress(self):
+        coordinates = zfpy.compress_numpy(self.coordinates, tolerance=1e-3)
+        quaternion = zfpy.compress_numpy(self.quaternion, tolerance=1e-3)
+        scale = zfpy.compress_numpy(self.scale, tolerance=1e-3)
+        ids = zfpy.compress_numpy(self.ids)
+        return CompressedRockBlockData(
+            coordinates=coordinates,
+            quaternion=quaternion,
+            scale=scale,
+            ids=ids,
+        )
+
+
+@dataclasses.dataclass
+class CompressedRockBlockData:
+    coordinates: bytes = dataclasses.field(default_factory=bytes)
+    quaternion: bytes = dataclasses.field(default_factory=bytes)
+    scale: bytes = dataclasses.field(default_factory=bytes)
+    ids: bytes = dataclasses.field(default_factory=bytes)
+
+    def decompress(self) -> RockBlockData:
+        coordinates = zfpy.decompress_numpy(self.coordinates)
+        quaternion = zfpy.decompress_numpy(self.quaternion)
+        scale = zfpy.decompress_numpy(self.scale)
+        ids = zfpy.decompress_numpy(self.ids)
+        return RockBlockData(
+            coordinates=coordinates,
+            quaternion=quaternion,
+            scale=scale,
+            ids=ids,
+        )
+
+    def __sizeof__(self) -> int:
+        return (
+            self.coordinates.__sizeof__()
+            + self.quaternion.__sizeof__()
+            + self.scale.__sizeof__()
+            + self.ids.__sizeof__()
+        )
+
+
+# TODO (antoine.richard): Add a memory footprint method to the CraterMetadata class
+# TODO (antoine.richard): Find a way to compress a list of CraterMetadata objects.
 
 
 @dataclasses.dataclass

@@ -65,7 +65,7 @@ sudo apt-get install gdal-bin
 sudo apt-get install libgdal-dev
 version=$(gdal-config --version)
 
-~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version
+~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version zfpy
 ```
 
 Docker Installation (Comes packaged with ROS2 humble): #TODO a ROS1 (Noetic) version
