@@ -22,7 +22,7 @@ from src.terrain_management.large_scale_terrain.rock_database import RockDB
 # Poisson, thomas point process
 
 
-def mock_call(x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def mock_call(x: np.ndarray, y: np.ndarray, seed: int) -> Tuple[np.ndarray, np.ndarray]:
     # quat convention is x,y,z,w
     z = np.zeros_like(x)
     quat = np.zeros((x.shape[0], 4))
@@ -36,6 +36,9 @@ class BaseDistribution:
 
     def sample(self, **kwargs):
         raise NotImplementedError
+
+    def __call__(self, **kwargs):
+        return self.sample(**kwargs)
 
 
 @dataclasses.dataclass
@@ -53,8 +56,12 @@ class Poisson(BaseDistribution):
         area = (region.x_max - region.x_min) * (region.y_max - region.y_min)
         return self.rng.poisson(area * self.density)
 
-    def sample(self, region: BoundingBox, **kwargs):
+    def sample(
+        self, region: BoundingBox = BoundingBox(), density: int = None, **kwargs
+    ):
         num_points = self.get_num_points(region)
+        if density is not None:
+            self.density = density
         x_coords = self.rng.uniform(region.x_min, region.x_max, num_points)
         y_coords = self.rng.uniform(region.y_min, region.y_max, num_points)
         return np.stack([x_coords, y_coords]).T, num_points
@@ -69,11 +76,12 @@ class ThomasPointProcess(BaseDistribution):
     seed: int = 42
 
     def __post_init__(self):
-        self.density = float(self.density)
         self.seed = int(self.seed)
-        self.parent = Poisson(self.parent_density, self.seed)
+        self.parent = Poisson(
+            name="poisson", density=self.parent_density, seed=self.seed
+        )
         self.rng = np.random.default_rng(self.seed)
-        self.normal = Normal(0, self.sigma, self.seed)
+        self.normal = Normal(name="normal", mean=0, std=self.sigma, seed=self.seed)
         self.extension = 7 * self.sigma
 
     def sample_parents(self, region: BoundingBox):
@@ -83,7 +91,17 @@ class ThomasPointProcess(BaseDistribution):
         region_ext.y_min = region.y_min - self.extension
         region_ext.y_max = region.y_max + self.extension
 
-        parent_coords, num_parents = self.parent.sample(region_ext)
+        area_region = region.get_area()
+        area_region_ext = region_ext.get_area()
+
+        ratio = area_region / area_region_ext
+
+        adjusted_density = self.parent_density * ratio
+
+        parent_coords, num_parents = self.parent.sample(
+            region, density=adjusted_density
+        )
+        print(num_parents)
         return parent_coords, num_parents
 
     def sample_children(self, parent_coords, num_parents):
@@ -93,7 +111,7 @@ class ThomasPointProcess(BaseDistribution):
         children_coords = children_coords + np.repeat(parent_coords, num_child, axis=0)
         return children_coords, num_points
 
-    def sample(self, region: BoundingBox, **kwargs):
+    def sample(self, region: BoundingBox = BoundingBox(), **kwargs):
         parent_coords, num_parents = self.sample_parents(region)
         children_coords, num_children = self.sample_children(parent_coords, num_parents)
         return children_coords, num_children
@@ -113,7 +131,7 @@ class Uniform(BaseDistribution):
         self.seed = int(self.seed)
         self.rng = np.random.default_rng(self.seed)
 
-    def sample(self, num_points, dim=1, **kwargs):
+    def sample(self, num_points: int = 1, dim: int = 1, **kwargs):
         return self.rng.uniform(self.min, self.max, (num_points, dim))
 
 
@@ -131,7 +149,7 @@ class Normal(BaseDistribution):
         self.seed = int(self.seed)
         self.rng = np.random.default_rng(self.seed)
 
-    def sample(self, num_points, dim=1, **kwargs):
+    def sample(self, num_points: int = 1, dim: int = 1, **kwargs):
         return self.rng.normal(self.mean, self.std, (num_points, dim))
 
 
@@ -149,7 +167,7 @@ class Integer(BaseDistribution):
         self.seed = int(self.seed)
         self.rng = np.random.default_rng(self.seed)
 
-    def sample(self, num_points, **kwargs):
+    def sample(self, num_points: int = 1, **kwargs):
         return self.rng.integers(self.min, self.max, num_points)
 
 
@@ -198,10 +216,10 @@ class RockDynamicDistributionCfg:
     Args:
     """
 
-    position_distribution: dict = dataclasses.field(default_factory=dict)
-    scale_distribution: dict = dataclasses.field(default_factory=dict)
+    position_distribution: BaseDistribution = dataclasses.field(default_factory=dict)
+    scale_distribution: BaseDistribution = dataclasses.field(default_factory=dict)
     seed: int = dataclasses.field(default_factory=int)
-    num_rocks_id: int = dataclasses.field(default_factory=int)
+    num_rock_id: int = dataclasses.field(default_factory=int)
 
     def __post_init__(self):
         self.position_distribution = distribution_factory.create(
@@ -209,7 +227,7 @@ class RockDynamicDistributionCfg:
         )
         self.scale_distribution = distribution_factory.create(self.scale_distribution)
 
-        assert self.num_rocks_id > 0, "num_rocks_id must be larger than 0"
+        assert self.num_rock_id > 0, "num_rocks_id must be larger than 0"
 
 
 class DynamicDistribute:
@@ -231,21 +249,23 @@ class DynamicDistribute:
         self._rng = np.random.default_rng(self.settings.seed)
         self.sampling_func = sampling_func
 
+        self.build_samplers()
+
     def build_samplers(self):
         self.position_sampler = self.settings.position_distribution
         self.scale_sampler = self.settings.scale_distribution
         id_sampler_cfg = {
             "name": "integer",
             "min": 0,
-            "max": self.settings.num_rocks_id,
+            "max": self.settings.num_rock_id,
             "seed": self.settings.seed,
         }
         self.id_sampler = distribution_factory.create(id_sampler_cfg)
 
     def run(self, region: BoundingBox) -> RockBlockData:
-        xy_position, num_points = self.position_sampler(region)
-        scale = self.scale_sampler(num_points)
-        ids = self.id_sampler(num_points)
+        xy_position, num_points = self.position_sampler(region=region)
+        scale = self.scale_sampler(num_points=num_points, dim=3)
+        ids = self.id_sampler(num_points=num_points)
         z_position, quat = self.sampling_func(
             xy_position[:, 0], xy_position[:, 1], self.settings.seed
         )
@@ -272,7 +292,7 @@ class RockSamplerCfg:
 
     def __post_init__(self) -> None:
         assert (
-            self.crater_dist_cfg is not None
+            self.rock_dist_cfg is not None
         ), "Crater distribution configuration must be provided."
 
         self.crater_dist_cfg = RockDynamicDistributionCfg(**self.rock_dist_cfg)
@@ -393,12 +413,11 @@ class RockSampler:
             Tuple[List[Tuple[np.ndarray, np.ndarray]], List[Tuple[float, float]]]: list of
                 rocks in each block, coordinates of the blocks.
         """
-
+        print(region)
         block_list = []
         coordinate_list = []
 
         xy = self.rock_dist_gen.get_xy_coordinates_from_block(block)
-
         for i, x in enumerate(
             range(region.x_min, region.x_max, self.settings.block_size)
         ):
@@ -418,7 +437,8 @@ class RockSampler:
                     c1 = np.ones_like(xy[:, 0], dtype=bool)
                 else:
                     c1 = xy[:, 0] >= x
-                if i == region.x_max // self.settings.block_size:
+                if i == (region.x_max - region.x_min - 1) // self.settings.block_size:
+                    print("here x")
                     c2 = np.ones_like(xy[:, 0], dtype=bool)
                 else:
                     c2 = xy[:, 0] < x + self.settings.block_size
@@ -426,7 +446,8 @@ class RockSampler:
                     c3 = np.ones_like(xy[:, 1], dtype=bool)
                 else:
                     c3 = xy[:, 1] >= y
-                if j == region.y_max // self.settings.block_size:
+                if j == (region.y_max - region.y_min - 1) // self.settings.block_size:
+                    print("here y")
                     c4 = np.ones_like(xy[:, 1], dtype=bool)
                 else:
                     c4 = xy[:, 1] < y + self.settings.block_size
@@ -444,7 +465,6 @@ class RockSampler:
                         )
                     )
                     coordinate_list.append((x, y))
-
         return block_list, coordinate_list
 
     def sample_rocks_by_region(self, region: BoundingBox) -> None:
@@ -481,11 +501,15 @@ class RockSampler:
             )
 
             # Samples craters in the region
-            new_blocks = self.rock_dist_gen.run(new_region)
+            new_block = self.rock_dist_gen.run(new_region)
+            plt.figure()
+            coords = self.rock_dist_gen.get_xy_coordinates_from_block(new_block)
+            plt.scatter(coords[:, 0], coords[:, 1])
+            plt.axis("equal")
 
             # Dissects the region into blocks and adds the craters to the database
             new_blocks_list, block_coordinates_list = self.dissect_region_blocks(
-                new_blocks, region
+                new_block, new_region
             )
             for block_data, block_coordinates in zip(
                 new_blocks_list, block_coordinates_list
@@ -539,6 +563,7 @@ class RockSampler:
 
         fig = plt.figure(figsize=(10, 10), dpi=300)
         blocks, _, _ = self.rock_db.get_blocks_within_region(region)
+
         color_interp = np.linspace(0, 1, len(blocks), endpoint=False)
         colors = [colorsys.hsv_to_rgb(i, 1, 1) for i in color_interp]
         for i in range(len(blocks)):

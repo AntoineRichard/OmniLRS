@@ -23,12 +23,25 @@ class BoundingBox:
     y_min: float = 0
     y_max: float = 0
 
+    def get_area(self) -> float:
+        return (self.x_max - self.x_min) * (self.y_max - self.y_min)
+
+
 @dataclasses.dataclass
 class RockBlockData:
     coordinates: np.ndarray = dataclasses.field(default_factory=np.ndarray)
     quaternion: np.ndarray = dataclasses.field(default_factory=np.ndarray)
     scale: np.ndarray = dataclasses.field(default_factory=np.ndarray)
     ids: np.ndarray = dataclasses.field(default_factory=np.ndarray)
+
+    def __sizeof__(self) -> int:
+        return (
+            self.coordinates.nbytes
+            + self.quaternion.nbytes
+            + self.scale.nbytes
+            + self.ids.nbytes
+        )
+
 
 @dataclasses.dataclass
 class CraterMetadata:
@@ -42,7 +55,7 @@ class CraterMetadata:
     rotation: float = 0
 
     def get_memory_footprint(self) -> int:
-        return self.size
+        return -1
 
 
 class ScopedTimer:
@@ -68,9 +81,9 @@ class ScopedTimer:
 
     def __enter__(self):
         if self.active:
-            if not hasattr(self._thread_local_data, 'nesting_level'):
+            if not hasattr(self._thread_local_data, "nesting_level"):
                 self._thread_local_data.nesting_level = 0
-            if not hasattr(self._thread_local_data, 'messages'):
+            if not hasattr(self._thread_local_data, "messages"):
                 self._thread_local_data.messages = []
 
             self._thread_local_data.nesting_level += 1
@@ -83,9 +96,11 @@ class ScopedTimer:
             self.end_time = time.time()
             elapsed_time = self.end_time - self.start_time
             reset_color = "\033[0m"
-            indentation = ' ' * (self._thread_local_data.nesting_level - 1) * self.indent
+            indentation = (
+                " " * (self._thread_local_data.nesting_level - 1) * self.indent
+            )
             message = f"{self.ansi_color}{indentation}{self.name} took: {elapsed_time:.4f} seconds{reset_color}"
-            
+
             # Insert the message at the beginning of the list to ensure the outermost message is printed first
             self._thread_local_data.messages.insert(0, message)
 

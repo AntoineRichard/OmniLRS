@@ -40,11 +40,10 @@ class RockDB:
     def __init__(self, cfg: RockDBCfg) -> None:
         """
         Args:
-            cfg (CraterDBCfg): configuration for the database.
+            cfg (RockDBCfg): configuration for the database.
         """
 
-        self.crater_db = {}
-        self.profile_db = {}
+        self.rock_db = {}
         self.rock_db_config = cfg
 
     def add_block_data(
@@ -66,7 +65,7 @@ class RockDB:
             block_coordinates[1] % self.rock_db_config.block_size == 0
         ), "Block y-coordinate must be a multiple of the block size."
 
-        self.crater_db[block_coordinates] = block_data
+        self.rock_db[block_coordinates] = block_data
 
     def is_valid(self, block_coordinates) -> bool:
         """
@@ -99,10 +98,10 @@ class RockDB:
             block_coordinates (Tuple[float, float]): coordinates of the block.
 
         Returns:
-            List[CraterMetadata]: list of crater metadata.
+            List[RockBlockData]: list of rock blocks.
         """
 
-        return self.crater_db[block_coordinates]
+        return self.rock_db[block_coordinates]
 
     def get_block_data_with_neighbors(
         self, block_coordinates: Tuple[float, float]
@@ -116,7 +115,7 @@ class RockDB:
             block_coordinates (Tuple[float, float]): coordinates of the block.
 
         Returns:
-            RockBlockData: list of crater metadata.
+            RockBlockData: list of rock blocks.
         """
 
         blocks = []
@@ -125,7 +124,7 @@ class RockDB:
             for y in range(-1, 2, 1):
                 yc = block_coordinates[1] + y * self.rock_db_config.block_size
                 if self.check_block_exists((xc, yc)):
-                    blocks += self.get_block_data((xc, yc))
+                    blocks += [self.get_block_data((xc, yc))]
         return blocks
 
     def check_block_exists(self, block_coordinates: Tuple[float, float]) -> bool:
@@ -139,7 +138,7 @@ class RockDB:
             bool: True if the block exists in the database.
         """
 
-        return block_coordinates in self.crater_db
+        return block_coordinates in self.rock_db
 
     def get_missing_blocks(self, region: BoundingBox) -> List[Tuple[float, float]]:
         """
@@ -179,7 +178,7 @@ class RockDB:
             region (BoundingBox): region to check for blocks.
 
         Returns:
-            RockDataBlock: list of crater metadata.
+            RockDataBlock: list of rock blocks.
         """
 
         blocks = []
@@ -207,7 +206,7 @@ class RockDB:
         for x in range(x_min, x_max, self.rock_db_config.block_size):
             for y in range(y_min, y_max, self.rock_db_config.block_size):
                 if self.check_block_exists((x, y)):
-                    blocks += self.get_block_data((x, y))
+                    blocks += [self.get_block_data((x, y))]
 
                     occupied_block_matrix[
                         int((x - x_min) / self.rock_db_config.block_size),
@@ -230,7 +229,7 @@ class RockDB:
             region (BoundingBox): region to check for blocks.
 
         Returns:
-            RockDataBlock: list of crater metadata.
+            RockDataBlock: list of rock blocks.
         """
 
         blocks = []
@@ -258,7 +257,7 @@ class RockDB:
         for x in range(x_min, x_max, self.rock_db_config.block_size):
             for y in range(y_min, y_max, self.rock_db_config.block_size):
                 if self.check_block_exists((x, y)):
-                    blocks += self.get_block_data((x, y))
+                    blocks += [self.get_block_data((x, y))]
                     occupied_block_matrix[
                         int((x - x_min) / self.rock_db_config.block_size),
                         int((y - y_min) / self.rock_db_config.block_size),
@@ -270,25 +269,40 @@ class RockDB:
             occupied_block_matrix[1:-1, 1:-1],
         )
 
-    def get_all_blocks(self) -> RockBlockData:
+    def get_all_blocks(self) -> List[RockBlockData]:
         """
         Gets all the blocks in the database.
 
         Returns:
-            RockDataBlock: list of crater metadata.
+            RockDataBlock: list of rock blocks.
         """
 
         blocks = []
-        for block in self.crater_db.values():
-            blocks += block
+        for block in self.rock_db.values():
+            blocks += [block]
         return blocks
 
-    def get_memory_footprint(self) -> int:
+    def get_memory_footprint(self, unit="bytes") -> int:
         """
         Gets the memory footprint of the database.
 
         Returns:
             int: memory footprint of the database in bytes.
         """
+        allowed_units = ["bytes", "KB", "MB", "GB"]
+        size = np.sum([sys.getsizeof(block) for block in self.get_all_blocks()])
+        if unit == "bytes":
+            pass
+        elif unit == "KB":
+            size /= 1024
+        elif unit == "MB":
+            size /= 1024**2
+        elif unit == "GB":
+            size /= 1024**3
+        else:
+            raise ValueError(f"Unit {unit} not allowed. Choose from {allowed_units}")
+        return size
 
-        return sys.getsizeof(self.crater_db), sys.getsizeof(self.profile_db)
+    def number_of_elements(self) -> int:
+        blocks = self.get_all_blocks()
+        return np.sum([block.coordinates.shape[0] for block in blocks])
