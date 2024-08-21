@@ -14,7 +14,11 @@ import dataclasses
 import numpy as np
 import colorsys
 
-from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBlockData
+from src.terrain_management.large_scale_terrain.utils import (
+    BoundingBox,
+    RockBlockData,
+    ScopedTimer,
+)
 from src.terrain_management.large_scale_terrain.rock_database import RockDB
 
 # TODO (antoine.richard / JAOPS): The current implementation can be extremely costly in terms of memory.
@@ -383,7 +387,7 @@ class DynamicDistribute:
         """
         Args:
             settings (RockDynamicDistributionCfg): settings for the rock distribution.
-            sampling_func (callable): function to sample the z and quaternion values.
+            sampling_func (function): function to sample the z and quaternion values.
         """
 
         self.settings = settings
@@ -474,11 +478,13 @@ class RockSampler:
         rock_sampler_cfg: RockSamplerCfg,
         db: RockDB,
         map_sampling_func: callable = mock_call,
+        profiling: bool = False,
     ) -> None:
         """
         Args:
             rock_sampler_cfg (RockSamplerCfg): configuration for the rock sampler.
             db (RockDB): database to store the rocks.
+            map_sampling_func (function): function to sample the z and quaternion values.
         """
 
         self.settings = rock_sampler_cfg
@@ -486,6 +492,7 @@ class RockSampler:
             self.settings.rock_dist_cfg, sampling_func=map_sampling_func
         )
         self.rock_db = db
+        self.profiling = profiling
 
     @staticmethod
     def compute_largest_rectangle(matrix: np.ndarray) -> Tuple[int, int]:
@@ -550,19 +557,20 @@ class RockSampler:
             block_coordinates (Tuple[int,int]): coordinates of the block.
         """
 
-        # Checks if the block is valid
-        self.rock_db.is_valid(block_coordinates)
+        with ScopedTimer("Sampling rocks block", active=self.profiling):
+            # Checks if the block is valid
+            self.rock_db.is_valid(block_coordinates)
 
-        # Checks if the block already contains rocks
-        if not self.rock_db.check_block_exists(block_coordinates):
-            bb = BoundingBox(
-                block_coordinates[0],
-                block_coordinates[0] + self.settings.block_size,
-                block_coordinates[1],
-                block_coordinates[1] + self.settings.block_size,
-            )
-            block = self.rock_dist_gen.run(bb)
-            self.rock_db.add_block_data(block, block_coordinates)
+            # Checks if the block already contains rocks
+            if not self.rock_db.check_block_exists(block_coordinates):
+                bb = BoundingBox(
+                    block_coordinates[0],
+                    block_coordinates[0] + self.settings.block_size,
+                    block_coordinates[1],
+                    block_coordinates[1] + self.settings.block_size,
+                )
+                block = self.rock_dist_gen.run(bb)
+                self.rock_db.add_block_data(block, block_coordinates)
 
     def dissect_region_blocks(
         self, block: RockBlockData, region: BoundingBox
@@ -646,9 +654,11 @@ class RockSampler:
         # Process by regions until the largest rectangle is smaller or equal to 1 block
         process_by_regions = True
         while process_by_regions:
-            _, _, matrix = self.rock_db.get_blocks_within_region_with_neighbors(region)
+            with ScopedTimer("Getting blocks within region", active=self.profiling):
+                matrix = self.rock_db.get_occupancy_matrix_within_region(region)
             # Computes the largest rectangle in the region that does not contain any rocks
-            area, coords = self.compute_largest_rectangle(matrix)
+            with ScopedTimer("Computing largest rectangle", active=self.profiling):
+                area, coords = self.compute_largest_rectangle(matrix)
             # If the area is smaller or equal to 1 block, we stop the process
             # and fallback to the block sampling method
             if area <= 1:
@@ -664,23 +674,36 @@ class RockSampler:
             )
 
             # Samples rocks in the region
-            new_block = self.rock_dist_gen.run(new_region)
-            coords = self.rock_dist_gen.get_xy_coordinates_from_block(new_block)
+            with ScopedTimer("Sampling rocks in region", active=self.profiling):
+                new_block = self.rock_dist_gen.run(new_region)
+
+            with ScopedTimer(
+                "Getting xy coordinates from block", active=self.profiling
+            ):
+                coords = self.rock_dist_gen.get_xy_coordinates_from_block(new_block)
 
             # Dissects the region into blocks and adds the rocks to the database
-            new_blocks_list, block_coordinates_list = self.dissect_region_blocks(
-                new_block, new_region
-            )
-            for block_data, block_coordinates in zip(
-                new_blocks_list, block_coordinates_list
+            with ScopedTimer("Dissecting region into blocks", active=self.profiling):
+                new_blocks_list, block_coordinates_list = self.dissect_region_blocks(
+                    new_block, new_region
+                )
+
+            with ScopedTimer(
+                "Adding block data to the database", active=self.profiling
             ):
-                self.rock_db.add_block_data(block_data, block_coordinates)
+                for block_data, block_coordinates in zip(
+                    new_blocks_list, block_coordinates_list
+                ):
+                    self.rock_db.add_block_data(block_data, block_coordinates)
 
         # If the largest rectangle is smaller or equal to 1 block, we sample rocks
         # on a per block basis.
-        coordinates = self.rock_db.get_missing_blocks(region)
-        for coord in coordinates:
-            self.sample_rocks_by_block(coord)
+        with ScopedTimer("Sampling rocks by block", active=self.profiling):
+            with ScopedTimer("Getting missing blocks", active=self.profiling):
+                coordinates = self.rock_db.get_missing_blocks(region)
+
+            for coord in coordinates:
+                self.sample_rocks_by_block(coord)
 
     def display_block(self, coordinates: Tuple[float, float]):
         """

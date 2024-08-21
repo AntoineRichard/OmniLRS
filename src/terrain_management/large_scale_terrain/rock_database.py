@@ -173,6 +173,46 @@ class RockDB:
                     missing_blocks.append((x, y))
         return missing_blocks
 
+    def get_occupancy_matrix_within_region(self, region: BoundingBox) -> np.ndarray:
+        """
+        Gets the occupancy matrix within the given region. That is, the blocks that are in the
+        database for the given region.
+
+        Args:
+            region (BoundingBox): region to check for blocks.
+
+        Returns:
+            np.ndarray: occupancy matrix.
+        """
+
+        x_min_rem = region.x_min % self.rock_db_config.block_size
+        y_min_rem = region.y_min % self.rock_db_config.block_size
+        x_max_rem = region.x_max % self.rock_db_config.block_size
+        y_max_rem = region.y_max % self.rock_db_config.block_size
+
+        x_min = region.x_min - x_min_rem
+        y_min = region.y_min - y_min_rem
+        x_max = region.x_max - x_max_rem
+        y_max = region.y_max - y_max_rem
+
+        occupied_block_matrix = np.zeros(
+            (
+                (int((x_max - x_min) / self.rock_db_config.block_size)),
+                (int((y_max - y_min) / self.rock_db_config.block_size)),
+            ),
+            dtype=int,
+        )
+
+        for x in range(x_min, x_max, self.rock_db_config.block_size):
+            for y in range(y_min, y_max, self.rock_db_config.block_size):
+                if self.check_block_exists((x, y)):
+                    occupied_block_matrix[
+                        int((x - x_min) / self.rock_db_config.block_size),
+                        int((y - y_min) / self.rock_db_config.block_size),
+                    ] = 1
+
+        return occupied_block_matrix
+
     def get_blocks_within_region(self, region: BoundingBox) -> RockBlockData:
         """
         Gets the blocks within the given region. That is, the blocks that are in the
@@ -221,6 +261,50 @@ class RockDB:
             new_region,
             occupied_block_matrix,
         )
+
+    def get_occupancy_matrix_within_region_with_neighbors(
+        self, region: BoundingBox
+    ) -> np.ndarray:
+        """
+        Gets the occupancy matrix within the given region and its neighbors. It collects all
+        the block available in the given region, plus 1 block in each direction.
+
+        Args:
+            region (BoundingBox): region to check for blocks.
+
+        Returns:
+            np.ndarray: occupancy matrix.
+        """
+
+        x_min_rem = region.x_min % self.rock_db_config.block_size
+        y_min_rem = region.y_min % self.rock_db_config.block_size
+        x_max_rem = region.x_max % self.rock_db_config.block_size
+        y_max_rem = region.y_max % self.rock_db_config.block_size
+
+        x_min = region.x_min - x_min_rem - self.rock_db_config.block_size
+        y_min = region.y_min - y_min_rem - self.rock_db_config.block_size
+        x_max = region.x_max - x_max_rem + self.rock_db_config.block_size
+        y_max = region.y_max - y_max_rem + self.rock_db_config.block_size
+
+        new_region = BoundingBox(x_min, x_max, y_min, y_max)
+
+        occupied_block_matrix = np.zeros(
+            (
+                (int((x_max - x_min) / self.rock_db_config.block_size)),
+                (int((y_max - y_min) / self.rock_db_config.block_size)),
+            ),
+            dtype=int,
+        )
+
+        for x in range(x_min, x_max, self.rock_db_config.block_size):
+            for y in range(y_min, y_max, self.rock_db_config.block_size):
+                if self.check_block_exists((x, y)):
+                    occupied_block_matrix[
+                        int((x - x_min) / self.rock_db_config.block_size),
+                        int((y - y_min) / self.rock_db_config.block_size),
+                    ] = 1
+
+        return occupied_block_matrix
 
     def get_blocks_within_region_with_neighbors(
         self, region: BoundingBox
