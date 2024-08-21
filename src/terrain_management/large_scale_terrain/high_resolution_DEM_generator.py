@@ -300,6 +300,9 @@ class HighResDEMGen:
         Shifts the block grid to the given coordinates while preserving the state of the
         blocks. The function will also update the map_grid_block2coords dictionary to
         reflect the new block coordinates.
+
+        Args:
+            coordinates (Tuple[float, float]): Coordinates in meters in the low resolution
         """
 
         # TODO (antoine.richard): This function should also be modified to handle multiple calls to it
