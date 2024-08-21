@@ -119,7 +119,12 @@ class HighResDEMGen:
     The HighResDEMGen class is responsible for generating the high resolution DEM.
     """
 
-    def __init__(self, low_res_dem: np.ndarray, settings: HighResDEMGenCfg, profiling: bool = True) -> None:
+    def __init__(
+        self,
+        low_res_dem: np.ndarray,
+        settings: HighResDEMGenCfg,
+        profiling: bool = True,
+    ) -> None:
         """
         Args:
             low_res_dem (np.ndarray): The low resolution DEM.
@@ -179,6 +184,7 @@ class HighResDEMGen:
         """
         Computes the offset of the low resolution DEM in the high resolution DEM.
         """
+
         self.lr_dem_px_offset = (
             self.low_res_dem.shape[0] // 2,
             self.low_res_dem.shape[1] // 2,
@@ -252,6 +258,11 @@ class HighResDEMGen:
         blocks to reuse when the high resolution DEM is shifted.
         """
 
+        # TODO (antoine.richard): This function should also be modified to handle multiple calls to it
+        # even if the terrain reconstruction is not complete. This would prevent a full simulation lock
+        # that waits for one reconstruction to finish before starting the next one. The state could be
+        # augmented to have a flag that says a given block is already being processed.
+
         self.block_grid_tracker = {}
         self.map_grid_block2coords = {}
 
@@ -290,6 +301,11 @@ class HighResDEMGen:
         blocks. The function will also update the map_grid_block2coords dictionary to
         reflect the new block coordinates.
         """
+
+        # TODO (antoine.richard): This function should also be modified to handle multiple calls to it
+        # even if the terrain reconstruction is not complete. This would prevent a full simulation lock
+        # that waits for one reconstruction to finish before starting the next one. The state could be
+        # augmented to have a flag that says a given block is already being processed.
 
         new_block_grid_tracker = {}
         new_map_grid_block2coords = {}
@@ -348,6 +364,10 @@ class HighResDEMGen:
             pixel_shift (Tuple[int, int]): Number of pixels to shift the high resolution
                 DEM in the pixel coordinate space.
         """
+
+        # TODO (antoine.richard / JAOPS): This function is not optimal and could be improved.
+        # Check if a np.roll function could be used to shift the DEM. This would be faster
+        # than copying the data. I would then have to set the shifted values to 0.
 
         x_shift, y_shift = pixel_shift
         if x_shift > self.high_res_dem.shape[0] or y_shift > self.high_res_dem.shape[1]:
@@ -409,6 +429,19 @@ class HighResDEMGen:
             coordinates (Tuple[float, float]): Coordinates in meters in the low
                 resolution DEM frame
         """
+
+        # TODO (antoine.richard / JAOPS): The way the threading is handled could be improved.
+        # Right now this function is blocking, that is, it runs first, then the thread fires
+        # the terrain reconstruction. In this function, only the shift of the DEM needs to
+        # be blocking. The rest could be done asynchronously. The shift of the DEM is blocking
+        # because the clipmaps must not be updated as the DEM is shifted.
+        # In short, the DEM shift + setting the new coordinates should be preventing the GeoClipmap
+        # update but not lock the main simulation thread.
+
+        # TODO (antoine.richard): This function should also be modified to handle multiple calls to it
+        # even if the terrain reconstruction is not complete. This would prevent a full simulation lock
+        # that waits for one reconstruction to finish before starting the next one.
+
         print("Called shift")
         with ScopedTimer("Shift", active=self.profiling):
             # Compute initial coordinates in block space
@@ -438,7 +471,7 @@ class HighResDEMGen:
                     self.generate_craters_metadata(new_block_coord)
             with ScopedTimer("Add terrain blocks to queues", active=self.profiling):
                 # Asynchronous terrain block generation
-                self.generate_terrain_blocks()
+                self.generate_terrain_blocks()  # <-- This is the bit that needs to be edited to support multiple calls
         print("Shift done")
 
     def get_height(self, coordinates: Tuple[float, float]) -> float:
@@ -457,8 +490,10 @@ class HighResDEMGen:
         x = local_coordinates[0] / self.settings.resolution
         y = local_coordinates[1] / self.settings.resolution
         return self.high_res_dem[int(x), int(y)]
-    
-    def euler_to_quaternion(self, roll: float, pitch: float, yaw:float) -> Tuple[float, float, float, float]:
+
+    def euler_to_quaternion(
+        self, roll: float, pitch: float, yaw: float
+    ) -> Tuple[float, float, float, float]:
         """
         Converts the euler angles to a quaternion.
 
@@ -484,8 +519,9 @@ class HighResDEMGen:
         w = cr * cp * cy + sr * sp * sy
         return (x, y, z, w)
 
-    
-    def get_normal(self, coordinates: Tuple[float, float]) -> Tuple[float, float, float, float]:
+    def get_normal(
+        self, coordinates: Tuple[float, float]
+    ) -> Tuple[float, float, float, float]:
         """
         Returns the normal of the high resolution DEM at the given coordinates.
 
@@ -502,16 +538,22 @@ class HighResDEMGen:
         y = local_coordinates[1] / self.settings.resolution
 
         # Compute the normal
-        dx = self.high_res_dem[int(x) + 1, int(y)] - self.high_res_dem[int(x) - 1, int(y)]
+        dx = (
+            self.high_res_dem[int(x) + 1, int(y)]
+            - self.high_res_dem[int(x) - 1, int(y)]
+        )
         dx = dx / (self.settings.resolution * 2)
-        dy = self.high_res_dem[int(x), int(y) + 1] - self.high_res_dem[int(x), int(y) - 1]
+        dy = (
+            self.high_res_dem[int(x), int(y) + 1]
+            - self.high_res_dem[int(x), int(y) - 1]
+        )
         dy = dy / (self.settings.resolution * 2)
         rot_x = np.arctan2(dx, 1)
         rot_y = np.arctan2(dy, 1)
 
         quaternion = self.euler_to_quaternion(-rot_y, -rot_x, 0)
         return quaternion
-    
+
     def list_missing_blocks(self) -> List[Tuple[int, int]]:
         """
         Lists the blocks that are missing the terrain data.
@@ -525,10 +567,14 @@ class HighResDEMGen:
             for coords in self.map_grid_block2coords.values()
             if not self.is_block_complete(coords)
         ]
-    
+
     def is_block_complete(self, coord) -> bool:
         block = self.block_grid_tracker[coord]
-        return block["has_crater_metadata"] and block["has_crater_data"] and block["has_terrain_data"]
+        return (
+            block["has_crater_metadata"]
+            and block["has_crater_data"]
+            and block["has_terrain_data"]
+        )
 
     def update_high_res_dem(self, coords: Tuple[float, float]) -> bool:
         """
@@ -547,10 +593,17 @@ class HighResDEMGen:
         Returns:
             bool: True if the DEM has been updated, False otherwise.
         """
+        # TODO (antoine.richard): This function should also be modified to handle multiple calls to it
+        # even if the terrain reconstruction is not complete. This would prevent a full simulation lock
+        # that waits for one reconstruction to finish before starting the next one. Here we can see
+        # that the function is blocking and waits for the terrain reconstruction to finish before
+        # starting the next one.
+        # This could be solved by having the terrain reconstruction running as a demon on the background.
+        # If the rest of the code is fixed to not create duplicate generation of the same block it should work.
 
         block_coordinates = self.cast_coordinates_to_block_space(coords)
         updated = False
-        
+
         # Initial map generation
         if not self.sim_is_warm:
             print("Warming up simulation")
@@ -567,23 +620,34 @@ class HighResDEMGen:
                 print("Map is not done, waiting for the terrain data")
                 while not self.terrain_is_primed:
                     time.sleep(0.2)
-                    print([self.block_grid_tracker[coord] for coord in self.list_missing_blocks()])
+                    print(
+                        [
+                            self.block_grid_tracker[coord]
+                            for coord in self.list_missing_blocks()
+                        ]
+                    )
                     print(self.crater_builder_manager.get_load_per_worker())
                     print(self.interpolator_manager.get_load_per_worker())
                 print("Map is done carrying on")
             # Threaded update, the function will return before the update is done
             if self.thread is None:
                 self.shift(coords)
-                self.thread = threading.Thread(target=self.threaded_high_res_dem_update).start()
+                self.thread = threading.Thread(
+                    target=self.threaded_high_res_dem_update
+                ).start()
             elif self.thread.is_alive():
                 print("Thread is alive waiting for it to finish")
                 while self.thread.is_alive():
                     time.sleep(0.1)
                 self.shift(coords)
-                self.thread = threading.Thread(target=self.threaded_high_res_dem_update).start()
+                self.thread = threading.Thread(
+                    target=self.threaded_high_res_dem_update
+                ).start()
             else:
                 self.shift(coords)
-                self.thread = threading.Thread(target=self.threaded_high_res_dem_update).start()
+                self.thread = threading.Thread(
+                    target=self.threaded_high_res_dem_update
+                ).start()
             updated = True
         return updated
 
@@ -611,6 +675,11 @@ class HighResDEMGen:
         Threaded function to update the high resolution DEM. It will wait untill the
         terrain data and crater data is available for the blocks in the grid.
         """
+
+        # TODO (antoine.richard): This function should also be modified to handle multiple calls to it
+        # even if the terrain reconstruction is not complete. This would prevent a full simulation lock
+        # that waits for one reconstruction to finish before starting the next one.
+
         print("Opening thread")
         self.terrain_is_primed = False
         while not self.is_map_done():
@@ -729,6 +798,12 @@ class HighResDEMGen:
         is done to ensure that the terrain data is available for the blocks that are being
         rendered.
         """
+
+        # TODO (antoine.richard): This function should also be modified to handle multiple calls to it
+        # even if the terrain reconstruction is not complete. This would prevent a full simulation lock
+        # that waits for one reconstruction to finish before starting the next one. The state could be
+        # augmented to have a flag that says a given block is already being processed. This function
+        # needs to check if the requested block is already being processed and if it is, skip it.
 
         # Generate terrain data for + 1 block in each direction
         for grid_key in self.map_grid_block2coords.keys():
