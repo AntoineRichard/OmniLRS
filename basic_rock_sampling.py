@@ -27,8 +27,8 @@ RS_Cfg_D = {
     "rock_dist_cfg": {
         "position_distribution": {
             "name": "thomas_point_process",
-            "parent_density": 0.025,
-            "child_density": 50,
+            "parent_density": 0.04,
+            "child_density": 100,
             "sigma": 3,
             "seed": 42,
         },
@@ -113,4 +113,6 @@ if __name__ == "__main__":
     print("DB size in MB: ", RD.get_memory_footprint(unit="MB"))
     print("number of rocks in the region: ", RD.number_of_elements())
     RS.display_region(region)
+    with ScopedTimer("Sampling rocks by region"):
+        RS.sample_rocks_by_region(region)
     plt.show()
