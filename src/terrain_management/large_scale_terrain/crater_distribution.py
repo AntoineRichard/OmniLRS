@@ -692,9 +692,7 @@ class CraterSampler:
         # Process by regions until the largest rectangle is smaller or equal to 1 block
         process_by_regions = True
         while process_by_regions:
-            _, _, matrix = self.crater_db.get_blocks_within_region_with_neighbors(
-                region
-            )
+            matrix = self.crater_db.get_occupancy_matrix_within_region(region)
             # Computes the largest rectangle in the region that does not contain any craters
             area, coords = self.compute_largest_rectangle(matrix)
             # If the area is smaller or equal to 1 block, we stop the process
