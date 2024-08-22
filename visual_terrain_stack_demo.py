@@ -5,6 +5,7 @@ import os
 
 from omni.isaac.kit import SimulationApp
 
+
 def quat_mul(q1, q2):
     x1, y1, z1, w1 = q1
     x2, y2, z2, w2 = q2
@@ -14,17 +15,20 @@ def quat_mul(q1, q2):
     z = w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
     return x, y, z, w
 
+
 def heading_to_quat(heading):
     return 0, 0, math.sin(heading / 2), math.cos(heading / 2)
+
 
 def loadSandMaterial(asset_path: str):
     omni.kit.commands.execute(
         "CreateMdlMaterialPrimCommand",
-        #mtl_url="http://omniverse-content-production.s3-us-west-2.amazonaws.com/Materials/Base/Natural/Sand.mdl",
-        mtl_url=asset_path+"/Textures/Sand.mdl",
+        # mtl_url="http://omniverse-content-production.s3-us-west-2.amazonaws.com/Materials/Base/Natural/Sand.mdl",
+        mtl_url=asset_path + "/Textures/Sand.mdl",
         mtl_name="Sand",
         mtl_path="/Looks/Sand",
     )
+
 
 def EMAquat(q1, q2, alpha):
     dot = q1[0] * q2[0] + q1[1] * q2[1] + q1[2] * q2[2] + q1[3] * q2[3]
@@ -40,7 +44,7 @@ def EMAquat(q1, q2, alpha):
     return x / s, y / s, z / s, w / s
 
 
-#def loadCarpetMaterial():
+# def loadCarpetMaterial():
 #    omni.kit.commands.execute(
 #        "CreateMdlMaterialPrimCommand",
 #        mtl_url="http://omniverse-content-production.s3-us-west-2.amazonaws.com/Materials/Base/Carpet/Carpet_Pattern_Squares_Multi.mdl",
@@ -50,13 +54,16 @@ def EMAquat(q1, q2, alpha):
 
 
 cfg = {
-  "renderer": "PathTracing",
-  "headless": True,
-  "samples_per_pixel_per_frame": 32,
-  "max_bounces": 6,
-  "max_specular_transmission_bounces": 6,
-  "max_volume_bounces": 4,
-  "subdiv_refinement_level": 0,
+    "renderer": "PathTracing",
+    "headless": True,
+    "samples_per_pixel_per_frame": 32,
+    "max_bounces": 6,
+    "max_specular_transmission_bounces": 6,
+    "max_volume_bounces": 4,
+    "subdiv_refinement_level": 0,
+}
+cfg = {
+    "headless": False,
 }
 simulation_app = SimulationApp(cfg)
 
@@ -146,6 +153,76 @@ NGCMMCfg_D = {
     "coarse_acceleration_mode": "hybrid",
     "profiling": False,
 }
+RDBCfg_D = {
+    "block_size": 50,
+    "max_blocks": int(1e7),
+    "save_to_disk": False,
+    "write_to_disk_interval": 1000,
+}
+RSCfg_1_D = {
+    "block_size": 50,
+    "rock_dist_cfg": {
+        "position_distribution": {
+            "name": "thomas_point_process",
+            "parent_density": 0.04,
+            "child_density": 100,
+            "sigma": 3,
+            "seed": 42,
+        },
+        "scale_distribution": {
+            "name": "uniform",
+            "min": 0.02,
+            "max": 0.05,
+            "seed": 42,
+        },
+        "seed": 42,
+        "num_rock_id": 50,
+    },
+}
+RSCfg_2_D = {
+    "block_size": 50,
+    "rock_dist_cfg": {
+        "position_distribution": {
+            "name": "thomas_point_process",
+            "parent_density": 0.01,
+            "child_density": 25,
+            "sigma": 3,
+            "seed": 42,
+        },
+        "scale_distribution": {
+            "name": "uniform",
+            "min": 0.05,
+            "max": 0.2,
+            "seed": 42,
+        },
+        "seed": 43,
+        "num_rock_id": 50,
+    },
+}
+RGCfg_1_D = {
+    "rock_db_cfg": RDBCfg_D,
+    "rock_sampler_cfg": RSCfg_1_D,
+    "rock_assets_folder": "assets/USD_Assets/rocks/small",
+    "instancer_name": "very_small_rock_instancer",
+    "seed": 42,
+    "block_span": 0,
+    "block_size": 50,
+}
+RGCfg_2_D = {
+    "rock_db_cfg": RDBCfg_D,
+    "rock_sampler_cfg": RSCfg_2_D,
+    "rock_assets_folder": "assets/USD_Assets/rocks/small",
+    "instancer_name": "large_rock_instancer",
+    "seed": 42,
+    "block_span": 1,
+    "block_size": 50,
+}
+RMCfg_D = {
+    "rock_gen_cfgs": [RGCfg_1_D, RGCfg_2_D],
+    "instancers_path": "/World/rock_instancers",
+    "seed": 42,
+}
+
 
 if __name__ == "__main__":
     from omni.isaac.core import World
@@ -164,6 +241,7 @@ if __name__ == "__main__":
         LargeScaleTerrainManagerCfg,
         LargeScaleTerrainManager,
     )
+    from src.terrain_management.large_scale_terrain.rock_manager import RockManagerCfg
     from src.labeling.auto_label import AutonomousLabeling
     from src.configurations.auto_labeling_confs import AutoLabelingConf
 
@@ -179,7 +257,7 @@ if __name__ == "__main__":
     stage = get_context().get_stage()
     asset_path = os.path.join(os.getcwd(), "assets")
     loadSandMaterial(asset_path)
-    #loadCarpetMaterial()
+    # loadCarpetMaterial()
 
     # Let there be light
     light = UsdLux.DistantLight.Define(stage, "/World/sun")
@@ -187,7 +265,7 @@ if __name__ == "__main__":
     addDefaultOps(light.GetPrim())
     setDefaultOps(light.GetPrim(), (0, 0, 0), (0.65, 0, 0, 0.76), (1, 1, 1))
 
-    Q_camera = (0.707,0,0,0.707) # x,y,z,w
+    Q_camera = (0.707, 0, 0, 0.707)  # x,y,z,w
 
     # Camera
     camera = UsdGeom.Camera.Define(stage, "/World/camera")
@@ -200,19 +278,23 @@ if __name__ == "__main__":
     left_light.CreateIntensityAttr(10000000.0)
     left_light.CreateColorAttr(Gf.Vec3f(0.87, 0.97, 0.97))
     left_shaping_api = UsdLux.ShapingAPI(left_light.GetPrim())
-    left_shaping_api.CreateShapingIesFileAttr().Set(asset_path + "/Textures/RobotProjector.ies")
+    left_shaping_api.CreateShapingIesFileAttr().Set(
+        asset_path + "/Textures/RobotProjector.ies"
+    )
     left_shaping_api.CreateShapingIesNormalizeAttr().Set(True)
     addDefaultOps(left_light.GetPrim())
-    setDefaultOps(left_light.GetPrim(), (-0.5, 0, 0), (0,0,0,1), (1, 1, 1))
+    setDefaultOps(left_light.GetPrim(), (-0.5, 0, 0), (0, 0, 0, 1), (1, 1, 1))
     right_light = UsdLux.DiskLight.Define(stage, "/World/camera/right_light")
     right_light.CreateRadiusAttr(0.05)
     right_light.CreateIntensityAttr(10000000.0)
     right_light.CreateColorAttr(Gf.Vec3f(0.87, 0.97, 0.97))
     right_shaping_api = UsdLux.ShapingAPI(right_light.GetPrim())
-    right_shaping_api.CreateShapingIesFileAttr().Set(asset_path + "/Textures/RobotProjector.ies")
+    right_shaping_api.CreateShapingIesFileAttr().Set(
+        asset_path + "/Textures/RobotProjector.ies"
+    )
     right_shaping_api.CreateShapingIesNormalizeAttr().Set(True)
     addDefaultOps(right_light.GetPrim())
-    setDefaultOps(right_light.GetPrim(), (0.5, 0, 0), (0,0,0,1), (1, 1, 1))
+    setDefaultOps(right_light.GetPrim(), (0.5, 0, 0), (0, 0, 0, 1), (1, 1, 1))
 
     C = 0
     R = 500 * 5
@@ -241,18 +323,21 @@ if __name__ == "__main__":
     }
     ALCfg_D = {
         "num_images": 10000000,
-        "prim_path": '/World',
-        "camera_name": 'camera',
-        "camera_resolution": (1280,720),
-        "data_dir": 'data',
+        "prim_path": "/World",
+        "camera_name": "camera",
+        "camera_resolution": (1280, 720),
+        "data_dir": "data",
         "annotator_list": ["rgb"],
-        "image_format": 'png',
-        "annot_format": 'json',
+        "image_format": "png",
+        "annot_format": "json",
         "element_per_folder": 10000000,
         "add_noise_to_rgb": False,
         "sigma": 0.0,
         "seed": 42,
     }
+    for i in range(100):
+        world.step(render=True)
+
     ALCFG = AutoLabelingConf(**ALCfg_D)
     AL = AutonomousLabeling(ALCFG)
     AL.load()
@@ -260,11 +345,11 @@ if __name__ == "__main__":
     hrdem_settings = HighResDEMGenCfg(**HRDEMGenCfg_D)
     mm_settings = MapManagerCfg(**MMCfg_D)
     ngcmm_settings = NestedGeometricClipMapManagerCfg(**NGCMMCfg_D)
+    rm_settings = RockManagerCfg(**RMCfg_D)
     lstm_settings = LargeScaleTerrainManagerCfg(**LSTMCfg_D)
 
-
     LSTM = LargeScaleTerrainManager(
-        lstm_settings, ngcmm_settings, hrdem_settings, mm_settings
+        lstm_settings, ngcmm_settings, hrdem_settings, mm_settings, rm_settings
     )
 
     LSTM.build()
@@ -273,9 +358,7 @@ if __name__ == "__main__":
     bindMaterial(stage, "/Looks/Sand", "/World/Terrain")
 
     Q_camera2 = quat_mul(heading_to_quat(0), Q_camera)
-    setDefaultOps(
-        camera.GetPrim(), (0, 0, height + 0.5), Q_camera2, (1, 1, 1)
-    )
+    setDefaultOps(camera.GetPrim(), (0, 0, height + 0.5), Q_camera2, (1, 1, 1))
     # LSTM.update_visual_mesh((0, 0))
     timeline = omni.timeline.get_timeline_interface()
     timeline.play()
@@ -286,33 +369,37 @@ if __name__ == "__main__":
     target += 10
     Q_camera4 = None
     while target > i3:
-        x_new = C + i2 * R * math.cos(theta[i])
-        y_new = C + i2 * R * math.sin(theta[i])
-        x_delta = x_new - x
-        y_delta = y_new - y
-        coords = (x_delta, y_delta)
-        Q_camera2 = quat_mul(heading_to_quat(theta[i]), Q_camera)
-        Q_terrain = LSTM.get_normal_local(coords)
-        Q_camera3 = quat_mul(Q_terrain, Q_camera2)
-        if Q_camera4 is None:
-            Q_camera4 = copy.copy(Q_camera3)
-        else:
-            Q_camera4 = EMAquat(Q_camera4, Q_camera3, 0.0333)
-        LSTM.update_visual_mesh(coords)
-        setDefaultOps(
-           camera.GetPrim(),
-           (x_delta, y_delta, LSTM.get_height_local(coords) + 0.5),
-           Q_camera4,
-           (1, 1, 1),
-        )
+        # x_new = C + i2 * R * math.cos(theta[i])
+        # y_new = C + i2 * R * math.sin(theta[i])
+        # x_delta = x_new - x
+        # y_delta = y_new - y
+        # coords = (x_delta, y_delta)
+        # Q_camera2 = quat_mul(heading_to_quat(theta[i]), Q_camera)
+        # Q_terrain = LSTM.get_normal_local(coords)
+        # Q_camera3 = quat_mul(Q_terrain, Q_camera2)
+        # if Q_camera4 is None:
+        #    Q_camera4 = copy.copy(Q_camera3)
+        # else:
+        #    Q_camera4 = EMAquat(Q_camera4, Q_camera3, 0.0333)
+        # LSTM.update_visual_mesh(coords)
+        # setDefaultOps(
+        #    camera.GetPrim(),
+        #    (x_delta, y_delta, LSTM.get_height_local(coords) + 0.5),
+        #    Q_camera4,
+        #    (1, 1, 1),
+        # )
         world.step(render=True)
         i = (i + 1) % rotation_rate
-        if i%acquisition_rate == 0:
-            try:
-                AL.record()
-                i3 += 1
-            except Exception as e:
-                print(e)
+        # if i % acquisition_rate == 0:
+        if i == 1000:
+            LSTM.rock_manager.build()
+        if i > 1000:
+            LSTM.rock_manager.sample((0, 0))
+        #    try:
+        #        AL.record()
+        #        i3 += 1
+        #    except Exception as e:
+        #        print(e)
     #    i2 += spiral_rate
     timeline.stop()
     LSTM.map_manager.hr_dem_gen.shutdown()

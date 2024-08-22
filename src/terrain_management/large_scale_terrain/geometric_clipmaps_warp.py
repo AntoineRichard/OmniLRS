@@ -328,8 +328,8 @@ def _normal_on_grid(q: wp.mat22f, grid_size: float) -> wp.vec3f:
     """
 
     return wp.vec3f(
-        grid_size / 2 * (q[0, 1] - q[1, 1] - q[1, 0] + q[0, 0]),
-        grid_size / 2 * (q[1, 0] - q[1, 1] - q[0, 1] - q[0, 0]),
+        grid_size / 2.0 * (q[0, 1] - q[1, 1] - q[1, 0] + q[0, 0]),
+        grid_size / 2.0 * (q[1, 0] - q[1, 1] - q[0, 1] - q[0, 0]),
         grid_size * grid_size,
     )
 
@@ -355,7 +355,7 @@ def _bilinear_interpolation_and_random_orientation(
     normal: wp.array(dtype=wp.vec3f),
     quat: wp.array(dtype=wp.quatf),
     height: wp.array(dtype=float),
-    seed: wp.uint32,
+    seed: wp.int32,
 ):
     tid = wp.tid()
     normal[tid] = _normal_on_grid(q[tid], grid_size)
@@ -367,11 +367,11 @@ def _bilinear_interpolation_and_random_orientation(
 def _get_random_tangent_vector(normal: wp.vec3f, state: wp.uint32) -> wp.quatf:
     vx = wp.vec3f(
         wp.randf(state, -1.0, 1.0),
-        wp.randf(state + 1, -1.0, 1.0),
-        wp.randf(state + 2, -1.0, 1.0),
+        wp.randf(state + wp.uint32(1), -1.0, 1.0),
+        wp.randf(state + wp.uint32(2), -1.0, 1.0),
     )
     vx = wp.cross(normal, vx)
     vx = vx / wp.length(vx)
     vy = wp.cross(normal, vx)
     mat = wp.mat33f(vx, vy, normal)
-    return wp.quatf(mat)
+    return wp.quat_from_matrix(mat)

@@ -212,9 +212,9 @@ class GeoClipmap:
         self.DEM_sampler.getElevation(coordinates)
 
     def get_height_and_random_orientation(
-        self, x: np.ndarray, y: np.ndarray
+        self, x: np.ndarray, y: np.ndarray, seed: int = 0
     ) -> Tuple[np.ndarray, np.ndarray]:
-        return self.DEM_sampler.bilinear_interpolation_and_normal_CPU(x, y)
+        return self.DEM_sampler.bilinear_interpolation_and_normal_CPU(x, y, seed=seed)
 
 
 class DEMSampler:

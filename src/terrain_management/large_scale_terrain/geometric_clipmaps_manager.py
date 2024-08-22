@@ -193,7 +193,10 @@ class GeoClipmapManager:
         pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
 
     def get_height_and_random_orientation(
-        self, x: np.ndarray, y: np.ndarray
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        seed: int = 0,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Gets the height and random orientation at the given x and y.
@@ -206,4 +209,4 @@ class GeoClipmapManager:
             Tuple[np.ndarray, np.ndarray]: height and random orientation.
         """
 
-        return self._geo_clipmap.get_height_and_random_orientation(x, y)
+        return self._geo_clipmap.get_height_and_random_orientation(x, y, seed=seed)

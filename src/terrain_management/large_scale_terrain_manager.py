@@ -18,6 +18,11 @@ from src.terrain_management.large_scale_terrain.geometric_clipmaps_manager impor
 from src.terrain_management.large_scale_terrain.geometric_clipmaps import (
     GeoClipmapSpecs,
 )
+from src.terrain_management.large_scale_terrain.rock_manager import (
+    RockManagerCfg,
+    RockManager,
+)
+from src.terrain_management.large_scale_terrain.rock_distribution import mock_call
 
 
 @dataclasses.dataclass
@@ -118,6 +123,15 @@ class NestedGeoClipmapManager:
     def update_fine_clipmap_dem_buffer(self):
         self.fine_clipmap_manager.updateDEMBuffer()
 
+    def get_height_and_random_scale(self, x: np.ndarray, y: np.ndarray, seed: int = 0):
+        return self.fine_clipmap_manager.get_height_and_random_orientation(
+            x, y, seed=seed
+        )
+
+
+def is_map_done():
+    return True
+
 
 @dataclasses.dataclass
 class LargeScaleTerrainManagerCfg:
@@ -136,10 +150,12 @@ class LargeScaleTerrainManager:
         nested_geometric_clipmap_manager_cfg: NestedGeometricClipMapManagerCfg,
         highresdemgen_cfg: HighResDEMGenCfg,
         mapmanager_cfg: MapManagerCfg,
+        rock_manager_cfg: RockManagerCfg,
     ):
         self.nested_geometric_clipmap_manager_cfg = nested_geometric_clipmap_manager_cfg
         self.highresdemgen_cfg = highresdemgen_cfg
         self.mapmanager_cfg = mapmanager_cfg
+        self.rock_manager_cfg = rock_manager_cfg
         self.settings = settings
 
         self.last_update_coordinates = None
@@ -167,14 +183,14 @@ class LargeScaleTerrainManager:
 
     def get_height_global(self, coordinates):
         return self.map_manager.get_height(coordinates)
-    
+
     def get_normal_local(self, coordinates):
         global_coordinates = (
             coordinates[0] + self.initial_coordinates[0],
             coordinates[1] + self.initial_coordinates[1],
         )
         return self.map_manager.get_normal(global_coordinates)
-    
+
     def get_normal_global(self, coordinates):
         return self.map_manager.get_normal(coordinates)
 
@@ -183,6 +199,12 @@ class LargeScaleTerrainManager:
         self.nested_clipmap_manager = NestedGeoClipmapManager(
             self.nested_geometric_clipmap_manager_cfg
         )
+        self.rock_manager = RockManager(
+            self.rock_manager_cfg,
+            mock_call,
+            is_map_done,
+        )
+
         self.map_manager.load_lr_dem_by_name(self.settings.map_name)
         self.cast_coordinates()
         self.mesh_position = (0, 0)
@@ -195,11 +217,14 @@ class LargeScaleTerrainManager:
             self.map_manager.get_hr_dem_res(),
             self.map_manager.get_lr_dem_res(),
         )
+        # self.rock_manager.build()
+        print("update visual mesh")
         self.update_visual_mesh((0, 0))
+        print("update visual mesh done")
 
     def update_visual_mesh(self, local_coordinates):
-        #print("local_coordinates", local_coordinates)
-        #print("last_update_coordinates", self.last_update_coordinates)
+        # print("local_coordinates", local_coordinates)
+        # print("last_update_coordinates", self.last_update_coordinates)
         if self.last_update_coordinates is None:
             self.last_update_coordinates = copy.copy(local_coordinates)
             delta = (0.0, 0.0)
@@ -229,26 +254,27 @@ class LargeScaleTerrainManager:
                 corrected_coordinates[0] + self.initial_coordinates[0],
                 corrected_coordinates[1] + self.initial_coordinates[1],
             )
-            #print("initial_coordinates", self.initial_coordinates)
-            #print("global_coordinates", global_coordinates)
+            # print("initial_coordinates", self.initial_coordinates)
+            # print("global_coordinates", global_coordinates)
 
             # Update the high resolution DEM
             hr_dem_updated = self.map_manager.update_hr_dem(global_coordinates)
             # if the DEM was updated, the high DEM inside the warp buffer of the nested clipmap manager
             # needs to be updated as well.
 
-            #self.mesh_position = (
+            # self.mesh_position = (
             #    self.mesh_position[0] + delta[0],
             #    self.mesh_position[1] + delta[1],
-            #)
+            # )
             fine_position = self.map_manager.get_hr_coordinates(global_coordinates)
             coarse_position = self.map_manager.get_lr_coordinates(global_coordinates)
-            #print("fine_position", fine_position)
-            #print("coarse_position", coarse_position)
-            #print("min value lr dem", self.map_manager.get_lr_dem().min())
-            #print("max value lr dem", self.map_manager.get_lr_dem().max())
-            #print("min value hr dem", self.map_manager.get_hr_dem().min())
-            #print("max value hr dem", self.map_manager.get_hr_dem().max())
+            # print("fine_position", fine_position)
+            # print("coarse_position", coarse_position)
+            # print("min value lr dem", self.map_manager.get_lr_dem().min())
+            # print("max value lr dem", self.map_manager.get_lr_dem().max())
+            # print("min value hr dem", self.map_manager.get_hr_dem().min())
+            # print("max value hr dem", self.map_manager.get_hr_dem().max())
             self.nested_clipmap_manager.update_clipmaps(
                 fine_position, coarse_position, corrected_coordinates
             )
+            # self.rock_manager.sample_threaded(global_coordinates)

@@ -113,9 +113,7 @@ class MapManager:
                     )
                 if os.path.exists(dem_info_path):
                     with open(dem_info_path, "r") as file:
-                        self.dem_infos[folder] = DemInfo(
-                            **yaml.load(file, Loader=yaml.Loader)
-                        )
+                        self.dem_infos[folder] = DemInfo(**yaml.safe_load(file))
                 else:
                     warnings.warn(
                         f"DEM info {dem_info_path} does not exist. Expected to find dem.yaml in the folder but could not find it."
@@ -239,8 +237,16 @@ class MapManager:
             Tuple[float, float]: coordinates in meters in the LR dem space.
         """
 
-        x = coordinates[0] + self.get_lr_dem_res() * self.get_lr_dem_shape()[0] // 2 - self.get_lr_dem_res() / 2
-        y = coordinates[1] + self.get_lr_dem_res() * self.get_lr_dem_shape()[1] // 2 - self.get_lr_dem_res() / 2
+        x = (
+            coordinates[0]
+            + self.get_lr_dem_res() * self.get_lr_dem_shape()[0] // 2
+            - self.get_lr_dem_res() / 2
+        )
+        y = (
+            coordinates[1]
+            + self.get_lr_dem_res() * self.get_lr_dem_shape()[1] // 2
+            - self.get_lr_dem_res() / 2
+        )
         return (x, y)
 
     def get_hr_dem(self) -> np.ndarray:
@@ -324,8 +330,10 @@ class MapManager:
         """
 
         return self.hr_dem_gen.get_height(coordinates)
-    
-    def get_normal(self, coordinates: Tuple[float, float]) -> Tuple[float, float, float, float]:
+
+    def get_normal(
+        self, coordinates: Tuple[float, float]
+    ) -> Tuple[float, float, float, float]:
         return self.hr_dem_gen.get_normal(coordinates)
 
     def initialize_hr_dem(self, coordinates: Tuple[float, float]) -> None:
