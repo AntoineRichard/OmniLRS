@@ -122,7 +122,7 @@ from src.terrain_management.large_scale_terrain.rock_distribution import (
 )
 from src.terrain_management.large_scale_terrain.rock_database import RockDB, RockDBCfg
 from WorldBuilders.pxr_utils import createInstancerAndCache, setInstancerParameters
-from src.terrain_management.large_scale_terrain.utils import BoundingBox
+from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBlockData
 
 
 class OGInstancer:
@@ -130,15 +130,29 @@ class OGInstancer:
     The Original Gangster: the point instancer.
     """
 
-    def __init__(self, instancer_path, assets_path, seed):
+    def __init__(self, instancer_path: str, assets_path: str, seed: int):
+        """
+        Args:
+            instancer_path (str): The path to the instancer.
+            assets_path (str): The path to the assets folder.
+            seed (int): The seed for the random number generator.
+        """
+
         self.instancer_path = instancer_path
         self.stage = omni.usd.get_context().get_stage()
         self.assets_path = assets_path
+        self.prototypes = []
         self.get_asset_list()
+        print(self.prototypes)
+        print(self.instancer_path)
         createInstancerAndCache(self.stage, self.instancer_path, self.prototypes)
         self.rng = np.random.default_rng(seed=seed)
 
     def get_asset_list(self):
+        """
+        Get the list of assets in the assets folder.
+        """
+
         self.prototypes = [
             os.path.join(self.assets_path, file)
             for file in os.listdir(self.assets_path)
@@ -175,7 +189,19 @@ class OGInstancer:
         )
 
 
+@dataclasses.dataclass
 class RockGeneratorCfg:
+    """
+    Args:
+        rock_db_cfg (RockDBCfg): The configuration for the rock database.
+        rock_sampler_cfg (RockSamplerCfg): The configuration for the rock sampler.
+        rock_assets_folder (str): The path to the rock assets folder.
+        instancer_name (str): The name of the instancer.
+        seed (int): The seed for the random number generator.
+        block_span (int): The number of blocks to sample around the position.
+        block_size (int): The size of the blocks in meters.
+    """
+
     rock_db_cfg: RockDBCfg = dataclasses.field(default_factory=dict)
     rock_sampler_cfg: RockSamplerCfg = dataclasses.field(default_factory=dict)
     rock_assets_folder: str = dataclasses.field(default_factory=list)
@@ -194,20 +220,37 @@ class RockGeneratorCfg:
 
 
 class RockGenerator:
+    """
+    The rock generator is responsible for generating rocks on the terrain. It samples the rocks
+    around a given position and updates the instancer with the new data.
+    """
+
     def __init__(
         self,
         settings: RockGeneratorCfg,
-        sampling_func: function,
-        map_state: Dict,
+        sampling_func: callable,
+        is_map_done: callable,
         instancer_path: str,
     ):
+        """
+        Args:
+            settings (RockGeneratorCfg): The settings for the rock generator.
+            sampling_func (callable): The function to sample the rocks.
+            is_map_done (callable): The function to check if the map is done.
+            instancer_path (str): The path to the instancer.
+        """
         self.settings = settings
         self.sampling_func = sampling_func
-        self.map_state = map_state
+        self.is_map_done = is_map_done
         self.instancer_path = instancer_path
         self.is_sampling = False
 
-    def build(self):
+    def build(self) -> None:
+        """
+        Builds the rock generator. It initializes the rock database, the rock sampler, and the
+        rock instancer.
+        """
+
         self.rock_db = RockDB(self.settings.rock_db_cfg)
         self.rock_sampler = RockSampler(
             self.settings.rock_sampler_cfg,
@@ -230,6 +273,12 @@ class RockGenerator:
 
         The coordinates are still expressed in meters, but they can only be an increment of
         the block size (in meters).
+
+        Args:
+            coordinates (Tuple[float, float]): The coordinates to cast to the block space.
+
+        Returns:
+            Tuple[int, int]: The coordinates in the block space.
         """
 
         x, y = coordinates
@@ -238,6 +287,27 @@ class RockGenerator:
         return (x_block, y_block)
 
     def define_region(self, coordinates: Tuple[float, float]) -> BoundingBox:
+        """
+        Defines the region to sample the rocks. The region is defined by the coordinates
+        and the block span. The block span is the number of blocks to sample around the
+        coordinates.
+
+        The region is defined by the following formula:
+            x_low = coordinates[0] - (block_span + 1) * block_size
+            x_high = coordinates[0] + (block_span + 2) * block_size
+            y_low = coordinates[1] - (block_span + 1) * block_size
+            y_high = coordinates[1] + (block_span + 2) * block_size
+
+        Note the +1 on the minimum and +2 on the maximum. This is done to have a buffer of
+        blocks around the sampling region.
+
+        Args:
+            coordinates (Tuple[float, float]): The coordinates to define the region around.
+
+        Returns:
+            BoundingBox: The bounding box of the region.
+        """
+
         x_low = (
             coordinates[0] - (self.settings.block_span + 1) * self.settings.block_size
         )
@@ -253,22 +323,104 @@ class RockGenerator:
 
         return BoundingBox(x_min=x_low, x_max=x_high, y_min=y_low, y_max=y_high)
 
-    def sample(self, position: Tuple[float, float]):
+    def aggregate_block_data(
+        self, blocks: List[RockBlockData]
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Aggregates the block data into numpy arrays. The block data is a list of dictionaries
+        where each dictionary contains the following keys:
+            - position: The position of the block.
+            - orientation: The orientation of the block.
+            - scale: The scale of the block.
+            - id: The id of the block.
+
+        Args:
+            blocks (List[RockBlockData]): The list of block data to aggregate.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: The position, orientation,
+            scale, and ids as numpy arrays
+        """
+
+        position = np.vstack([block.coordinates for block in blocks])
+        orientation = np.vstack([block.quaternion for block in blocks])
+        scale = np.vstack([block.scale for block in blocks])
+        ids = np.hstack([block.ids for block in blocks])
+
+        return position, orientation, scale, ids
+
+    def update_instancer(self, region: BoundingBox) -> None:
+        """
+        Updates the instancer with the new block data. The function gets the blocks within
+        the region and aggregates the block data. It then sets the instancer's parameters
+        with the new data.
+
+        Args:
+            region (BoundingBox): The region to sample the rocks.
+        """
+
+        blocks, _, _ = self.rock_db.get_blocks_within_region(region)
+        position, orientation, scale, ids = self.aggregate_block_data(blocks)
+        self.rock_instancer.setInstanceParameter(position, orientation, scale, ids)
+
+    def sample(self, position: Tuple[float, float]) -> None:
+        """
+        Samples the rocks at the given position. The function casts the position to the block
+        space and defines the region around the position. It then samples the rocks within the
+        region and updates the instancer with the new data.
+
+        Args:
+            position (Tuple[float, float]): The position to sample the rocks.
+        """
+
+        while not self.is_map_done():
+            time.sleep(0.1)
+
         self.is_sampling = True
         coordinates = self.cast_coordinates_to_block_space(position)
         region = self.define_region(coordinates)
         self.rock_sampler.sample_rocks_by_region(region)
+        self.update_instancer(region)
         self.is_sampling = False
 
-    def threaded_sample(self, position: Tuple[float, float]):
+    def _sample_threaded(self, position: Tuple[float, float]) -> None:
+        """
+        Internal function DO NOT CALL.
+
+        This function is used to sample the rocks in a separate thread. It waits for potential previous
+        calls to finish before starting a new one.
+
+        Args:
+            position (Tuple[float, float]): The position to sample the rocks.
+        """
+
         while self.is_sampling:
             time.sleep(0.1)
 
-        threading.Thread(target=self.sample, args=(position,)).start()
+        self.sample(position)
+
+    def sample_threaded(self, position: Tuple[float, float]) -> None:
+        """
+        Samples the rocks at the given position in a separate thread. The function waits for potential
+        previous calls to finish before starting a new one.
+
+        Args:
+            position (Tuple[float, float]): The position to sample the rocks.
+        """
+
+        thread = threading.Thread(target=self._sample_threaded, args=(position,))
+        thread.start()
 
 
 @dataclasses.dataclass
 class RockManagerCfg:
+    """
+    Args:
+        rock_gen_cfgs (List[RockGeneratorCfg]): The configuration for the rock generators.
+        instancers_path (str): The path to the instancers.
+        seed (int): The seed for the random number generator.
+    """
+
     rock_gen_cfgs: List[RockGeneratorCfg] = dataclasses.field(default_factory=list)
     instancers_path: str = dataclasses.field(default_factory=str)
     seed: int = dataclasses.field(default_factory=int)
@@ -278,9 +430,62 @@ class RockManagerCfg:
 
 
 class RockManager:
+    """
+    The rock manager is responsible for managing the rocks on the terrain. It manages multiple
+    rock generators and samples the rocks around a given position.
+    """
+
     def __init__(
-        self, settings: RockManagerCfg, sampling_func: function, map_state: Dict
-    ):
+        self, settings: RockManagerCfg, sampling_func: callable, is_map_done: callable
+    ) -> None:
+        """
+        Args:
+            settings (RockManagerCfg): The settings for the rock manager.
+            sampling_func (callable): The function to sample the rocks.
+            is_map_done (callable): The function to check if the map is done.
+        """
+
         self.settings = settings
         self.sampling_func = sampling_func
-        self.map_state = map_state
+        self.is_map_done = is_map_done
+
+    def build(self) -> None:
+        """
+        Builds the rock manager. It initializes the rock generators.
+        """
+
+        self.rock_generators: List[RockGenerator] = []
+
+        for rock_gen_cfg in self.settings.rock_gen_cfgs:
+            rock_generator = RockGenerator(
+                rock_gen_cfg,
+                self.sampling_func,
+                self.is_map_done,
+                self.settings.instancers_path,
+            )
+            rock_generator.build()
+            self.rock_generators.append(rock_generator)
+
+    def sample(self, position: Tuple[float, float]) -> None:
+        """
+        Samples the rocks at the given position. The function samples the rocks for each rock
+        generator.
+
+        Args:
+            position (Tuple[float, float]): The position to sample the rocks.
+        """
+
+        for rock_generator in self.rock_generators:
+            rock_generator.sample(position)
+
+    def sample_threaded(self, position: Tuple[float, float]) -> None:
+        """
+        Samples the rocks at the given position in a separate thread. The function samples the rocks
+        for each rock generator in a separate thread.
+
+        Args:
+            position (Tuple[float, float]): The position to sample the rocks.
+        """
+
+        for rock_generator in self.rock_generators:
+            rock_generator.sample_threaded(position)

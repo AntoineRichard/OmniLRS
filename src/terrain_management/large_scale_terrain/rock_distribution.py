@@ -366,10 +366,22 @@ class RockDynamicDistributionCfg:
     num_rock_id: int = dataclasses.field(default_factory=int)
 
     def __post_init__(self):
+        # Reseed the random number generator
+        self.position_distribution["seed"] = self.seed + 1
+        self.scale_distribution["seed"] = self.seed + 2
+
+        id_sampler_cfg = {
+            "name": "integer",
+            "min": 0,
+            "max": self.num_rock_id,
+            "seed": self.seed + 3,
+        }
+
         self.position_distribution = distribution_factory.create(
             self.position_distribution
         )
         self.scale_distribution = distribution_factory.create(self.scale_distribution)
+        self.id_sampler = distribution_factory.create(id_sampler_cfg)
 
         assert self.num_rock_id > 0, "num_rocks_id must be larger than 0"
 
@@ -408,13 +420,7 @@ class DynamicDistribute:
 
         self.position_sampler = self.settings.position_distribution
         self.scale_sampler = self.settings.scale_distribution
-        id_sampler_cfg = {
-            "name": "integer",
-            "min": 0,
-            "max": self.settings.num_rock_id,
-            "seed": self.settings.seed,
-        }
-        self.id_sampler = distribution_factory.create(id_sampler_cfg)
+        self.id_sampler = self.settings.id_sampler
 
     def run(self, region: BoundingBox) -> RockBlockData:
         """
@@ -629,7 +635,7 @@ class RockSampler:
                 if len(idx[0]) > 0:
                     block_list.append(
                         RockBlockData(
-                            xy[idx],
+                            block.coordinates[idx],
                             block.quaternion[idx],
                             block.scale[idx],
                             block.ids[idx],
