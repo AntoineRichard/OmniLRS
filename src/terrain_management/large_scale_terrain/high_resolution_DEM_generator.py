@@ -37,6 +37,7 @@ from src.terrain_management.large_scale_terrain.high_resolution_DEM_workers impo
     WorkerManagerCfg,
     InterpolatorCfg,
     CPUInterpolator,
+    monitor_main_thread,
 )
 
 
@@ -166,13 +167,17 @@ class HighResDEMGen:
         # Creates the worker managers that will distribute the work to the workers.
         # This enables the generation of craters and the interpolation of the terrain
         # data to be done in parallel.
+        self.monitor_thread = threading.Thread(target=monitor_main_thread, daemon=True)
+        self.monitor_thread.start()
         self.crater_builder_manager = CraterBuilderManager(
             settings=self.settings.crater_worker_manager_cfg,
             builder=self.crater_builder,
+            parent_thread=self.monitor_thread,
         )
         self.interpolator_manager = BicubicInterpolatorManager(
             settings=self.settings.interpolator_worker_manager_cfg,
             interp=self.interpolator,
+            parent_thread=self.monitor_thread,
         )
         # Instantiates the high resolution DEM with the given settings.
         self.settings = self.settings.high_res_dem_cfg
@@ -685,7 +690,7 @@ class HighResDEMGen:
 
         print("Opening thread")
         self.terrain_is_primed = False
-        while not self.is_map_done():
+        while (not self.is_map_done()) and (self.monitor_thread.is_alive()):
             self.collect_terrain_data()
             time.sleep(0.1)
         print("Thread closing map is done")

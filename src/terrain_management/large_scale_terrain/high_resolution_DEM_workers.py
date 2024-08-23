@@ -159,12 +159,19 @@ class BaseWorker(multiprocessing.Process):
     """
 
     def __init__(
-        self, queue_size: int, output_queue: multiprocessing.JoinableQueue, **kwargs
+        self,
+        queue_size: int,
+        output_queue: multiprocessing.JoinableQueue,
+        parent_thread: threading.Thread,
+        thread_timeout: float = 1.0,
+        **kwargs,
     ):
         """
         Args:
             queue_size (int): The size of the input queue.
             output_queue (multiprocessing.JoinableQueue): The output queue.
+            parent_thread (threading.Thread): The parent thread.
+            thread_timeout (float): The timeout for the worker thread. (seconds)
             **kwargs: Additional arguments.
         """
 
@@ -173,6 +180,8 @@ class BaseWorker(multiprocessing.Process):
         self.input_queue = multiprocessing.JoinableQueue(maxsize=queue_size)
         self.output_queue = output_queue
         self.daemon = True
+        self.parent_thread = parent_thread
+        self.thread_timeout = thread_timeout
 
     def get_input_queue_length(self) -> int:
         """
@@ -245,12 +254,16 @@ class BaseWorkerManager:
         self,
         settings: WorkerManagerCfg = WorkerManagerCfg(),
         worker_class: BaseWorker = None,
+        parent_thread: threading.Thread = None,
+        thread_timeout: float = 1.0,
         **kwargs,
     ):
         """
         Args:
             settings (WorkerManagerCfg): The settings for the worker manager.
-            worker_class (BaseWorker
+            worker_class (BaseWorker): The worker class to use.
+            parent_thread (threading.Thread): The parent thread.
+            thread_timeout (float): The timeout for the worker thread. (seconds)
             **kwargs: Additional arguments.
         """
 
@@ -266,6 +279,8 @@ class BaseWorkerManager:
         self.num_workers = settings.num_workers
         self.worker_class = worker_class
         self.worker_queue_size = settings.worker_queue_size
+        self.parent_thread = parent_thread
+        self.thread_timeout = thread_timeout
         self.kwargs = kwargs
         self.stop_event = multiprocessing.Event()
 
@@ -277,9 +292,8 @@ class BaseWorkerManager:
         )
 
         # Start the manager thread
-        self.manager_thread = multiprocessing.Process(
-            target=self.dispatch_jobs,
-        )
+        self.manager_thread = threading.Thread(target=self.dispatch_jobs, daemon=True)
+
         self.manager_thread.daemon = True
         self.manager_thread.start()
 
@@ -287,6 +301,7 @@ class BaseWorkerManager:
         """
         Context manager enter method.
         """
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -294,7 +309,6 @@ class BaseWorkerManager:
         Context manager exit method.
         """
 
-        print("Exception caught, shutting down workers and main thread.")
         self.stop_event.set()
         self.shutdown()
 
@@ -316,7 +330,13 @@ class BaseWorkerManager:
         """
 
         self.workers = [
-            worker_class(worker_queue_size, self.output_queue, **kwargs)
+            worker_class(
+                worker_queue_size,
+                self.output_queue,
+                self.parent_thread,
+                self.thread_timeout,
+                **kwargs,
+            )
             for _ in range(num_workers)
         ]
         for worker in self.workers:
@@ -338,6 +358,7 @@ class BaseWorkerManager:
         Returns:
             dict: A dictionary with the load of each worker.
         """
+
         return {
             "worker_{}".format(i): worker.get_input_queue_length()
             for i, worker in enumerate(self.workers)
@@ -411,6 +432,7 @@ class BaseWorkerManager:
         Returns:
             int: The index of the worker with the shortest input queue.
         """
+
         return min(
             range(len(self.workers)),
             key=lambda i: self.workers[i].get_input_queue_length(),
@@ -426,12 +448,13 @@ class BaseWorkerManager:
 
         return all([worker.is_input_queue_empty() for worker in self.workers])
 
-    def dispatch_jobs(self) -> None:
+    def dispatch_jobs(self, parent_thread: threading.Thread) -> None:
         """
         Dispatches the jobs to the workers.
 
         TO BE IMPLEMENTED BY SUBCLASSES.
         """
+
         raise NotImplementedError
 
     def process_data(self, coords: Tuple[float, float], data) -> None:
@@ -473,6 +496,17 @@ class BaseWorkerManager:
         for worker in self.workers:
             worker.join()
 
+    def shutdown_workers(self) -> None:
+        """
+        Shuts down the workers.
+        """
+
+        print("Shutting down workers.")
+
+        for worker in self.workers:
+            worker.stop_event.set()
+            worker.join()
+
     def __del__(self) -> None:
         """
         Destructor.
@@ -490,6 +524,8 @@ class CraterBuilderWorker(BaseWorker):
         self,
         queue_size: int = 10,
         output_queue: multiprocessing.Queue = multiprocessing.JoinableQueue(),
+        parent_thread: threading.Thread = None,
+        thread_timeout: float = 1.0,
         builder: CraterBuilder = None,
     ) -> None:
         """
@@ -499,7 +535,7 @@ class CraterBuilderWorker(BaseWorker):
             builder (CraterBuilder): The crater builder.
         """
 
-        super().__init__(queue_size, output_queue)
+        super().__init__(queue_size, output_queue, parent_thread, thread_timeout)
         self.builder = copy.copy(builder)
 
     def run(self) -> None:
@@ -511,14 +547,20 @@ class CraterBuilderWorker(BaseWorker):
         """
 
         while not self.stop_event.is_set():
-            coords, crater_meta_data = self.input_queue.get()
-            if crater_meta_data is None:
+            try:
+                coords, crater_meta_data = self.input_queue.get(
+                    timeout=self.thread_timeout
+                )
+                if crater_meta_data is None:
+                    self.input_queue.task_done()
+                    break
+                self.output_queue.put(
+                    (coords, self.builder.generateCraters(crater_meta_data, coords))
+                )
                 self.input_queue.task_done()
-                break
-            self.output_queue.put(
-                (coords, self.builder.generateCraters(crater_meta_data, coords))
-            )
-            self.input_queue.task_done()
+            except:
+                pass
+        print("crater worker dead.")
 
 
 class CraterBuilderManager(BaseWorkerManager):
@@ -531,6 +573,8 @@ class CraterBuilderManager(BaseWorkerManager):
     def __init__(
         self,
         settings: WorkerManagerCfg = WorkerManagerCfg(),
+        parent_thread: threading.Thread = None,
+        thread_timeout: float = 1.0,
         builder: CraterBuilder = None,
     ) -> None:
         """
@@ -543,6 +587,8 @@ class CraterBuilderManager(BaseWorkerManager):
             settings=settings,
             worker_class=CraterBuilderWorker,
             builder=builder,
+            parent_thread=parent_thread,
+            thread_timeout=thread_timeout,
         )
 
     def dispatch_jobs(self) -> None:
@@ -552,15 +598,23 @@ class CraterBuilderManager(BaseWorkerManager):
         """
 
         # Assigns the jobs such that the workers have a balanced load
-        while not self.stop_event.is_set():
-            coords, crater_metadata = self.input_queue.get()
-            if crater_metadata is None:  # Check for shutdown signal
+        while (not self.stop_event.is_set()) and (self.parent_thread.is_alive()):
+            try:
+                coords, crater_metadata = self.input_queue.get(
+                    timeout=self.thread_timeout
+                )
+                if crater_metadata is None:  # Check for shutdown signal
+                    self.input_queue.task_done()
+                    break
+                self.workers[self.get_shortest_queue_index()].input_queue.put(
+                    (coords, crater_metadata)
+                )
                 self.input_queue.task_done()
-                break
-            self.workers[self.get_shortest_queue_index()].input_queue.put(
-                (coords, crater_metadata)
-            )
-            self.input_queue.task_done()
+            except:
+                pass
+
+        self.shutdown_workers()
+        print("crater manager dead.")
 
 
 class BicubicInterpolatorWorker(BaseWorker):
@@ -573,6 +627,8 @@ class BicubicInterpolatorWorker(BaseWorker):
         self,
         queue_size: int = 10,
         output_queue: multiprocessing.JoinableQueue = multiprocessing.JoinableQueue(),
+        parent_thread: threading.Thread = None,
+        thread_timeout: float = 1.0,
         interp: Interpolator = None,
     ):
         """
@@ -582,7 +638,7 @@ class BicubicInterpolatorWorker(BaseWorker):
             interp (Interpolator): The interpolator.
         """
 
-        super().__init__(queue_size, output_queue)
+        super().__init__(queue_size, output_queue, parent_thread, thread_timeout)
         self.interpolator = copy.copy(interp)
 
     def run(self) -> None:
@@ -593,11 +649,15 @@ class BicubicInterpolatorWorker(BaseWorker):
         """
 
         while not self.stop_event.is_set():
-            coords, data = self.input_queue.get()
-            if data is None:
-                break
-            self.output_queue.put((coords, self.interpolator.interpolate(data)))
-            self.input_queue.task_done()
+            try:
+                coords, data = self.input_queue.get(timeout=self.thread_timeout)
+                if data is None:
+                    break
+                self.output_queue.put((coords, self.interpolator.interpolate(data)))
+                self.input_queue.task_done()
+            except:
+                pass
+        print("bicubic worker dead.")
 
 
 class BicubicInterpolatorManager(BaseWorkerManager):
@@ -612,6 +672,8 @@ class BicubicInterpolatorManager(BaseWorkerManager):
         settings: WorkerManagerCfg = WorkerManagerCfg(),
         interp: Interpolator = None,
         num_cv2_threads: int = 4,
+        parent_thread: threading.Thread = None,
+        thread_timeout: float = 1.0,
     ):
         """
         Args:
@@ -624,20 +686,40 @@ class BicubicInterpolatorManager(BaseWorkerManager):
             settings=settings,
             worker_class=BicubicInterpolatorWorker,
             interp=interp,
+            parent_thread=parent_thread,
+            thread_timeout=thread_timeout,
         )
         cv2.setNumThreads(num_cv2_threads)
 
-    def dispatch_jobs(self):
+    def dispatch_jobs(self) -> None:
         """
         Dispatches the jobs to the workers.
         The jobs are dispatched in a balanced way such that the workers have a similar load.
         """
 
-        while not self.stop_event.is_set():
-            coords, data = self.input_queue.get()
-            if data is None:
-                break
-            self.workers[self.get_shortest_queue_index()].input_queue.put(
-                (coords, data)
-            )
-            self.input_queue.task_done()
+        while (not self.stop_event.is_set()) and (self.parent_thread.is_alive()):
+            try:
+                coords, data = self.input_queue.get(timeout=self.thread_timeout)
+                if data is None:
+                    break
+                self.workers[self.get_shortest_queue_index()].input_queue.put(
+                    (coords, data)
+                )
+                self.input_queue.task_done()
+            except:
+                pass
+        self.shutdown_workers()
+        print("bicubic manager dead.")
+
+
+def monitor_main_thread():
+    """
+    Monitors the main thread.
+    This function is used to monitor the main thread and check if it is still alive.
+    """
+
+    while True:
+        time.sleep(1)
+        if not threading.main_thread().is_alive():
+            print("Main thread is dead, shutting down workers.")
+            break
