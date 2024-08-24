@@ -185,6 +185,12 @@ class HighResDEMGen:
         self.instantiate_high_res_dem()
         self.get_low_res_dem_offset()
 
+    def get_current_block_coordinates(self) -> Tuple[float, float]:
+        """
+        Returns the current block coordinates.
+        """
+        return self.current_block_coord
+
     def get_low_res_dem_offset(self) -> None:
         """
         Computes the offset of the low resolution DEM in the high resolution DEM.
@@ -538,29 +544,38 @@ class HighResDEMGen:
                 low resolution DEM frame.
 
         Returns:
-            Tuple[float, float]: Normal of the high resolution DEM at the given coordinates.
+            np.ndarray: Normal vector to the DEM surface
         """
 
         local_coordinates = self.get_coordinates(coordinates)
         x = local_coordinates[0] / self.settings.resolution
         y = local_coordinates[1] / self.settings.resolution
 
-        # Compute the normal
-        dx = (
-            self.high_res_dem[int(x) + 1, int(y)]
-            - self.high_res_dem[int(x) - 1, int(y)]
-        )
-        dx = dx / (self.settings.resolution * 2)
-        dy = (
-            self.high_res_dem[int(x), int(y) + 1]
-            - self.high_res_dem[int(x), int(y) - 1]
-        )
-        dy = dy / (self.settings.resolution * 2)
-        rot_x = np.arctan2(dx, 1)
-        rot_y = np.arctan2(dy, 1)
+        x0 = int(x)
+        y0 = int(y)
+        x1 = x0 + 1
+        y1 = y0 + 1
 
-        quaternion = self.euler_to_quaternion(-rot_y, -rot_x, 0)
-        return quaternion
+        q = np.array(
+            [
+                [self.high_res_dem[x0, y0], self.high_res_dem[x0, y1]],
+                [self.high_res_dem[x1, y0], self.high_res_dem[x1, y1]],
+            ]
+        )
+
+        vec = np.array(
+            [
+                self.settings.resolution
+                / 2.0
+                * (-q[1, 0] + q[0, 0] + q[0, 1] - q[1, 1]),
+                self.settings.resolution
+                / 2.0
+                * (-q[0, 1] + q[0, 0] + q[1, 0] - q[1, 1]),
+                self.settings.resolution * self.settings.resolution,
+            ]
+        )
+        vec = vec / np.linalg.norm(vec)
+        return vec
 
     def list_missing_blocks(self) -> List[Tuple[int, int]]:
         """
@@ -583,6 +598,22 @@ class HighResDEMGen:
             and block["has_crater_data"]
             and block["has_terrain_data"]
         )
+
+    def update_terrain_data_blocking(self, coords: Tuple[int, int]) -> None:
+        """
+        Updates the terrain data for the given block coordinates. The function is blocking
+        and will wait for the terrain data to be generated before returning.
+
+        Args:
+            coords (Tuple[int, int]): Coordinates of the block in the block space.
+        """
+
+        block_coordinates = self.cast_coordinates_to_block_space(coords)
+        if self.current_block_coord != block_coordinates:
+            self.shift(block_coordinates)
+            while (not self.is_map_done()) and (self.monitor_thread.is_alive()):
+                self.collect_terrain_data()
+                time.sleep(0.1)
 
     def update_high_res_dem(self, coords: Tuple[float, float]) -> bool:
         """
@@ -634,8 +665,8 @@ class HighResDEMGen:
                             for coord in self.list_missing_blocks()
                         ]
                     )
-                    print(self.crater_builder_manager.get_load_per_worker())
-                    print(self.interpolator_manager.get_load_per_worker())
+                    # print(self.crater_builder_manager.get_load_per_worker())
+                    # print(self.interpolator_manager.get_load_per_worker())
                 print("Map is done carrying on")
             # Threaded update, the function will return before the update is done
             if self.thread is None:

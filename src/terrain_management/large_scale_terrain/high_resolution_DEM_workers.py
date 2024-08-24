@@ -9,6 +9,7 @@ __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
 
+import multiprocessing.managers
 from typing import List, Tuple, Dict
 import multiprocessing
 import numpy as np
@@ -152,78 +153,6 @@ class CPUInterpolator(Interpolator):
         ]
 
 
-class BaseWorker(multiprocessing.Process):
-    """
-    BaseWorker class. This class is used to create worker processes that can be used
-    to distribute the work across multiple processes.
-    """
-
-    def __init__(
-        self,
-        queue_size: int,
-        output_queue: multiprocessing.JoinableQueue,
-        parent_thread: threading.Thread,
-        thread_timeout: float = 1.0,
-        **kwargs,
-    ):
-        """
-        Args:
-            queue_size (int): The size of the input queue.
-            output_queue (multiprocessing.JoinableQueue): The output queue.
-            parent_thread (threading.Thread): The parent thread.
-            thread_timeout (float): The timeout for the worker thread. (seconds)
-            **kwargs: Additional arguments.
-        """
-
-        super().__init__()
-        self.stop_event = multiprocessing.Event()
-        self.input_queue = multiprocessing.JoinableQueue(maxsize=queue_size)
-        self.output_queue = output_queue
-        self.daemon = True
-        self.parent_thread = parent_thread
-        self.thread_timeout = thread_timeout
-
-    def get_input_queue_length(self) -> int:
-        """
-        Returns the length of the input queue.
-
-        Returns:
-            int: The length of the input queue.
-        """
-
-        return self.input_queue.qsize()
-
-    def is_input_queue_empty(self) -> bool:
-        """
-        Checks if the input queue is empty.
-
-        Returns:
-            bool: True if the input queue is empty, False otherwise.
-        """
-
-        return self.input_queue.empty()
-
-    def is_input_queue_full(self):
-        """
-        Checks if the input queue is full.
-
-        Returns:
-            bool: True if the input queue is full, False otherwise.
-        """
-
-        return self.input_queue.full()
-
-    def run(self) -> None:
-        """
-        The main function of the worker process.
-        This function is called when the worker process is started.
-
-        TO BE IMPLEMENTED BY SUBCLASSES.
-        """
-
-        raise NotImplementedError
-
-
 @dataclasses.dataclass
 class WorkerManagerCfg:
     """
@@ -239,7 +168,6 @@ class WorkerManagerCfg:
     num_workers: int = dataclasses.field(default_factory=int)
     input_queue_size: int = dataclasses.field(default_factory=int)
     output_queue_size: int = dataclasses.field(default_factory=int)
-    worker_queue_size: int = dataclasses.field(default_factory=int)
 
 
 class BaseWorkerManager:
@@ -253,7 +181,7 @@ class BaseWorkerManager:
     def __init__(
         self,
         settings: WorkerManagerCfg = WorkerManagerCfg(),
-        worker_class: BaseWorker = None,
+        worker_class=None,
         parent_thread: threading.Thread = None,
         thread_timeout: float = 1.0,
         **kwargs,
@@ -267,56 +195,22 @@ class BaseWorkerManager:
             **kwargs: Additional arguments.
         """
 
+        self.manager = multiprocessing.Manager()  # multiprocessing.get_context("spawn")
         # Create the input and output queues
-        self.input_queue = multiprocessing.JoinableQueue(
-            maxsize=settings.input_queue_size
-        )
-        self.output_queue = multiprocessing.JoinableQueue(
-            maxsize=settings.output_queue_size
-        )
+        self.input_queue = self.manager.Queue(maxsize=settings.input_queue_size)
+        self.output_queue = self.manager.Queue(maxsize=settings.output_queue_size)
 
         # Create the workers
         self.num_workers = settings.num_workers
         self.worker_class = worker_class
-        self.worker_queue_size = settings.worker_queue_size
         self.parent_thread = parent_thread
         self.thread_timeout = thread_timeout
         self.kwargs = kwargs
-        self.stop_event = multiprocessing.Event()
 
-        self.instantiate_workers(
-            num_workers=self.num_workers,
-            worker_queue_size=self.worker_queue_size,
-            worker_class=self.worker_class,
-            **self.kwargs,
-        )
-
-        # Start the manager thread
-        self.manager_thread = threading.Thread(target=self.dispatch_jobs, daemon=True)
-
-        self.manager_thread.daemon = True
-        self.manager_thread.start()
-
-    def __enter__(self):
-        """
-        Context manager enter method.
-        """
-
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """
-        Context manager exit method.
-        """
-
-        self.stop_event.set()
-        self.shutdown()
+        self.instantiate_workers(**kwargs)
 
     def instantiate_workers(
         self,
-        num_workers: int = 1,
-        worker_queue_size: int = 10,
-        worker_class: BaseWorker = None,
         **kwargs,
     ) -> None:
         """
@@ -324,45 +218,18 @@ class BaseWorkerManager:
 
         Args:
             num_workers (int): The number of workers to instantiate.
-            worker_queue_size (int): The size of the worker queue.
-            worker_class (BaseWorker): The worker class to instantiate.
-            **kwargs: Additional arguments.
         """
 
+        worker_instance = self.worker_class(self.thread_timeout, **kwargs)
+
         self.workers = [
-            worker_class(
-                worker_queue_size,
-                self.output_queue,
-                self.parent_thread,
-                self.thread_timeout,
-                **kwargs,
+            multiprocessing.Process(
+                target=worker_instance.run, args=(self.input_queue, self.output_queue)
             )
-            for _ in range(num_workers)
+            for _ in range(self.num_workers)
         ]
         for worker in self.workers:
             worker.start()
-
-    def get_load_per_worker(self) -> Dict[str, int]:
-        """
-        Returns the load of each worker.
-        The dictionary contains the load of each worker in the form of:
-            {
-                "worker_0": 10,
-                "worker_1": 20,
-                ...
-            }
-
-        Where the key is the worker name and the value is the number of jobs
-        in the worker's input queue.
-
-        Returns:
-            dict: A dictionary with the load of each worker.
-        """
-
-        return {
-            "worker_{}".format(i): worker.get_input_queue_length()
-            for i, worker in enumerate(self.workers)
-        }
 
     def get_input_queue_length(self) -> int:
         """
@@ -424,20 +291,6 @@ class BaseWorkerManager:
 
         return self.output_queue.full()
 
-    def get_shortest_queue_index(self) -> int:
-        """
-        Returns the index of the worker with the shortest input queue.
-        This is used to distribute the work in a balanced way.
-
-        Returns:
-            int: The index of the worker with the shortest input queue.
-        """
-
-        return min(
-            range(len(self.workers)),
-            key=lambda i: self.workers[i].get_input_queue_length(),
-        )
-
     def are_workers_done(self) -> bool:
         """
         Checks if all the workers are done.
@@ -446,16 +299,7 @@ class BaseWorkerManager:
             bool: True if all the workers are done, False otherwise.
         """
 
-        return all([worker.is_input_queue_empty() for worker in self.workers])
-
-    def dispatch_jobs(self, parent_thread: threading.Thread) -> None:
-        """
-        Dispatches the jobs to the workers.
-
-        TO BE IMPLEMENTED BY SUBCLASSES.
-        """
-
-        raise NotImplementedError
+        return all([self.is_input_queue_empty() for worker in self.workers])
 
     def process_data(self, coords: Tuple[float, float], data) -> None:
         """
@@ -478,10 +322,13 @@ class BaseWorkerManager:
         """
 
         results = []
-        num = self.get_output_queue_length()
-        for _ in range(num):
-            results.append(self.output_queue.get())
-            self.output_queue.task_done()
+
+        has_items = True
+        while has_items:
+            try:
+                results.append(self.output_queue.get_nowait())
+            except:
+                has_items = False
         return results
 
     def shutdown(self) -> None:
@@ -489,22 +336,9 @@ class BaseWorkerManager:
         Shuts down the worker manager and its workers.
         """
 
-        self.input_queue.put(((0, 0), None))
-        self.manager_thread.join()
         for worker in self.workers:
-            worker.input_queue.put(((0, 0), None))
+            self.input_queue.put(((0, 0), None))
         for worker in self.workers:
-            worker.join()
-
-    def shutdown_workers(self) -> None:
-        """
-        Shuts down the workers.
-        """
-
-        print("Shutting down workers.")
-
-        for worker in self.workers:
-            worker.stop_event.set()
             worker.join()
 
     def __del__(self) -> None:
@@ -515,16 +349,13 @@ class BaseWorkerManager:
         self.shutdown()
 
 
-class CraterBuilderWorker(BaseWorker):
+class CraterBuilderWorker:
     """
     CraterBuilderWorker class. This class is responsible for generating the craters.
     """
 
     def __init__(
         self,
-        queue_size: int = 10,
-        output_queue: multiprocessing.Queue = multiprocessing.JoinableQueue(),
-        parent_thread: threading.Thread = None,
         thread_timeout: float = 1.0,
         builder: CraterBuilder = None,
     ) -> None:
@@ -535,10 +366,12 @@ class CraterBuilderWorker(BaseWorker):
             builder (CraterBuilder): The crater builder.
         """
 
-        super().__init__(queue_size, output_queue, parent_thread, thread_timeout)
+        self.thread_timeout = thread_timeout
         self.builder = copy.copy(builder)
 
-    def run(self) -> None:
+    def run(
+        self, input_queue: multiprocessing.Queue, output_queue: multiprocessing.Queue
+    ) -> None:
         """
         The main function of the worker process.
         This function is called when the worker process is started.
@@ -546,18 +379,19 @@ class CraterBuilderWorker(BaseWorker):
         and generates images with inprinted craters.
         """
 
-        while not self.stop_event.is_set():
+        while True:
             try:
-                coords, crater_meta_data = self.input_queue.get(
-                    timeout=self.thread_timeout
-                )
+                coords, crater_meta_data = input_queue.get(timeout=self.thread_timeout)
                 if crater_meta_data is None:
-                    self.input_queue.task_done()
                     break
-                self.output_queue.put(
-                    (coords, self.builder.generateCraters(crater_meta_data, coords))
-                )
-                self.input_queue.task_done()
+                data_not_in_queue = True
+                out = (coords, self.builder.generateCraters(crater_meta_data, coords))
+                while data_not_in_queue:
+                    try:
+                        output_queue.put(out, timeout=0.01)
+                        data_not_in_queue = False
+                    except:
+                        pass
             except:
                 pass
         print("crater worker dead.")
@@ -591,33 +425,8 @@ class CraterBuilderManager(BaseWorkerManager):
             thread_timeout=thread_timeout,
         )
 
-    def dispatch_jobs(self) -> None:
-        """
-        Dispatches the jobs to the workers.
-        The jobs are dispatched in a balanced way such that the workers have a similar load.
-        """
 
-        # Assigns the jobs such that the workers have a balanced load
-        while (not self.stop_event.is_set()) and (self.parent_thread.is_alive()):
-            try:
-                coords, crater_metadata = self.input_queue.get(
-                    timeout=self.thread_timeout
-                )
-                if crater_metadata is None:  # Check for shutdown signal
-                    self.input_queue.task_done()
-                    break
-                self.workers[self.get_shortest_queue_index()].input_queue.put(
-                    (coords, crater_metadata)
-                )
-                self.input_queue.task_done()
-            except:
-                pass
-
-        self.shutdown_workers()
-        print("crater manager dead.")
-
-
-class BicubicInterpolatorWorker(BaseWorker):
+class BicubicInterpolatorWorker:
     """
     BicubicInterpolatorWorker class. This class is responsible for interpolating the
     terrain data.
@@ -625,9 +434,6 @@ class BicubicInterpolatorWorker(BaseWorker):
 
     def __init__(
         self,
-        queue_size: int = 10,
-        output_queue: multiprocessing.JoinableQueue = multiprocessing.JoinableQueue(),
-        parent_thread: threading.Thread = None,
         thread_timeout: float = 1.0,
         interp: Interpolator = None,
     ):
@@ -638,23 +444,34 @@ class BicubicInterpolatorWorker(BaseWorker):
             interp (Interpolator): The interpolator.
         """
 
-        super().__init__(queue_size, output_queue, parent_thread, thread_timeout)
         self.interpolator = copy.copy(interp)
+        self.thread_timeout = thread_timeout
 
-    def run(self) -> None:
+    def run(
+        self,
+        input_queue: multiprocessing.Queue,
+        output_queue: multiprocessing.Queue,
+    ) -> None:
         """
         The main function of the worker process.
         This function is called when the worker process is started.
         It takes terrain data from the input queue and interpolates it.
         """
 
-        while not self.stop_event.is_set():
+        while True:
             try:
-                coords, data = self.input_queue.get(timeout=self.thread_timeout)
+                coords, data = input_queue.get(timeout=self.thread_timeout)
                 if data is None:
                     break
-                self.output_queue.put((coords, self.interpolator.interpolate(data)))
-                self.input_queue.task_done()
+
+                out = (coords, self.interpolator.interpolate(data))
+                data_not_in_queue = True
+                while data_not_in_queue:
+                    try:
+                        output_queue.put(out, timeout=0.01)
+                        data_not_in_queue = False
+                    except:
+                        pass
             except:
                 pass
         print("bicubic worker dead.")
@@ -690,26 +507,6 @@ class BicubicInterpolatorManager(BaseWorkerManager):
             thread_timeout=thread_timeout,
         )
         cv2.setNumThreads(num_cv2_threads)
-
-    def dispatch_jobs(self) -> None:
-        """
-        Dispatches the jobs to the workers.
-        The jobs are dispatched in a balanced way such that the workers have a similar load.
-        """
-
-        while (not self.stop_event.is_set()) and (self.parent_thread.is_alive()):
-            try:
-                coords, data = self.input_queue.get(timeout=self.thread_timeout)
-                if data is None:
-                    break
-                self.workers[self.get_shortest_queue_index()].input_queue.put(
-                    (coords, data)
-                )
-                self.input_queue.task_done()
-            except:
-                pass
-        self.shutdown_workers()
-        print("bicubic manager dead.")
 
 
 def monitor_main_thread():
