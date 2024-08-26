@@ -9,7 +9,7 @@ authors = [
     { name = "Junnosuke Kamohara", email = "xxx@gatech.edu" },
 ]
 
-dependencies = ["black"]
+dependencies = ["black>=22.0.0"]
 
 [tool.black]
 line-length = 120
