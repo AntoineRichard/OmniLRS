@@ -331,9 +331,17 @@ class MapManager:
 
         return self.hr_dem_gen.get_height(coordinates)
 
-    def get_normal(
-        self, coordinates: Tuple[float, float]
-    ) -> Tuple[float, float, float, float]:
+    def get_normal(self, coordinates: Tuple[float, float]) -> np.ndarray:
+        """
+        Returns the normal at the coordinates.
+
+        Args:
+            coordinates (Tuple[float,float]): coordinates in meters.
+
+        Returns:
+            np.ndarray: normal vector to the DEM surface at the given coordinates.
+        """
+
         return self.hr_dem_gen.get_normal(coordinates)
 
     def initialize_hr_dem(self, coordinates: Tuple[float, float]) -> None:
@@ -362,6 +370,9 @@ class MapManager:
         """
 
         return self.hr_dem_gen.is_map_done()
+
+    def get_hr_map_current_block_coordinates(self):
+        return self.hr_dem_gen.get_current_block_coordinates()
 
 
 if __name__ == "__main__":
