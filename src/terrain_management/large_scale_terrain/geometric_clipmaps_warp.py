@@ -304,14 +304,15 @@ def _normal_on_grid(q: wp.mat22f, grid_size: float) -> wp.vec3f:
        |               |
     q[1,0] (c) ---- q[1,1] (d)
 
+    # Watch out for the flip...
     a = (0, 0, a_z)
-    b = (grid_size, 0, b_z)
-    c = (0, grid_size, c_z)
+    b = (0, grid_size, b_z)
+    c = (grid_size, 0, c_z)
     d = (grid_size, grid_size, d_z)
 
     Compute cross r1 = (b - a, c - a)
     Compute cross r2 = (b - d, c - d)
-    normal = (r1 + r2) / 2
+    normal = (r1 - r2) / 2
 
     b - a = (0, grid_size, b_z - a_z),  c - a = (grid_size, 0, c_z - a_z)
     b - d = (-grid_size, 0, b_z - d_z), c - d = (0, -grid_size, c_z - d_z)
@@ -319,19 +320,29 @@ def _normal_on_grid(q: wp.mat22f, grid_size: float) -> wp.vec3f:
     u = (u0, u1, u2), v = (v0, v1, v2)
     u x v = (u1v2 - u2v1, u2v0 - u0v2, u0v1 - u1v0)
 
-    r1 = ((c_z - a_z) * grid_size, grid_size * (b_z - a_z), - grid_size * grid_size)
-    r2 = (grid_size * (b_z - d_z), (c_z - d_z) * grid_size, grid_size * grid_size)
+    r1 = (-(b_z - a_z) * grid_size, -(c_z - a_z) * grid_size, grid_size * grid_size)
+    r2 = (-(c_z - d_z) * grid_size, -(b_z - d_z) * grid_size, -grid_size * grid_size)
 
     Take the average:
     Flip r1 to ensure both vectors are pointing up (they can't point down since the surface is always oriented upwards)
-    (-r1 + r2) / 2 = ( grid_size * (b_z - d_z - c_z + a_z) / 2, grid_size * (c_z - d_z - b_z + a_z) / 2, grid_size * grid_size)
+    (-r1 + r2) / 2 = ( grid_size * (-b_z + a_z + c_z - d_z) / 2,
+                       grid_size * (-c_z + a_z + b_z - d_z) / 2,
+                       grid_size * grid_size)
+
+    Args:
+        q (wp.mat22f): 2x2 matrix.
+        grid_size (float): grid size.
+
+    Returns:
+        wp.vec3f: normal vector.
     """
 
-    return wp.vec3f(
-        grid_size / 2.0 * (q[0, 1] - q[1, 1] - q[1, 0] + q[0, 0]),
-        grid_size / 2.0 * (q[1, 0] - q[1, 1] - q[0, 1] - q[0, 0]),
+    vec = wp.vec3f(
+        grid_size / 2.0 * (-q[1, 0] + q[0, 0] + q[0, 1] - q[1, 1]),
+        grid_size / 2.0 * (-q[0, 1] + q[0, 0] + q[1, 0] - q[1, 1]),
         grid_size * grid_size,
     )
+    return vec / wp.length(vec)
 
 
 @wp.kernel
@@ -340,10 +351,25 @@ def _preprocess_multi_points(
     y: wp.array(dtype=float),
     coord: wp.vec2f,
     mpp: float,
+    map_offset: wp.vec2f,
 ):
+    """
+    Pre-process the coordinates of the points to be queried.
+    It converts meters coordinates to pixel coordinates and adds an offset.
+    The offset is used to ensure that the points are centered at the center
+    of the DEM and not the origin (top-left corner).
+
+    Args:
+        x (wp.array(dtype=float)): x coordinates of the points (this is the output).
+        y (wp.array(dtype=float)): y coordinates of the points (this is the output).
+        coord (wp.vec2f): offset to remove from the coordinates.
+        mpp (float): meters per pixel.
+        map_offset (wp.vec2f): offset to add to the coordinates.
+    """
+
     tid = wp.tid()
-    x[tid] = x[tid] / mpp - coord[0]
-    y[tid] = y[tid] / mpp - coord[1]
+    x[tid] = (x[tid] - coord[0] + map_offset[0]) / mpp
+    y[tid] = (y[tid] - coord[1] + map_offset[1]) / mpp
 
 
 @wp.kernel
@@ -357,6 +383,21 @@ def _bilinear_interpolation_and_random_orientation(
     height: wp.array(dtype=float),
     seed: wp.int32,
 ):
+    """
+    This generates a vector normal to the surface with a random orientation for each querried point.
+    It also computes the height of the desired points on the surface.
+
+    Args:
+        x (wp.array(dtype=float)): x coordinates.
+        y (wp.array(dtype=float)): y coordinates.
+        q (wp.array(dtype=wp.mat22f)): 2x2 matrices.
+        grid_size (float): grid size.
+        normal (wp.array(dtype=wp.vec3f)): output normal.
+        quat (wp.array(dtype=wp.quatf)): output quaternion.
+        height (wp.array(dtype=float)): output height.
+        seed (wp.int32): seed for the random number generator.
+    """
+
     tid = wp.tid()
     normal[tid] = _normal_on_grid(q[tid], grid_size)
     quat[tid] = _get_random_tangent_vector(normal[tid], wp.rand_init(seed, tid * 3))
@@ -365,6 +406,22 @@ def _bilinear_interpolation_and_random_orientation(
 
 @wp.func
 def _get_random_tangent_vector(normal: wp.vec3f, state: wp.uint32) -> wp.quatf:
+    """
+    Generates a random tangent vector to the normal vector.
+    Using the normal vector, we build a base (vx, vy, normal) that will provide
+    a random rotation around that vector.
+    To do that, we first generate a random vector vx, and then get the closest vector
+    to vx that is orthogonal to the normal vector. Then we repeat the process to get
+    vy a vector that is orthogonal to both the normal and vx.
+    From there we can build a rotation matrix and convert it to a quaternion.
+
+    Args:
+        normal (wp.vec3f): normal vector.
+        state (wp.uint32): random number generator state.
+
+    Returns:
+        wp.quatf: random quaternion normal to the surface.
+    """
     vx = wp.vec3f(
         wp.randf(state, -1.0, 1.0),
         wp.randf(state + wp.uint32(1), -1.0, 1.0),
