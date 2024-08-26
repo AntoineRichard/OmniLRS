@@ -3,7 +3,7 @@ name = "OmniLRS"
 version = "1.0.0"
 description = "A IsaacSim based lunar simulator for rover locomotion."
 requires-python = ">=3.10"
-keywords = ["python", "premier-projet"]
+keywords = ["lunar", "simulator", "rover", "locomotion", "IsaacSim"]
 authors = [
     { name = "Antoine Richard", email = "antoine.richard@uni.lu" },
     { name = "Junnosuke Kamohara", email = "xxx@gatech.edu" },
@@ -11,3 +11,10 @@ authors = [
 
 [tool.black]
 line-length = 120
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry.dev-dependencies]
+black = "^23.0.0"
