@@ -162,7 +162,6 @@ class WorkerManagerCfg:
         num_workers (int): The number of workers.
         input_queue_size (int): The size of the input queue.
         output_queue_size (int): The size of the output queue.
-        worker_queue_size (int): The size of the worker queue.
     """
 
     num_workers: int = dataclasses.field(default_factory=int)
@@ -195,7 +194,7 @@ class BaseWorkerManager:
             **kwargs: Additional arguments.
         """
 
-        self.manager = multiprocessing.Manager()  # multiprocessing.get_context("spawn")
+        self.manager = multiprocessing.Manager()
         # Create the input and output queues
         self.input_queue = self.manager.Queue(maxsize=settings.input_queue_size)
         self.output_queue = self.manager.Queue(maxsize=settings.output_queue_size)
@@ -217,7 +216,7 @@ class BaseWorkerManager:
         Instantiates the worker processes.
 
         Args:
-            num_workers (int): The number of workers to instantiate.
+            **kwargs: Additional arguments. Used to pass the objects the workers need.
         """
 
         worker_instance = self.worker_class(self.thread_timeout, **kwargs)
@@ -294,12 +293,13 @@ class BaseWorkerManager:
     def are_workers_done(self) -> bool:
         """
         Checks if all the workers are done.
+        This is not a reliable way to check if the workers are done.
 
         Returns:
             bool: True if all the workers are done, False otherwise.
         """
 
-        return all([self.is_input_queue_empty() for worker in self.workers])
+        return self.is_input_queue_empty() and self.is_output_queue_empty()
 
     def process_data(self, coords: Tuple[float, float], data) -> None:
         """
@@ -346,7 +346,11 @@ class BaseWorkerManager:
         Destructor.
         """
 
-        self.shutdown()
+        # Try except to avoid multiple calls to shutdown
+        try:
+            self.shutdown()
+        except Exception as e:
+            pass
 
 
 class CraterBuilderWorker:
@@ -361,8 +365,7 @@ class CraterBuilderWorker:
     ) -> None:
         """
         Args:
-            queue_size (int): The size of the input queue.
-            output_queue (multiprocessing.JoinableQueue): The output queue.
+            thread_timeout (float): The timeout for the worker thread. (seconds)
             builder (CraterBuilder): The crater builder.
         """
 
@@ -377,6 +380,10 @@ class CraterBuilderWorker:
         This function is called when the worker process is started.
         It takes craters metadata and coordinates from the input queue
         and generates images with inprinted craters.
+
+        Args:
+            input_queue (multiprocessing.JoinableQueue): The input queue.
+            output_queue (multiprocessing.JoinableQueue): The output queue.
         """
 
         while True:
@@ -414,6 +421,8 @@ class CraterBuilderManager(BaseWorkerManager):
         """
         Args:
             settings (WorkerManagerCfg): The settings for the worker manager.
+            parent_thread (threading.Thread): The parent thread.
+            thread_timeout (float): The timeout for the worker thread. (seconds)
             builder (CraterBuilder): The crater builder.
         """
 
@@ -439,8 +448,7 @@ class BicubicInterpolatorWorker:
     ):
         """
         Args:
-            queue_size (int): The size of the input queue.
-            output_queue (multiprocessing.JoinableQueue): The output queue.
+            thead_timeout (float): The timeout for the worker thread. (seconds)
             interp (Interpolator): The interpolator.
         """
 
@@ -456,6 +464,10 @@ class BicubicInterpolatorWorker:
         The main function of the worker process.
         This function is called when the worker process is started.
         It takes terrain data from the input queue and interpolates it.
+
+        Args:
+            input_queue (multiprocessing.JoinableQueue): The input queue.
+            output_queue (multiprocessing.JoinableQueue): The output queue.
         """
 
         while True:
@@ -497,6 +509,8 @@ class BicubicInterpolatorManager(BaseWorkerManager):
             settings (WorkerManagerCfg): The settings for the worker manager.
             interp (Interpolator): The interpolator.
             num_cv2_threads (int): The number of threads to use for cv2.
+            parent_thread (threading.Thread): The parent thread.
+            thread_timeout (float): The timeout for the worker thread. (seconds
         """
 
         super().__init__(
@@ -509,14 +523,20 @@ class BicubicInterpolatorManager(BaseWorkerManager):
         cv2.setNumThreads(num_cv2_threads)
 
 
-def monitor_main_thread():
-    """
-    Monitors the main thread.
-    This function is used to monitor the main thread and check if it is still alive.
-    """
+class ThreadMonitor:
+    def __init__(self):
+        self.event = threading.Event()
+        self.thread = threading.Thread(target=self.monitor_main_thread)
+        self.thread.start()
 
-    while True:
-        time.sleep(1)
-        if not threading.main_thread().is_alive():
-            print("Main thread is dead, shutting down workers.")
-            break
+    def monitor_main_thread(self) -> None:
+        """
+        Monitors the main thread.
+        This function is used to monitor the main thread and check if it is still alive.
+        """
+
+        while not self.event.is_set():
+            time.sleep(1)
+            if not threading.main_thread().is_alive():
+                print("Main thread is dead, shutting down workers.")
+                break

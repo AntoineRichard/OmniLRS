@@ -37,7 +37,7 @@ from src.terrain_management.large_scale_terrain.high_resolution_DEM_workers impo
     WorkerManagerCfg,
     InterpolatorCfg,
     CPUInterpolator,
-    monitor_main_thread,
+    ThreadMonitor,
 )
 
 
@@ -167,17 +167,17 @@ class HighResDEMGen:
         # Creates the worker managers that will distribute the work to the workers.
         # This enables the generation of craters and the interpolation of the terrain
         # data to be done in parallel.
-        self.monitor_thread = threading.Thread(target=monitor_main_thread, daemon=True)
-        self.monitor_thread.start()
+        self.monitor_thread = ThreadMonitor()
+
         self.crater_builder_manager = CraterBuilderManager(
             settings=self.settings.crater_worker_manager_cfg,
             builder=self.crater_builder,
-            parent_thread=self.monitor_thread,
+            parent_thread=self.monitor_thread.thread,
         )
         self.interpolator_manager = BicubicInterpolatorManager(
             settings=self.settings.interpolator_worker_manager_cfg,
             interp=self.interpolator,
-            parent_thread=self.monitor_thread,
+            parent_thread=self.monitor_thread.thread,
         )
         # Instantiates the high resolution DEM with the given settings.
         self.settings = self.settings.high_res_dem_cfg
@@ -611,7 +611,7 @@ class HighResDEMGen:
         block_coordinates = self.cast_coordinates_to_block_space(coords)
         if self.current_block_coord != block_coordinates:
             self.shift(block_coordinates)
-            while (not self.is_map_done()) and (self.monitor_thread.is_alive()):
+            while (not self.is_map_done()) and (self.monitor_thread.thread.is_alive()):
                 self.collect_terrain_data()
                 time.sleep(0.1)
 
@@ -721,7 +721,7 @@ class HighResDEMGen:
 
         print("Opening thread")
         self.terrain_is_primed = False
-        while (not self.is_map_done()) and (self.monitor_thread.is_alive()):
+        while (not self.is_map_done()) and (self.monitor_thread.thread.is_alive()):
             self.collect_terrain_data()
             time.sleep(0.1)
         print("Thread closing map is done")
@@ -919,6 +919,7 @@ class HighResDEMGen:
         and the main worker manager.
         """
 
+        self.monitor_thread.event.set()
         self.crater_builder_manager.shutdown()
         self.interpolator_manager.shutdown()
 
@@ -928,7 +929,11 @@ class HighResDEMGen:
         ensure that all the workers are properly shutdown.
         """
 
-        self.shutdown()
+        # Try except to avoid errors when the shutdown is called multiple times
+        try:
+            self.shutdown()
+        except Exception as e:
+            pass
 
 
 if __name__ == "__main__":
@@ -1184,5 +1189,4 @@ if __name__ == "__main__":
 
     plt.close()
     print("Done collecting terrain data...")
-    HRDEMGen.crater_builder_manager.shutdown()
-    HRDEMGen.interpolator_manager.shutdown()
+    HRDEMGen.shutdown()
