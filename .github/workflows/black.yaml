@@ -8,5 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: psf/black@stable
-        env:
-          LINE_LENGTH: 120
+        with:
+          options: "--check --verbose"  
+          src: "./src"
+          use_pyproject: true
