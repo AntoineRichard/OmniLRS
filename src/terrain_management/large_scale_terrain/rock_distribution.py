@@ -30,7 +30,9 @@ from src.terrain_management.large_scale_terrain.rock_database import RockDB
 # from the Lawrence Livermore National Laboratory), so there is not much we can do on that side.
 
 
-def mock_call(x: np.ndarray, y: np.ndarray, seed: int) -> Tuple[np.ndarray, np.ndarray]:
+def mock_call(
+    x: np.ndarray, y: np.ndarray, coordinates: Tuple[float, float], seed: int
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Mock function to generate the z and quaternion values.
     Quaternions values are given as [x, y, z, w].
@@ -422,12 +424,15 @@ class DynamicDistribute:
         self.scale_sampler = self.settings.scale_distribution
         self.id_sampler = self.settings.id_sampler
 
-    def run(self, region: BoundingBox) -> RockBlockData:
+    def run(
+        self, region: BoundingBox, map_coordinates: Tuple[float, float]
+    ) -> RockBlockData:
         """
         Runs the rock distribution.
 
         Args:
             region (BoundingBox): region to sample the rocks from.
+            map_coordinates (Tuple[float, float]): coordinates of the map.
 
         Returns:
             RockBlockData: block of rocks.
@@ -437,10 +442,9 @@ class DynamicDistribute:
         scale = self.scale_sampler(num_points=num_points, dim=3)
         ids = self.id_sampler(num_points=num_points)
         z_position, quat = self.sampling_func(
-            xy_position[:, 0], xy_position[:, 1], self.settings.seed
+            xy_position[:, 0], xy_position[:, 1], map_coordinates, self.settings.seed
         )
         xyz_position = np.stack([xy_position[:, 0], xy_position[:, 1], z_position]).T
-
         block = RockBlockData(xyz_position, quat, scale, ids)
         return block
 
@@ -554,13 +558,16 @@ class RockSampler:
         coords = ((s_i - s_height + 1, s_i + 1), (s_left, s_right))
         return max_area, coords
 
-    def sample_rocks_by_block(self, block_coordinates: Tuple[int, int]) -> None:
+    def sample_rocks_by_block(
+        self, block_coordinates: Tuple[int, int], map_coordinates: Tuple[float, float]
+    ) -> None:
         """
         Samples rocks by block. This method is used to sample rocks in a block
         that does not contain any rocks.
 
         Args:
             block_coordinates (Tuple[int,int]): coordinates of the block.
+            map_coordinates (Tuple[float, float]): coordinates of the map.
         """
 
         with ScopedTimer("Sampling rocks block", active=self.profiling):
@@ -575,7 +582,7 @@ class RockSampler:
                     block_coordinates[1],
                     block_coordinates[1] + self.settings.block_size,
                 )
-                block = self.rock_dist_gen.run(bb)
+                block = self.rock_dist_gen.run(bb, map_coordinates)
                 self.rock_db.add_block_data(block, block_coordinates)
 
     def dissect_region_blocks(
@@ -644,7 +651,9 @@ class RockSampler:
                     coordinate_list.append((x, y))
         return block_list, coordinate_list
 
-    def sample_rocks_by_region(self, region: BoundingBox) -> None:
+    def sample_rocks_by_region(
+        self, region: BoundingBox, map_coordinates: Tuple[float, float]
+    ) -> None:
         """
         Samples rocks by region. This method is used to sample rocks in a region.
         It will sample rocks only in the blocks that do not contain any rocks.
@@ -655,6 +664,7 @@ class RockSampler:
 
         Args:
             region (BoundingBox): region to sample rocks from.
+            map_coordinates (Tuple[float, float]): coordinates of the map.
         """
 
         # Process by regions until the largest rectangle is smaller or equal to 1 block
@@ -681,7 +691,7 @@ class RockSampler:
 
             # Samples rocks in the region
             with ScopedTimer("Sampling rocks in region", active=self.profiling):
-                new_block = self.rock_dist_gen.run(new_region)
+                new_block = self.rock_dist_gen.run(new_region, map_coordinates)
 
             with ScopedTimer(
                 "Getting xy coordinates from block", active=self.profiling
