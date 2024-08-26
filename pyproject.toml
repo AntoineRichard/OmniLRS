@@ -9,12 +9,12 @@ authors = [
     { name = "Junnosuke Kamohara", email = "xxx@gatech.edu" },
 ]
 
+dev-dependencies = ["black"]
+
 [tool.black]
 line-length = 120
+
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
-
-[tool.poetry.dev-dependencies]
-black = "^23.0.0"
