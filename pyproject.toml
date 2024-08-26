@@ -1,2 +1,13 @@
+[project]
+name = "OmniLRS"
+version = "1.0.0"
+description = "A IsaacSim based lunar simulator for rover locomotion."
+requires-python = ">=3.10"
+keywords = ["python", "premier-projet"]
+authors = [
+    { name = "Antoine Richard", email = "antoine.richard@uni.lu" },
+    { name = "Junnosuke Kamohara", email = "xxx@gatech.edu" },
+]
+
 [tool.black]
 line-length = 120
