@@ -43,10 +43,18 @@ class MapManagerCfg:
     Args:
         folder_path (str): path to the folder containing the DEMs.
         lr_dem_name (str): name of the DEM to load.
+        hrdem_settings (HighResDEMGenCfg): settings for the high resolution DEM generation.
     """
 
     folder_path: str = dataclasses.field(default_factory=str)
     lr_dem_name: str = dataclasses.field(default_factory=str)
+    hrdem_settings: HighResDEMGenCfg = dataclasses.field(default_factory=dict)
+
+    def __post_init__(self):
+        assert type(self.folder_path) is str, "folder_path must be a string"
+        assert type(self.lr_dem_name) is str, "lr_dem_name must be a string"
+
+        self.hrdem_settings = HighResDEMGenCfg(**self.hrdem_settings)
 
 
 class MapManager:
@@ -56,14 +64,15 @@ class MapManager:
     interract with the DEMs.
     """
 
-    def __init__(self, hrdem_settings: HighResDEMGenCfg, map_manager_settings: MapManagerCfg) -> None:
+    def __init__(self, map_manager_settings: MapManagerCfg) -> None:
         """
         Args:
             hrdem_settings (HighResDEMGenCfg): settings for the high resolution DEM generation.
             map_manager_settings (MapManagerCfg): settings for the map manager.
         """
 
-        self.hr_dem_settings = hrdem_settings
+        self.hr_dem_settings = map_manager_settings.hrdem_settings
+        print(self.hr_dem_settings)
         self.settings = map_manager_settings
         self.lr_dem = None
 

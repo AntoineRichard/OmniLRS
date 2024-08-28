@@ -83,18 +83,11 @@ class NestedGeoClipmapManager:
         lr_dem_width = max(lr_dem_shape[0], lr_dem_shape[1]) * lr_dem_res
 
         fine_clipmap_levels = int(
-            math.log(
-                hr_dem_width
-                / (self.settings.num_texels_per_level * self.settings.target_res)
-            )
-            / math.log(2)
+            math.log(hr_dem_width / (self.settings.num_texels_per_level * self.settings.target_res)) / math.log(2)
         )
         coarse_clipmap_res = self.settings.target_res * 2 ** (fine_clipmap_levels - 1)
         coarse_clipmap_levels = int(
-            math.log(
-                lr_dem_width / (self.settings.num_texels_per_level * coarse_clipmap_res)
-            )
-            / math.log(2)
+            math.log(lr_dem_width / (self.settings.num_texels_per_level * coarse_clipmap_res)) / math.log(2)
         )
 
         self.fine_clipmap_specs = GeoClipmapSpecs(
@@ -149,9 +142,7 @@ class NestedGeoClipmapManager:
             lr_dem_res (float): The resolution of the low resolution DEM. (meters per pixel)
         """
 
-        self.generate_geometric_clip_maps_configs(
-            hr_dem_shape, lr_dem_shape, hr_dem_res, lr_dem_res
-        )
+        self.generate_geometric_clip_maps_configs(hr_dem_shape, lr_dem_shape, hr_dem_res, lr_dem_res)
 
         self.fine_clipmap_manager = GeoClipmapManager(
             self.fine_clipmap_manager_cfg,
@@ -208,9 +199,7 @@ class NestedGeoClipmapManager:
             seed (int): The seed for the random scale.
         """
 
-        return self.fine_clipmap_manager.get_height_and_random_orientation(
-            x, y, map_coordinates, seed=seed
-        )
+        return self.fine_clipmap_manager.get_height_and_random_orientation(x, y, map_coordinates, seed=seed)
 
 
 def is_map_done():
@@ -232,12 +221,10 @@ class LargeScaleTerrainManager:
         self,
         settings: LargeScaleTerrainManagerCfg,
         nested_geometric_clipmap_manager_cfg: NestedGeometricClipMapManagerCfg,
-        highresdemgen_cfg: HighResDEMGenCfg,
         mapmanager_cfg: MapManagerCfg,
         rock_manager_cfg: RockManagerCfg,
     ):
         self.nested_geometric_clipmap_manager_cfg = nested_geometric_clipmap_manager_cfg
-        self.highresdemgen_cfg = highresdemgen_cfg
         self.mapmanager_cfg = mapmanager_cfg
         self.rock_manager_cfg = rock_manager_cfg
         self.settings = settings
@@ -325,10 +312,8 @@ class LargeScaleTerrainManager:
         return self.map_manager.get_normal(coordinates)
 
     def build(self):
-        self.map_manager = MapManager(self.highresdemgen_cfg, self.mapmanager_cfg)
-        self.nested_clipmap_manager = NestedGeoClipmapManager(
-            self.nested_geometric_clipmap_manager_cfg
-        )
+        self.map_manager = MapManager(self.mapmanager_cfg)
+        self.nested_clipmap_manager = NestedGeoClipmapManager(self.nested_geometric_clipmap_manager_cfg)
         # self.rock_manager = RockManager(
         #    self.rock_manager_cfg,
         #    mock_call,
@@ -411,9 +396,7 @@ class LargeScaleTerrainManager:
             # print("min value hr dem", self.map_manager.get_hr_dem().min())
             # print("max value hr dem", self.map_manager.get_hr_dem().max())
 
-            self.nested_clipmap_manager.update_clipmaps(
-                fine_position, coarse_position, corrected_coordinates
-            )
+            self.nested_clipmap_manager.update_clipmaps(fine_position, coarse_position, corrected_coordinates)
             print("clipmaps updated")
             self.rock_manager.sample(corrected_coordinates)
             print("rock manager sampled")
