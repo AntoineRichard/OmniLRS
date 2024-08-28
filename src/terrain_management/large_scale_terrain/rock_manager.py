@@ -16,7 +16,7 @@ from src.terrain_management.large_scale_terrain.rock_database import RockDB, Roc
 from WorldBuilders.pxr_utils import createInstancerAndCache, setInstancerParameters
 from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBlockData
 
-from pxr import UsdGeom, Gf, Usd
+from pxr import UsdGeom, Gf, Usd, Vt
 from omni.physx.scripts import utils as physx_utils
 
 
@@ -38,7 +38,7 @@ class OGInstancer:
         self.assets_path = assets_path
         self.prototypes = []
         self.get_asset_list()
-        self.createInstancer()
+        self.create_instancer()
         self.rng = np.random.default_rng(seed=seed)
 
     def get_asset_list(self):
@@ -47,29 +47,21 @@ class OGInstancer:
         """
 
         self.file_paths = [
-            os.path.join(self.assets_path, file)
-            for file in os.listdir(self.assets_path)
-            if file.endswith(".usd")
+            os.path.join(self.assets_path, file) for file in os.listdir(self.assets_path) if file.endswith(".usd")
         ]
-        print(self.file_paths)
-        print(len(self.file_paths))
 
-    def createInstancer(self):
+    def create_instancer(self):
         """
         Create the instancer.
         """
 
-        self.instancer_path = omni.usd.get_stage_next_free_path(
-            self.stage, self.instancer_path, False
-        )
+        self.instancer_path = omni.usd.get_stage_next_free_path(self.stage, self.instancer_path, False)
         self.instancer = UsdGeom.PointInstancer.Define(self.stage, self.instancer_path)
         self.instancer_prim = self.instancer.GetPrim()
 
         prim_paths = []
         for i, file_path in enumerate(self.file_paths):
-            prim = self.stage.DefinePrim(
-                os.path.join(self.instancer_path, "asset_" + str(i)), "Xform"
-            )
+            prim = self.stage.DefinePrim(os.path.join(self.instancer_path, "asset_" + str(i)), "Xform")
             prim.GetReferences().AddReference(file_path)
             iterator = iter(Usd.PrimRange(prim))
             for prim in iterator:
@@ -78,30 +70,34 @@ class OGInstancer:
 
         self.instancer.GetPrototypesRel().SetTargets(prim_paths)
 
-        self.setInstancerParameters(
-            np.array([[0, 0, 0]]),
-            np.array([[0, 0, 0, 1]]),
-            np.array([[1, 1, 1]]),
-            np.array([0]),
+        self.set_instancer_parameters(
+            np.array([[0, 0, 0]]), np.array([[0, 0, 0, 1]]), np.array([[1, 1, 1]]), np.array([0])
         )
 
-    def setInstancerParameters(self, positions, orientations, scales, ids):
+    def set_instancer_parameters(self, positions, orientations, scales, ids):
         """
         Set the instancer parameters.
         """
 
-        print("positions shape", positions.shape)
-        print("orientations shape", orientations.shape)
-        print("scales shape", scales.shape)
-        print("ids shape", ids.shape)
-        print("num prototypes rel", len(self.instancer.GetPrototypesRel().GetTargets()))
-        start = time.time()
         self.instancer.GetPositionsAttr().Set(positions)
         self.instancer.GetOrientationsAttr().Set(orientations)
         self.instancer.GetScalesAttr().Set(scales)
         self.instancer.GetProtoIndicesAttr().Set(ids)
-        end = time.time()
-        print("Set instancer parameters took", end - start, "seconds")
+
+        try:
+            self.update_extent()
+        except Exception as e:
+            print("Error updating extent", e)
+
+    def update_extent(self) -> None:
+        """
+        Updates the extent of an instancer.
+        """
+
+        # Compute the extent of the objetcs.
+        extent = self.instancer.ComputeExtentAtTime(Usd.TimeCode(0), Usd.TimeCode(0))
+        # Applies the extent to the instancer.
+        self.instancer.CreateExtentAttr(Vt.Vec3fArray([Gf.Vec3f(extent[0]), Gf.Vec3f(extent[1])]))
 
 
 @dataclasses.dataclass
@@ -140,13 +136,7 @@ class RockGenerator:
     around a given position and updates the instancer with the new data.
     """
 
-    def __init__(
-        self,
-        settings: RockGeneratorCfg,
-        sampling_func: callable,
-        is_map_done: callable,
-        instancer_path: str,
-    ):
+    def __init__(self, settings: RockGeneratorCfg, sampling_func: callable, is_map_done: callable, instancer_path: str):
         """
         Args:
             settings (RockGeneratorCfg): The settings for the rock generator.
@@ -169,9 +159,7 @@ class RockGenerator:
 
         self.rock_db = RockDB(self.settings.rock_db_cfg)
         self.rock_sampler = RockSampler(
-            self.settings.rock_sampler_cfg,
-            self.rock_db,
-            map_sampling_func=self.sampling_func,
+            self.settings.rock_sampler_cfg, self.rock_db, map_sampling_func=self.sampling_func
         )
         self.rock_instancer = OGInstancer(
             os.path.join(self.instancer_path, self.settings.instancer_name),
@@ -179,9 +167,7 @@ class RockGenerator:
             self.settings.seed,
         )
 
-    def cast_coordinates_to_block_space(
-        self, coordinates: Tuple[float, float]
-    ) -> Tuple[int, int]:
+    def cast_coordinates_to_block_space(self, coordinates: Tuple[float, float]) -> Tuple[int, int]:
         """
         Casts the given coordinates to the block space. The block space is the space
         where the blocks are defined. The block space is defined by the block size and
@@ -224,18 +210,10 @@ class RockGenerator:
             BoundingBox: The bounding box of the region.
         """
 
-        x_low = (
-            coordinates[0] - (self.settings.block_span + 1) * self.settings.block_size
-        )
-        x_high = (
-            coordinates[0] + (self.settings.block_span + 2) * self.settings.block_size
-        )
-        y_low = (
-            coordinates[1] - (self.settings.block_span + 1) * self.settings.block_size
-        )
-        y_high = (
-            coordinates[1] + (self.settings.block_span + 2) * self.settings.block_size
-        )
+        x_low = coordinates[0] - (self.settings.block_span + 1) * self.settings.block_size
+        x_high = coordinates[0] + (self.settings.block_span + 2) * self.settings.block_size
+        y_low = coordinates[1] - (self.settings.block_span + 1) * self.settings.block_size
+        y_high = coordinates[1] + (self.settings.block_span + 2) * self.settings.block_size
 
         return BoundingBox(x_min=x_low, x_max=x_high, y_min=y_low, y_max=y_high)
 
@@ -276,11 +254,8 @@ class RockGenerator:
         """
 
         blocks, _, _ = self.rock_db.get_blocks_within_region(region)
-        print("blocks retrieved")
         position, orientation, scale, ids = self.aggregate_block_data(blocks)
-        print("num_objects", len(position))
-        self.rock_instancer.setInstancerParameters(position, orientation, scale, ids)
-        print("instancer set")
+        self.rock_instancer.set_instancer_parameters(position, orientation, scale, ids)
 
     def sample(self, global_position: Tuple[float, float]) -> None:
         """
@@ -299,11 +274,8 @@ class RockGenerator:
         self.is_sampling = True
         coordinates = self.cast_coordinates_to_block_space(global_position)
         region = self.define_region(coordinates)
-        print("region", region)
         self.rock_sampler.sample_rocks_by_region(region, global_position)
-        print("sampling done")
         self.update_instancer(region)
-        print("instancer updated")
         self.is_sampling = False
 
     def _sample_threaded(self, position: Tuple[float, float]) -> None:
@@ -359,9 +331,7 @@ class RockManager:
     rock generators and samples the rocks around a given position.
     """
 
-    def __init__(
-        self, settings: RockManagerCfg, sampling_func: callable, is_map_done: callable
-    ) -> None:
+    def __init__(self, settings: RockManagerCfg, sampling_func: callable, is_map_done: callable) -> None:
         """
         Args:
             settings (RockManagerCfg): The settings for the rock manager.
@@ -383,17 +353,12 @@ class RockManager:
 
         for rock_gen_cfg in self.settings.rock_gen_cfgs:
             rock_generator = RockGenerator(
-                rock_gen_cfg,
-                self.sampling_func,
-                self.is_map_done,
-                self.settings.instancers_path,
+                rock_gen_cfg, self.sampling_func, self.is_map_done, self.settings.instancers_path
             )
             rock_generator.build()
             self.rock_generators.append(rock_generator)
 
-    def cast_coordinates_to_block_space(
-        self, coordinates: Tuple[float, float]
-    ) -> Tuple[int, int]:
+    def cast_coordinates_to_block_space(self, coordinates: Tuple[float, float]) -> Tuple[int, int]:
         """
         Casts the given coordinates to the block space. The block space is the space
         where the blocks are defined. The block space is defined by the block size and
@@ -442,7 +407,6 @@ class RockManager:
 
         if self.check_if_update_needed(position):
             self.last_update = position
-            print("updating rocks")
             for rock_generator in self.rock_generators:
                 rock_generator.sample(position)
 

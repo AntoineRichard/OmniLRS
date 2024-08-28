@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -36,7 +34,7 @@ from src.terrain_management.large_scale_terrain.high_resolution_DEM_workers impo
     BicubicInterpolatorManager,
     WorkerManagerCfg,
     InterpolatorCfg,
-    CPUInterpolator,
+    CPUInterpolator_PIL,
     ThreadMonitor,
 )
 
@@ -94,12 +92,8 @@ class HighResDEMGenCfg:
     crater_sampler_cfg: CraterSamplerCfg = dataclasses.field(default_factory=dict)
     crater_builder_cfg: CraterBuilderCfg = dataclasses.field(default_factory=dict)
     interpolator_cfg: InterpolatorCfg = dataclasses.field(default_factory=dict)
-    crater_worker_manager_cfg: WorkerManagerCfg = dataclasses.field(
-        default_factory=dict
-    )
-    interpolator_worker_manager_cfg: WorkerManagerCfg = dataclasses.field(
-        default_factory=dict
-    )
+    crater_worker_manager_cfg: WorkerManagerCfg = dataclasses.field(default_factory=dict)
+    interpolator_worker_manager_cfg: WorkerManagerCfg = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
         self.high_res_dem_cfg = HighResDEMCfg(**self.high_res_dem_cfg)
@@ -107,12 +101,8 @@ class HighResDEMGenCfg:
         self.crater_sampler_cfg = CraterSamplerCfg(**self.crater_sampler_cfg)
         self.crater_builder_cfg = CraterBuilderCfg(**self.crater_builder_cfg)
         self.interpolator_cfg = InterpolatorCfg(**self.interpolator_cfg)
-        self.crater_worker_manager_cfg = WorkerManagerCfg(
-            **self.crater_worker_manager_cfg
-        )
-        self.interpolator_worker_manager_cfg = WorkerManagerCfg(
-            **self.interpolator_worker_manager_cfg
-        )
+        self.crater_worker_manager_cfg = WorkerManagerCfg(**self.crater_worker_manager_cfg)
+        self.interpolator_worker_manager_cfg = WorkerManagerCfg(**self.interpolator_worker_manager_cfg)
 
 
 class HighResDEMGen:
@@ -154,16 +144,12 @@ class HighResDEMGen:
         # The DB is used to store the crater metadata and the sampler is used
         # to generate the craters metadata.
         self.crater_db = CraterDB(self.settings.crater_db_cfg)
-        self.crater_sampler = CraterSampler(
-            self.settings.crater_sampler_cfg, db=self.crater_db
-        )
+        self.crater_sampler = CraterSampler(self.settings.crater_sampler_cfg, db=self.crater_db)
         # Creates the crater builder and the interpolator they are used by the
         # worker managers to distribute the generation of craters and the
         # interpolation of the terrain data accross multiple workers.
-        self.crater_builder = CraterBuilder(
-            self.settings.crater_builder_cfg, db=self.crater_db
-        )
-        self.interpolator = CPUInterpolator(self.settings.interpolator_cfg)
+        self.crater_builder = CraterBuilder(self.settings.crater_builder_cfg, db=self.crater_db)
+        self.interpolator = CPUInterpolator_PIL(self.settings.interpolator_cfg)
         # Creates the worker managers that will distribute the work to the workers.
         # This enables the generation of craters and the interpolation of the terrain
         # data to be done in parallel.
@@ -201,9 +187,7 @@ class HighResDEMGen:
             self.low_res_dem.shape[1] // 2,
         )
         self.lr_dem_ratio = self.settings.source_resolution / self.settings.resolution
-        self.lr_dem_block_size = int(
-            self.settings.block_size / self.settings.source_resolution
-        )
+        self.lr_dem_block_size = int(self.settings.block_size / self.settings.source_resolution)
 
     def instantiate_high_res_dem(self) -> None:
         """
@@ -219,23 +203,13 @@ class HighResDEMGen:
 
         self.high_res_dem = np.zeros(
             (
-                int(
-                    (self.settings.num_blocks * 2 + 3)
-                    * self.settings.block_size
-                    / self.settings.resolution
-                ),
-                int(
-                    (self.settings.num_blocks * 2 + 3)
-                    * self.settings.block_size
-                    / self.settings.resolution
-                ),
+                int((self.settings.num_blocks * 2 + 3) * self.settings.block_size / self.settings.resolution),
+                int((self.settings.num_blocks * 2 + 3) * self.settings.block_size / self.settings.resolution),
             ),
             dtype=np.float32,
         )
 
-    def cast_coordinates_to_block_space(
-        self, coordinates: Tuple[float, float]
-    ) -> Tuple[int, int]:
+    def cast_coordinates_to_block_space(self, coordinates: Tuple[float, float]) -> Tuple[int, int]:
         """
         Casts the given coordinates to the block space. The block space is the space
         where the blocks are defined. The block space is defined by the block size and
@@ -288,19 +262,13 @@ class HighResDEMGen:
         for x in range(-self.settings.num_blocks - 1, self.settings.num_blocks + 2, 1):
             x_c = x * self.settings.block_size
             x_i = x_c + self.current_block_coord[0]
-            for y in range(
-                -self.settings.num_blocks - 1, self.settings.num_blocks + 2, 1
-            ):
+            for y in range(-self.settings.num_blocks - 1, self.settings.num_blocks + 2, 1):
                 y_c = y * self.settings.block_size
                 y_i = y_c + self.current_block_coord[1]
                 self.block_grid_tracker[(x_c, y_c)] = copy.copy(state)
-                if (x == -self.settings.num_blocks - 1) or (
-                    x == self.settings.num_blocks + 1
-                ):
+                if (x == -self.settings.num_blocks - 1) or (x == self.settings.num_blocks + 1):
                     self.block_grid_tracker[(x_c, y_c)]["is_padding"] = True
-                elif (y == -self.settings.num_blocks - 1) or (
-                    y == self.settings.num_blocks + 1
-                ):
+                elif (y == -self.settings.num_blocks - 1) or (y == self.settings.num_blocks + 1):
                     self.block_grid_tracker[(x_c, y_c)]["is_padding"] = True
                 else:
                     self.block_grid_tracker[(x_c, y_c)]["is_padding"] = False
@@ -327,9 +295,7 @@ class HighResDEMGen:
         for x in range(-self.settings.num_blocks - 1, self.settings.num_blocks + 2, 1):
             x_c = x * self.settings.block_size
             x_i = x_c + coordinates[0]
-            for y in range(
-                -self.settings.num_blocks - 1, self.settings.num_blocks + 2, 1
-            ):
+            for y in range(-self.settings.num_blocks - 1, self.settings.num_blocks + 2, 1):
                 y_c = y * self.settings.block_size
                 y_i = y_c + coordinates[1]
 
@@ -345,18 +311,12 @@ class HighResDEMGen:
                 else:
                     # This block is already in the map
                     x_c_2, y_c_2 = self.map_grid_block2coords[(x_i, y_i)]
-                    new_block_grid_tracker[(x_c, y_c)] = self.block_grid_tracker[
-                        (x_c_2, y_c_2)
-                    ]
+                    new_block_grid_tracker[(x_c, y_c)] = self.block_grid_tracker[(x_c_2, y_c_2)]
 
                 new_map_grid_block2coords[(x_i, y_i)] = (x_c, y_c)
-                if (x == -self.settings.num_blocks - 1) or (
-                    x == self.settings.num_blocks + 1
-                ):
+                if (x == -self.settings.num_blocks - 1) or (x == self.settings.num_blocks + 1):
                     self.block_grid_tracker[(x_c, y_c)]["is_padding"] = True
-                elif (y == -self.settings.num_blocks - 1) or (
-                    y == self.settings.num_blocks + 1
-                ):
+                elif (y == -self.settings.num_blocks - 1) or (y == self.settings.num_blocks + 1):
                     self.block_grid_tracker[(x_c, y_c)]["is_padding"] = True
                 else:
                     self.block_grid_tracker[(x_c, y_c)]["is_padding"] = False
@@ -420,9 +380,7 @@ class HighResDEMGen:
                 y_min_t = 0
                 y_max_t = y_shift
             # Copy the data
-            self.high_res_dem[x_min_t:x_max_t, y_min_t:y_max_t] = self.high_res_dem[
-                x_min_s:x_max_s, y_min_s:y_max_s
-            ]
+            self.high_res_dem[x_min_t:x_max_t, y_min_t:y_max_t] = self.high_res_dem[x_min_s:x_max_s, y_min_s:y_max_s]
             if x_shift < 0:
                 self.high_res_dem[x_max_t:, :] = 0
             elif x_shift > 0:
@@ -505,9 +463,7 @@ class HighResDEMGen:
         y = local_coordinates[1] / self.settings.resolution
         return self.high_res_dem[int(x), int(y)]
 
-    def euler_to_quaternion(
-        self, roll: float, pitch: float, yaw: float
-    ) -> Tuple[float, float, float, float]:
+    def euler_to_quaternion(self, roll: float, pitch: float, yaw: float) -> Tuple[float, float, float, float]:
         """
         Converts the euler angles to a quaternion.
 
@@ -533,9 +489,7 @@ class HighResDEMGen:
         w = cr * cp * cy + sr * sp * sy
         return (x, y, z, w)
 
-    def get_normal(
-        self, coordinates: Tuple[float, float]
-    ) -> Tuple[float, float, float, float]:
+    def get_normal(self, coordinates: Tuple[float, float]) -> Tuple[float, float, float, float]:
         """
         Returns the normal of the high resolution DEM at the given coordinates.
 
@@ -565,12 +519,8 @@ class HighResDEMGen:
 
         vec = np.array(
             [
-                self.settings.resolution
-                / 2.0
-                * (-q[1, 0] + q[0, 0] + q[0, 1] - q[1, 1]),
-                self.settings.resolution
-                / 2.0
-                * (-q[0, 1] + q[0, 0] + q[1, 0] - q[1, 1]),
+                self.settings.resolution / 2.0 * (-q[1, 0] + q[0, 0] + q[0, 1] - q[1, 1]),
+                self.settings.resolution / 2.0 * (-q[0, 1] + q[0, 0] + q[1, 0] - q[1, 1]),
                 self.settings.resolution * self.settings.resolution,
             ]
         )
@@ -585,19 +535,11 @@ class HighResDEMGen:
             List[Tuple[int, int]]: List of blocks that are missing the terrain data.
         """
 
-        return [
-            coords
-            for coords in self.map_grid_block2coords.values()
-            if not self.is_block_complete(coords)
-        ]
+        return [coords for coords in self.map_grid_block2coords.values() if not self.is_block_complete(coords)]
 
     def is_block_complete(self, coord) -> bool:
         block = self.block_grid_tracker[coord]
-        return (
-            block["has_crater_metadata"]
-            and block["has_crater_data"]
-            and block["has_terrain_data"]
-        )
+        return block["has_crater_metadata"] and block["has_crater_data"] and block["has_terrain_data"]
 
     def update_terrain_data_blocking(self, coords: Tuple[int, int]) -> None:
         """
@@ -659,34 +601,23 @@ class HighResDEMGen:
                 print("Map is not done, waiting for the terrain data")
                 while not self.terrain_is_primed:
                     time.sleep(0.2)
-                    print(
-                        [
-                            self.block_grid_tracker[coord]
-                            for coord in self.list_missing_blocks()
-                        ]
-                    )
+                    print([self.block_grid_tracker[coord] for coord in self.list_missing_blocks()])
                     # print(self.crater_builder_manager.get_load_per_worker())
                     # print(self.interpolator_manager.get_load_per_worker())
                 print("Map is done carrying on")
             # Threaded update, the function will return before the update is done
             if self.thread is None:
                 self.shift(coords)
-                self.thread = threading.Thread(
-                    target=self.threaded_high_res_dem_update
-                ).start()
+                self.thread = threading.Thread(target=self.threaded_high_res_dem_update).start()
             elif self.thread.is_alive():
                 print("Thread is alive waiting for it to finish")
                 while self.thread.is_alive():
                     time.sleep(0.1)
                 self.shift(coords)
-                self.thread = threading.Thread(
-                    target=self.threaded_high_res_dem_update
-                ).start()
+                self.thread = threading.Thread(target=self.threaded_high_res_dem_update).start()
             else:
                 self.shift(coords)
-                self.thread = threading.Thread(
-                    target=self.threaded_high_res_dem_update
-                ).start()
+                self.thread = threading.Thread(target=self.threaded_high_res_dem_update).start()
             updated = True
         return updated
 
@@ -738,22 +669,10 @@ class HighResDEMGen:
         """
 
         region = BoundingBox(
-            x_min=int(
-                new_block_coord[0]
-                - (self.settings.num_blocks + 2) * self.settings.block_size
-            ),
-            x_max=int(
-                new_block_coord[0]
-                + (self.settings.num_blocks + 2) * self.settings.block_size
-            ),
-            y_min=int(
-                new_block_coord[1]
-                - (self.settings.num_blocks + 2) * self.settings.block_size
-            ),
-            y_max=int(
-                new_block_coord[1]
-                + (self.settings.num_blocks + 2) * self.settings.block_size
-            ),
+            x_min=int(new_block_coord[0] - (self.settings.num_blocks + 2) * self.settings.block_size),
+            x_max=int(new_block_coord[0] + (self.settings.num_blocks + 2) * self.settings.block_size),
+            y_min=int(new_block_coord[1] - (self.settings.num_blocks + 2) * self.settings.block_size),
+            y_max=int(new_block_coord[1] + (self.settings.num_blocks + 2) * self.settings.block_size),
         )
         self.crater_sampler.sample_craters_by_region(region)
         # Check if the block has crater data (it should always be true)
@@ -782,14 +701,8 @@ class HighResDEMGen:
         """
 
         lr_dem_coordinates = (
-            int(
-                coordinates[0] / self.settings.source_resolution
-                + self.lr_dem_px_offset[0]
-            ),
-            int(
-                coordinates[1] / self.settings.source_resolution
-                + self.lr_dem_px_offset[1]
-            ),
+            int(coordinates[0] / self.settings.source_resolution + self.lr_dem_px_offset[0]),
+            int(coordinates[1] / self.settings.source_resolution + self.lr_dem_px_offset[1]),
         )
         return self.low_res_dem[
             lr_dem_coordinates[0]
@@ -851,13 +764,9 @@ class HighResDEMGen:
             coords = (x_i, y_i)
             grid_coords = self.map_grid_block2coords[grid_key]
             if not self.block_grid_tracker[grid_coords]["has_crater_data"]:
-                self.crater_builder_manager.process_data(
-                    coords, self.crater_db.get_block_data_with_neighbors(coords)
-                )
+                self.crater_builder_manager.process_data(coords, self.crater_db.get_block_data_with_neighbors(coords))
             if not self.block_grid_tracker[grid_coords]["has_terrain_data"]:
-                self.interpolator_manager.process_data(
-                    coords, self.querry_low_res_dem(coords)
-                )
+                self.interpolator_manager.process_data(coords, self.querry_low_res_dem(coords))
 
     def collect_terrain_data(self) -> None:
         """
@@ -867,11 +776,7 @@ class HighResDEMGen:
         """
 
         # Offset to account for the padding blocks
-        offset = int(
-            (self.settings.num_blocks + 1)
-            * self.settings.block_size
-            / self.settings.resolution
-        )
+        offset = int((self.settings.num_blocks + 1) * self.settings.block_size / self.settings.resolution)
         print("collecting...")
         # Collect the results from the workers responsible for adding craters
         crater_results = self.crater_builder_manager.collect_results()
@@ -881,14 +786,10 @@ class HighResDEMGen:
             local_coords = (x_c, y_c)
             self.high_res_dem[
                 int(x_c / self.settings.resolution)
-                + offset : int(
-                    (x_c + self.settings.block_size) / self.settings.resolution
-                )
+                + offset : int((x_c + self.settings.block_size) / self.settings.resolution)
                 + offset,
                 int(y_c / self.settings.resolution)
-                + offset : int(
-                    (y_c + self.settings.block_size) / self.settings.resolution
-                )
+                + offset : int((y_c + self.settings.block_size) / self.settings.resolution)
                 + offset,
             ] += data
             self.block_grid_tracker[local_coords]["has_crater_data"] = True
@@ -901,14 +802,10 @@ class HighResDEMGen:
             local_coords = (x_c, y_c)
             self.high_res_dem[
                 int(x_c / self.settings.resolution)
-                + offset : int(
-                    (x_c + self.settings.block_size) / self.settings.resolution
-                )
+                + offset : int((x_c + self.settings.block_size) / self.settings.resolution)
                 + offset,
                 int(y_c / self.settings.resolution)
-                + offset : int(
-                    (y_c + self.settings.block_size) / self.settings.resolution
-                )
+                + offset : int((y_c + self.settings.block_size) / self.settings.resolution)
                 + offset,
             ] += data
             self.block_grid_tracker[local_coords]["has_terrain_data"] = True
@@ -1027,9 +924,7 @@ if __name__ == "__main__":
         or (not HRDEMGen.crater_builder_manager.is_input_queue_empty())
     ):
         HRDEMGen.collect_terrain_data()
-        norm = mcolors.Normalize(
-            vmin=HRDEMGen.high_res_dem.min(), vmax=HRDEMGen.high_res_dem.max()
-        )
+        norm = mcolors.Normalize(vmin=HRDEMGen.high_res_dem.min(), vmax=HRDEMGen.high_res_dem.max())
         if im_data is None:
             im_data = plt.imshow(HRDEMGen.high_res_dem, cmap="terrain", norm=norm)
         else:
@@ -1056,9 +951,7 @@ if __name__ == "__main__":
         not HRDEMGen.crater_builder_manager.are_workers_done()
     ):
         HRDEMGen.collect_terrain_data()
-        norm = mcolors.Normalize(
-            vmin=HRDEMGen.high_res_dem.min(), vmax=HRDEMGen.high_res_dem.max()
-        )
+        norm = mcolors.Normalize(vmin=HRDEMGen.high_res_dem.min(), vmax=HRDEMGen.high_res_dem.max())
         im_data.set_data(HRDEMGen.high_res_dem)
         im_data.set_norm(norm)
         plt.pause(0.25)
@@ -1082,9 +975,7 @@ if __name__ == "__main__":
         not HRDEMGen.crater_builder_manager.are_workers_done()
     ):
         HRDEMGen.collect_terrain_data()
-        norm = mcolors.Normalize(
-            vmin=HRDEMGen.high_res_dem.min(), vmax=HRDEMGen.high_res_dem.max()
-        )
+        norm = mcolors.Normalize(vmin=HRDEMGen.high_res_dem.min(), vmax=HRDEMGen.high_res_dem.max())
         im_data.set_data(HRDEMGen.high_res_dem)
         im_data.set_norm(norm)
         plt.pause(0.25)
@@ -1108,9 +999,7 @@ if __name__ == "__main__":
         not HRDEMGen.crater_builder_manager.are_workers_done()
     ):
         HRDEMGen.collect_terrain_data()
-        norm = mcolors.Normalize(
-            vmin=HRDEMGen.high_res_dem.min(), vmax=HRDEMGen.high_res_dem.max()
-        )
+        norm = mcolors.Normalize(vmin=HRDEMGen.high_res_dem.min(), vmax=HRDEMGen.high_res_dem.max())
         im_data.set_data(HRDEMGen.high_res_dem)
         im_data.set_norm(norm)
         plt.pause(0.25)
@@ -1134,9 +1023,7 @@ if __name__ == "__main__":
         not HRDEMGen.crater_builder_manager.are_workers_done()
     ):
         HRDEMGen.collect_terrain_data()
-        norm = mcolors.Normalize(
-            vmin=HRDEMGen.high_res_dem.min(), vmax=HRDEMGen.high_res_dem.max()
-        )
+        norm = mcolors.Normalize(vmin=HRDEMGen.high_res_dem.min(), vmax=HRDEMGen.high_res_dem.max())
         im_data.set_data(HRDEMGen.high_res_dem)
         im_data.set_norm(norm)
         plt.pause(0.25)

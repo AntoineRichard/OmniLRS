@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -186,12 +184,7 @@ def _bilinear_interpolator(
 
     x2 = x - wp.trunc(x)
     y2 = y - wp.trunc(y)
-    return (
-        (1.0 - x2) * (1.0 - y2) * q[0, 0]
-        + x2 * (1.0 - y2) * q[1, 0]
-        + (1.0 - x2) * y2 * q[0, 1]
-        + x2 * y2 * q[1, 1]
-    )
+    return (1.0 - x2) * (1.0 - y2) * q[0, 0] + x2 * (1.0 - y2) * q[1, 0] + (1.0 - x2) * y2 * q[0, 1] + x2 * y2 * q[1, 1]
 
 
 @wp.kernel
@@ -283,12 +276,7 @@ def _bicubic_interpolation(
         + q[tid][3, 3] * coeffs[tid][3]
     )
     coeffs[tid] = _cubic_interpolator(y[tid], coeffs[tid])
-    out[tid] = (
-        a0 * coeffs[tid][0]
-        + a1 * coeffs[tid][1]
-        + a2 * coeffs[tid][2]
-        + a3 * coeffs[tid][3]
-    )
+    out[tid] = a0 * coeffs[tid][0] + a1 * coeffs[tid][1] + a2 * coeffs[tid][2] + a3 * coeffs[tid][3]
 
 
 @wp.func

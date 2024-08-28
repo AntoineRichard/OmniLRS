@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -99,18 +97,21 @@ class GeoClipmap:
         self.profiling = profiling
         self.initMesh()
 
-    def build(self, dem: np.ndarray, dem_shape: Tuple[int, int]) -> None:
+    def build(self, dem: np.ndarray, dem_shape: Tuple[int, int], dem_center: Tuple[float, float] = (250, 250)) -> None:
         """
         Build the DEM sampler used to update the geometric clipmap.
 
         Args:
             dem (np.ndarray): DEM data.
             dem_shape (Tuple[int, int]): shape of the DEM.
+            dem_center (Tuple[float, float]): center coordinates of the DEM (in meters). Note that it is not necessarily the
+                true center of DEM but rather where the [0,0], or the top left of the center block is.
         """
 
         self.DEM_sampler = DEMSampler(
             dem,
             dem_shape,
+            dem_center,
             self.specs,
             self.points,
             interpolation_method=self.interpolation_method,
@@ -139,17 +140,15 @@ class GeoClipmap:
         It relies on Numba to accelerate the mesh generation.
         """
 
-        with ScopedTimer("Complete mesh backbone generation"):
-            with ScopedTimer("numba mesh backbone generation"):
+        with ScopedTimer("Complete mesh backbone generation", active=self.profiling):
+            with ScopedTimer("numba mesh backbone generation", active=self.profiling):
                 self.points, self.uvs, self.indices = _buildMesh(
                     self.specs.startingLODLevel,
                     self.specs.numMeshLODLevels,
                     self.specs.meshBaseLODExtentHeightfieldTexels,
                 )
-            with ScopedTimer("cast to numpy"):
-                self.points = (
-                    np.array(self.points) * 2 * self.specs.minimum_target_resolution
-                )
+            with ScopedTimer("cast to numpy", active=self.profiling):
+                self.points = np.array(self.points) * 2 * self.specs.minimum_target_resolution
                 self.uvs = np.array(self.uvs) * 2 * self.specs.minimum_target_resolution
                 self.indices = np.array(self.indices)
 
@@ -212,9 +211,9 @@ class GeoClipmap:
         self.DEM_sampler.getElevation(coordinates)
 
     def get_height_and_random_orientation(
-        self, x: np.ndarray, y: np.ndarray, seed: int = 0
+        self, x: np.ndarray, y: np.ndarray, coords: Tuple[float, float], seed: int = 0
     ) -> Tuple[np.ndarray, np.ndarray]:
-        return self.DEM_sampler.bilinear_interpolation_and_normal_CPU(x, y, seed=seed)
+        return self.DEM_sampler.bilinear_interpolation_and_normal_CPU(x, y, coords, seed=seed)
 
 
 class DEMSampler:
@@ -234,13 +233,14 @@ class DEMSampler:
 
     def __init__(
         self,
-        dem,
-        dem_size,
-        specs,
-        points,
-        interpolation_method="bilinear",
-        acceleration_mode="hybrid",
-        profiling=False,
+        dem: np.ndarray,
+        dem_size: Tuple[int, int],
+        dem_center: Tuple[float, float],
+        specs: GeoClipmapSpecs,
+        points: np.ndarray,
+        interpolation_method: str = "bilinear",
+        acceleration_mode: str = "hybrid",
+        profiling: bool = False,
     ) -> None:
         """
         Args:
@@ -256,6 +256,7 @@ class DEMSampler:
 
         self.dem = dem  # Reference (read only)
         self.dem_size = dem_size  # Reference (read only)
+        self.dem_center = dem_center  # Reference (read only)
         self.specs = specs  # Reference (read only)
         self.points = points  # Reference (read only)
         self.profiling = profiling
@@ -302,12 +303,8 @@ class DEMSampler:
         self.points_wp = wp.array(self.points[:, :2], dtype=wp.vec2f, device="cuda")
         self.x_wp = wp.zeros((self.points.shape[0]), dtype=float, device="cuda")
         self.y_wp = wp.zeros((self.points.shape[0]), dtype=float, device="cuda")
-        self.x_wp_cpu = wp.zeros(
-            (self.points.shape[0]), dtype=float, device="cpu", pinned=True
-        )
-        self.y_wp_cpu = wp.zeros(
-            (self.points.shape[0]), dtype=float, device="cpu", pinned=True
-        )
+        self.x_wp_cpu = wp.zeros((self.points.shape[0]), dtype=float, device="cpu", pinned=True)
+        self.y_wp_cpu = wp.zeros((self.points.shape[0]), dtype=float, device="cpu", pinned=True)
         self.x_delta = wp.zeros((self.points.shape[0]), dtype=float, device="cuda")
         self.y_delta = wp.zeros((self.points.shape[0]), dtype=float, device="cuda")
         self.dem_shape_wp = wp.vec2i(self.dem_size[0], self.dem_size[1])
@@ -316,25 +313,11 @@ class DEMSampler:
         self.z_cuda = wp.zeros(self.points.shape[0], dtype=float, device="cuda")
 
         if self.interpolation_method == "bilinear":
-            self.q_cpu = wp.zeros(
-                (self.points.shape[0]),
-                dtype=wp.mat22f,
-                device="cpu",
-                pinned=True,
-            )
-            self.q_cuda = wp.zeros(
-                (self.points.shape[0]), dtype=wp.mat22f, device="cuda"
-            )
+            self.q_cpu = wp.zeros((self.points.shape[0]), dtype=wp.mat22f, device="cpu", pinned=True)
+            self.q_cuda = wp.zeros((self.points.shape[0]), dtype=wp.mat22f, device="cuda")
         elif self.interpolation_method == "bicubic":
-            self.q_cpu = wp.zeros(
-                (self.points.shape[0]),
-                dtype=wp.mat44f,
-                device="cpu",
-                pinned=True,
-            )
-            self.q_cuda = wp.zeros(
-                (self.points.shape[0]), dtype=wp.mat44f, device="cuda"
-            )
+            self.q_cpu = wp.zeros((self.points.shape[0]), dtype=wp.mat44f, device="cpu", pinned=True)
+            self.q_cuda = wp.zeros((self.points.shape[0]), dtype=wp.mat44f, device="cuda")
         else:
             raise ValueError("Invalid interpolation method")
 
@@ -355,13 +338,9 @@ class DEMSampler:
         self.z_cuda = wp.zeros(self.points.shape[0], dtype=float, device="cuda")
 
         if self.interpolation_method == "bilinear":
-            self.q_cuda = wp.zeros(
-                (self.points.shape[0]), dtype=wp.mat22f, device="cuda"
-            )
+            self.q_cuda = wp.zeros((self.points.shape[0]), dtype=wp.mat22f, device="cuda")
         elif self.interpolation_method == "bicubic":
-            self.q_cuda = wp.zeros(
-                (self.points.shape[0]), dtype=wp.mat44f, device="cuda"
-            )
+            self.q_cuda = wp.zeros((self.points.shape[0]), dtype=wp.mat44f, device="cuda")
         else:
             raise ValueError("Invalid interpolation method")
 
@@ -583,6 +562,7 @@ class DEMSampler:
         self,
         x: np.ndarray,
         y: np.ndarray,
+        coords: Tuple[float, float],
         seed: int = 0,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -598,15 +578,15 @@ class DEMSampler:
         Args:
             x (np.ndarray): x coordinates.
             y (np.ndarray): y coordinates.
+            coords (Tuple[float, float]): coordinates to query the elevation from (in meters).
             seed (int): seed for the random orientation.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: elevation and random orientation.
         """
+        coords_wp = wp.vec2f(coords[0], coords[1])
 
-        with wp.ScopedTimer(
-            "bilinear_interpolation_and_normal_CPU", active=self.profiling
-        ):
+        with wp.ScopedTimer("bilinear_interpolation_and_normal_CPU", active=self.profiling):
             with wp.ScopedTimer("creating buffers", active=self.profiling):
                 # Create buffers
                 x_wp = wp.array(x, dtype=float, device="cpu", copy=True)
@@ -615,16 +595,19 @@ class DEMSampler:
                 q = wp.zeros(x.shape[0], dtype=wp.mat22f, device="cpu")
                 normals = wp.zeros(x.shape[0], dtype=wp.vec3f, device="cpu")
                 quat = wp.zeros(x.shape[0], dtype=wp.quatf, device="cpu")
-            with wp.ScopedTimer("preprocessing", self.profiling):
+                map_offset_wp = wp.vec2f(self.dem_center[0], self.dem_center[1])
+            with wp.ScopedTimer("preprocessing", active=self.profiling):
                 wp.launch(
                     kernel=_preprocess_multi_points,
                     dim=x.shape[0],
                     inputs=[
                         x_wp,
                         y_wp,
-                        self.coords_wp,
+                        coords_wp,
                         self.specs.source_resolution,
+                        map_offset_wp,
                     ],
+                    device="cpu",
                 )
             with wp.ScopedTimer("get_values_wp_2x2", active=self.profiling):
                 wp.launch(
@@ -639,9 +622,7 @@ class DEMSampler:
                     ],
                     device="cpu",
                 )
-            with wp.ScopedTimer(
-                "interpolation_and_random_orientation", active=self.profiling
-            ):
+            with wp.ScopedTimer("interpolation_and_random_orientation", active=self.profiling):
                 wp.launch(
                     kernel=_bilinear_interpolation_and_random_orientation,
                     dim=x.shape[0],
@@ -655,6 +636,7 @@ class DEMSampler:
                         z,
                         seed,
                     ],
+                    device="cpu",
                 )
             return z.numpy(), quat.numpy()
 

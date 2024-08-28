@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -91,9 +89,7 @@ class CraterBuilder:
         size = int(crater_metadata.radius * 2 / self.settings.resolution)
         size = size + size % 2
 
-        deformation_spline = self.db.get_deformation_spline(
-            crater_metadata.deformation_spline_id
-        )
+        deformation_spline = self.db.get_deformation_spline(crater_metadata.deformation_spline_id)
         marks_spline = self.db.get_marks_spline(crater_metadata.marks_spline_id)
 
         # Generates the deformation matrix
@@ -103,19 +99,11 @@ class CraterBuilder:
         fac = deformation_spline(theta / (2 * np.pi) + 0.5)
 
         # Generates the marks matrix
-        marks = (
-            marks_spline(theta / (2 * np.pi) + 0.5)
-            * size
-            / 2
-            * crater_metadata.marks_intensity
-        )
+        marks = marks_spline(theta / (2 * np.pi) + 0.5) * size / 2 * crater_metadata.marks_intensity
 
         # Generates the distance matrix
         x, y = np.meshgrid(range(size), range(size))
-        m = np.sqrt(
-            ((x - (size / 2) + 1) / crater_metadata.xy_deformation_factor[0]) ** 2
-            + (y - (size / 2) + 1) ** 2
-        )
+        m = np.sqrt(((x - (size / 2) + 1) / crater_metadata.xy_deformation_factor[0]) ** 2 + (y - (size / 2) + 1) ** 2)
 
         # Deforms the distance matrix
         m = m * fac
@@ -139,9 +127,7 @@ class CraterBuilder:
         m[m > size / 2] = size / 2
         return m, size
 
-    def applyProfile(
-        self, distance: np.ndarray, crater_metadata: CraterMetadata, size: float
-    ) -> np.ndarray:
+    def applyProfile(self, distance: np.ndarray, crater_metadata: CraterMetadata, size: float) -> np.ndarray:
         """
         Applies a profile to the distance matrix.
 
@@ -154,9 +140,7 @@ class CraterBuilder:
             np.ndarray: crater DEM.
         """
 
-        profile_spline = self.db.get_crater_profile_spline(
-            crater_metadata.crater_profile_id
-        )
+        profile_spline = self.db.get_crater_profile_spline(crater_metadata.crater_profile_id)
         crater = profile_spline(2 * distance / size)
         return crater
 
@@ -181,19 +165,21 @@ class CraterBuilder:
             * self.settings.resolution
         )
         return crater
-    
-    def checkIfCraterIsInBlock(self, crater_metadata: CraterMetadata, coords_np: np.ndarray, pad_size: int, dem_size: int) -> bool:
+
+    def checkIfCraterIsInBlock(
+        self, crater_metadata: CraterMetadata, coords_np: np.ndarray, pad_size: int, dem_size: int
+    ) -> bool:
         is_in_block = True
-        coord = (
-            np.array(crater_metadata.coordinates - coords_np) / self.settings.resolution
-        )
+        coord = np.array(crater_metadata.coordinates - coords_np) / self.settings.resolution
         c_size = int(crater_metadata.radius * 2 / self.settings.resolution)
 
         c_size += c_size % 2
         coord_padded = (coord + pad_size).astype(np.int64)
         if ((coord_padded[0] - c_size / 2) < 0) or ((coord_padded[1] - c_size / 2) < 0):
             is_in_block = False
-        elif ((coord_padded[0] + c_size / 2) >= (pad_size * 2 + dem_size)) or ((coord_padded[1] + c_size / 2) >= (pad_size * 2 + dem_size)):
+        elif ((coord_padded[0] + c_size / 2) >= (pad_size * 2 + dem_size)) or (
+            (coord_padded[1] + c_size / 2) >= (pad_size * 2 + dem_size)
+        ):
             is_in_block = False
         return is_in_block, coord_padded
 

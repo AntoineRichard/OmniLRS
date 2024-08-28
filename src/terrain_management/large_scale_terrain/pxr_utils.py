@@ -1,9 +1,9 @@
-from pxr import UsdGeom, Gf, Usd
+from pxr import UsdGeom, Gf, Usd, Vt
 
 from omni.physx.scripts import utils as physx_utils
 
 
-def setXformOp(prim: Usd.Prim, value, property: UsdGeom.XformOp.Type) -> None:
+def set_xform_op(prim: Usd.Prim, value, property: UsdGeom.XformOp.Type) -> None:
     """
     Sets a transform operatios on a prim.
 
@@ -25,7 +25,7 @@ def setXformOp(prim: Usd.Prim, value, property: UsdGeom.XformOp.Type) -> None:
     xform_op.Set(value)
 
 
-def setScale(prim: Usd.Prim, value: Gf.Vec3d) -> None:
+def set_scale(prim: Usd.Prim, value: Gf.Vec3d) -> None:
     """
     Sets the scale of a prim.
 
@@ -34,10 +34,10 @@ def setScale(prim: Usd.Prim, value: Gf.Vec3d) -> None:
         value (Gf.Vec3d): The value of the scale.
     """
 
-    setXformOp(prim, value, UsdGeom.XformOp.TypeScale)
+    set_xform_op(prim, value, UsdGeom.XformOp.TypeScale)
 
 
-def setTranslate(prim: Usd.Prim, value: Gf.Vec3d) -> None:
+def set_translate(prim: Usd.Prim, value: Gf.Vec3d) -> None:
     """
     Sets the translation of a prim.
 
@@ -46,10 +46,10 @@ def setTranslate(prim: Usd.Prim, value: Gf.Vec3d) -> None:
         value (Gf.Vec3d): The value of the translation.
     """
 
-    setXformOp(prim, value, UsdGeom.XformOp.TypeTranslate)
+    set_xform_op(prim, value, UsdGeom.XformOp.TypeTranslate)
 
 
-def setRotateXYZ(prim: Usd.Prim, value: Gf.Vec3d) -> None:
+def set_rotate_xyz(prim: Usd.Prim, value: Gf.Vec3d) -> None:
     """
     Sets the rotation of a prim.
 
@@ -58,10 +58,10 @@ def setRotateXYZ(prim: Usd.Prim, value: Gf.Vec3d) -> None:
         value (Gf.Vec3d): The value of the rotation.
     """
 
-    setXformOp(prim, value, UsdGeom.XformOp.TypeRotateXYZ)
+    set_xform_op(prim, value, UsdGeom.XformOp.TypeRotateXYZ)
 
 
-def setOrient(prim: Usd.Prim, value: Gf.Quatd) -> None:
+def set_orient(prim: Usd.Prim, value: Gf.Quatd) -> None:
     """
     Sets the rotation of a prim.
 
@@ -70,10 +70,10 @@ def setOrient(prim: Usd.Prim, value: Gf.Quatd) -> None:
         value (Gf.Quatd): The value of the rotation.
     """
 
-    setXformOp(prim, value, UsdGeom.XformOp.TypeOrient)
+    set_xform_op(prim, value, UsdGeom.XformOp.TypeOrient)
 
 
-def setTransform(prim, value: Gf.Matrix4d) -> None:
+def set_transform(prim, value: Gf.Matrix4d) -> None:
     """
     Sets the transform of a prim.
 
@@ -82,10 +82,10 @@ def setTransform(prim, value: Gf.Matrix4d) -> None:
         value (Gf.Matrix4d): The value of the transform.
     """
 
-    setXformOp(prim, value, UsdGeom.XformOp.TypeTransform)
+    set_xform_op(prim, value, UsdGeom.XformOp.TypeTransform)
 
 
-def setXformOps(
+def set_xform_ops(
     prim,
     translate: Gf.Vec3d = Gf.Vec3d([0, 0, 0]),
     orient: Gf.Quatd = Gf.Quatd(1, Gf.Vec3d([0, 0, 0])),
@@ -101,12 +101,12 @@ def setXformOps(
         scale (Gf.Vec3d): The value of the scale.
     """
 
-    setTranslate(prim, translate)
-    setOrient(prim, orient)
-    setScale(prim, scale)
+    set_translate(prim, translate)
+    set_orient(prim, orient)
+    set_scale(prim, scale)
 
 
-def getTransform(prim: Usd.Prim, parent: Usd.Prim) -> Gf.Matrix4d:
+def get_transform(prim: Usd.Prim, parent: Usd.Prim) -> Gf.Matrix4d:
     """
     Gets the transform of a prim relative to its parent.
 
@@ -118,7 +118,7 @@ def getTransform(prim: Usd.Prim, parent: Usd.Prim) -> Gf.Matrix4d:
     return UsdGeom.XformCache(0).ComputeRelativeTransform(prim, parent)[0]
 
 
-def addCollision(
+def add_collider(
     stage: Usd.Stage,
     path: str,
     mode: str = "none",
@@ -141,15 +141,13 @@ def addCollision(
         "boundingSphere",
         "boundingCube",
     ]
-    assert mode in accepted_modes, (
-        "Decimation mode: " + mode + " for colliders unknown."
-    )
+    assert mode in accepted_modes, "Decimation mode: " + mode + " for colliders unknown."
     # Get the prim and add collisions.
     prim = stage.GetPrimAtPath(path)
     physx_utils.setCollider(prim, approximationShape=mode)
 
 
-def removeCollision(
+def remove_collider(
     stage: Usd.Stage,
     path: str,
 ) -> None:
@@ -164,3 +162,42 @@ def removeCollision(
     # Get the prim and remove collisions.
     prim = stage.GetPrimAtPath(path)
     physx_utils.removeCollider(prim)
+
+
+def delete_prim(
+    stage: Usd.Stage,
+    path: str,
+) -> None:
+    """
+    Deletes a prim.
+
+    Args:
+        stage (Usd.Stage): The stage.
+        path (str): The path to the prim.
+    """
+
+    # Get the prim and delete it.
+    prim = stage.GetPrimAtPath(path)
+    stage.RemovePrim(prim)
+
+
+def enable_smooth_shade(
+    prim: Usd.Prim,
+    extra_smooth: bool = False,
+) -> None:
+    """
+    Enables smooth shading on a prim.
+
+    Args:
+        prim (Usd.Prim): The prim on which to enable smooth shading.
+        extra_smooth (bool, optional): Toggles the use of the smooth
+        method instead of catmullClark. Defaults to False.
+    """
+
+    # Sets the subdivision scheme to smooth.
+    prim.GetAttribute("subdivisionScheme").Set(UsdGeom.Tokens.catmullClark)
+    # Sets the triangle subdivision rule.
+    if extra_smooth:
+        prim.GetAttribute("triangleSubdivisionRule").Set(UsdGeom.Tokens.smooth)
+    else:
+        prim.GetAttribute("triangleSubdivisionRule").Set(UsdGeom.Tokens.catmullClark)

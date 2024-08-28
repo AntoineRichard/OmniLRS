@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -114,15 +112,9 @@ def _addTriangle(
         index_count (int): Current index count.
     """
 
-    A_idx, index_count = _querryPointIndex(
-        A, points, prev_indices, new_indices, index_count
-    )
-    B_idx, index_count = _querryPointIndex(
-        B, points, prev_indices, new_indices, index_count
-    )
-    C_idx, index_count = _querryPointIndex(
-        C, points, prev_indices, new_indices, index_count
-    )
+    A_idx, index_count = _querryPointIndex(A, points, prev_indices, new_indices, index_count)
+    B_idx, index_count = _querryPointIndex(B, points, prev_indices, new_indices, index_count)
+    C_idx, index_count = _querryPointIndex(C, points, prev_indices, new_indices, index_count)
     indices.append(A_idx)
     indices.append(B_idx)
     indices.append(C_idx)
@@ -159,9 +151,7 @@ def _buildMesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
     new_indices = nb.typed.Dict.empty(key_type=point2, value_type=nb.types.int32)
     index_count = 0
     for level in range(start_level, num_levels):
-        print(
-            "Generating level " + str(level + 1) + " out of " + str(num_levels) + "..."
-        )
+        print("Generating level " + str(level + 1) + " out of " + str(num_levels) + "...")
         step = 1 << level
         if level == 0:
             prevStep = 0
@@ -224,134 +214,46 @@ def _buildMesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
                         )
                     else:
                         index_count = _addTriangle(
-                            E,
-                            A,
-                            D,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                            E, A, D, indices, uvs, points, prev_indices, new_indices, index_count
                         )
                         index_count = _addTriangle(
-                            E,
-                            D,
-                            G,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                            E, D, G, indices, uvs, points, prev_indices, new_indices, index_count
                         )
 
                     if y == (radius - step):
                         index_count = _addTriangle(
-                            E,
-                            G,
-                            I,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                            E, G, I, indices, uvs, points, prev_indices, new_indices, index_count
                         )
                     else:
                         index_count = _addTriangle(
-                            E,
-                            G,
-                            H,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                            E, G, H, indices, uvs, points, prev_indices, new_indices, index_count
                         )
                         index_count = _addTriangle(
-                            E,
-                            H,
-                            I,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                            E, H, I, indices, uvs, points, prev_indices, new_indices, index_count
                         )
 
                     if x == (radius - step):
                         index_count = _addTriangle(
-                            E,
-                            I,
-                            C,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                            E, I, C, indices, uvs, points, prev_indices, new_indices, index_count
                         )
                     else:
                         index_count = _addTriangle(
-                            E,
-                            I,
-                            F,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                            E, I, F, indices, uvs, points, prev_indices, new_indices, index_count
                         )
                         index_count = _addTriangle(
-                            E,
-                            F,
-                            C,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                            E, F, C, indices, uvs, points, prev_indices, new_indices, index_count
                         )
 
                     if y == -radius:
                         index_count = _addTriangle(
-                            E,
-                            C,
-                            A,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                            E, C, A, indices, uvs, points, prev_indices, new_indices, index_count
                         )
                     else:
                         index_count = _addTriangle(
-                            E,
-                            C,
-                            B,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                            E, C, B, indices, uvs, points, prev_indices, new_indices, index_count
                         )
                         index_count = _addTriangle(
-                            E,
-                            B,
-                            A,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                            E, B, A, indices, uvs, points, prev_indices, new_indices, index_count
                         )
         prev_indices = new_indices.copy()
         new_indices = nb.typed.Dict.empty(key_type=point2, value_type=nb.types.int32)

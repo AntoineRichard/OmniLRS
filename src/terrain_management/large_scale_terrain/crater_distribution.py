@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -83,9 +81,7 @@ class DynamicDistribute:
         y_coords = self._rng.uniform(region.y_min, region.y_max, num_points)
         return np.stack([x_coords, y_coords]).T, radius
 
-    def hardcoreRejection(
-        self, coords: np.ndarray, radius: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def hardcoreRejection(self, coords: np.ndarray, radius: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Performs hardcore rejection on the craters. This operation is
         expensive and should be used with caution.
@@ -209,9 +205,7 @@ class DynamicDistribute:
         coords_to_save = []
         rads_to_save = []
         for d, r_minmax in zip(self.settings.densities, self.settings.radius):
-            new_coords, new_radius = self.simulateHCPoissonProcess(
-                region, d, r_minmax, prev_coords
-            )
+            new_coords, new_radius = self.simulateHCPoissonProcess(region, d, r_minmax, prev_coords)
             coords_to_save.append(new_coords)
             rads_to_save.append(new_radius)
             if prev_coords is not None:
@@ -317,9 +311,7 @@ class CraterGeneratorCfg:
         assert type(self.random_rotation) is bool, "random_rotation must be a boolean"
         assert type(self.seed) is int, "seed must be an integer"
 
-        assert (
-            self.min_xy_ratio <= self.max_xy_ratio
-        ), "min_xy_ratio must be smaller than max_xy_ratio"
+        assert self.min_xy_ratio <= self.max_xy_ratio, "min_xy_ratio must be smaller than max_xy_ratio"
         assert self.min_xy_ratio > 0, "min_xy_ratio must be greater than 0"
         assert self.max_xy_ratio > 0, "max_xy_ratio must be greater than 0"
         assert self.min_xy_ratio <= 1, "min_xy_ratio must be smaller than 1"
@@ -395,13 +387,9 @@ class CraterMetadataGenerator:
         print("Pre-generating crater deformation profiles")
         for i in range(self.settings.num_unique_profiles):
             deformation_profile = self._rng.uniform(0.95, 1, 9)
-            deformation_profile = np.concatenate(
-                [deformation_profile, [deformation_profile[0]]], axis=0
-            )
+            deformation_profile = np.concatenate([deformation_profile, [deformation_profile[0]]], axis=0)
             tmp_x = np.linspace(0, 1, deformation_profile.shape[0])
-            self.deformation_profiles.append(
-                CubicSpline(tmp_x, deformation_profile, bc_type=((1, 0.0), (1, 0.0)))
-            )
+            self.deformation_profiles.append(CubicSpline(tmp_x, deformation_profile, bc_type=((1, 0.0), (1, 0.0))))
 
     def generate_marking_profiles(self) -> None:
         """
@@ -414,9 +402,7 @@ class CraterMetadataGenerator:
             marks_profile = self._rng.uniform(0.0, 0.01, 45)
             marks_profile = np.concatenate([marks_profile, [marks_profile[0]]], axis=0)
             tmp_x = np.linspace(0, 1, marks_profile.shape[0])
-            self.marking_profiles.append(
-                CubicSpline(tmp_x, marks_profile, bc_type=((1, 0.0), (1, 0.0)))
-            )
+            self.marking_profiles.append(CubicSpline(tmp_x, marks_profile, bc_type=((1, 0.0), (1, 0.0))))
 
     def loadProfiles(self) -> None:
         """
@@ -427,9 +413,7 @@ class CraterMetadataGenerator:
         with open(self.settings.profiles_path, "rb") as handle:
             self.crater_profiles = pickle.load(handle)
 
-    def randomizeCraterParameters(
-        self, coordinates: Tuple[float, float], radius: float
-    ) -> CraterMetadata:
+    def randomizeCraterParameters(self, coordinates: Tuple[float, float], radius: float) -> CraterMetadata:
         """
         Randomizes the parameters of a crater.
 
@@ -447,16 +431,10 @@ class CraterMetadataGenerator:
         # Makes sure the matrix size is odd
         crater_data.radius = radius
         crater_data.coordinates = coordinates
-        crater_data.deformation_spline_id = self._rng.integers(
-            0, self.settings.num_unique_profiles, 1
-        )[0]
-        crater_data.marks_spline_id = self._rng.integers(
-            0, self.settings.num_unique_profiles, 1
-        )[0]
+        crater_data.deformation_spline_id = self._rng.integers(0, self.settings.num_unique_profiles, 1)[0]
+        crater_data.marks_spline_id = self._rng.integers(0, self.settings.num_unique_profiles, 1)[0]
         crater_data.marks_intensity = self._rng.uniform(0, 1)
-        crater_data.crater_profile_id = self._rng.integers(
-            0, len(self.crater_profiles), 1
-        )[0]
+        crater_data.crater_profile_id = self._rng.integers(0, len(self.crater_profiles), 1)[0]
         crater_data.xy_deformation_factor = (
             self._rng.uniform(self.settings.min_xy_ratio, self.settings.max_xy_ratio),
             1.0,
@@ -480,9 +458,7 @@ class CraterMetadataGenerator:
             metadatas.append(self.randomizeCraterParameters(coordinates[i], radius[i]))
         return metadatas
 
-    def castMetadata(
-        self, metadatas=List[CraterMetadata]
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def castMetadata(self, metadatas=List[CraterMetadata]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Casts the metadata to a numpy array. It only exctracts the coordinates and the radius.
 
@@ -510,17 +486,11 @@ class CraterSamplerCfg:
 
     block_size: int = 50
     crater_gen_cfg: CraterGeneratorCfg = dataclasses.field(default_factory=dict)
-    crater_dist_cfg: CraterDynamicDistributionCfg = dataclasses.field(
-        default_factory=dict
-    )
+    crater_dist_cfg: CraterDynamicDistributionCfg = dataclasses.field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        assert (
-            self.crater_gen_cfg is not None
-        ), "Crater generator configuration must be provided."
-        assert (
-            self.crater_dist_cfg is not None
-        ), "Crater distribution configuration must be provided."
+        assert self.crater_gen_cfg is not None, "Crater generator configuration must be provided."
+        assert self.crater_dist_cfg is not None, "Crater distribution configuration must be provided."
 
         self.crater_gen_cfg = CraterGeneratorCfg(**self.crater_gen_cfg)
         self.crater_dist_cfg = CraterDynamicDistributionCfg(**self.crater_dist_cfg)
@@ -550,15 +520,9 @@ class CraterSampler:
         Adds the profiles to the database.
         """
 
-        self.crater_db.add_deformation_profiles(
-            self.crater_metadata_gen.get_deformation_profiles()
-        )
-        self.crater_db.add_marks_profiles(
-            self.crater_metadata_gen.get_marking_profiles()
-        )
-        self.crater_db.add_crater_profiles(
-            self.crater_metadata_gen.get_crater_profiles()
-        )
+        self.crater_db.add_deformation_profiles(self.crater_metadata_gen.get_deformation_profiles())
+        self.crater_db.add_marks_profiles(self.crater_metadata_gen.get_marking_profiles())
+        self.crater_db.add_crater_profiles(self.crater_metadata_gen.get_crater_profiles())
 
     @staticmethod
     def compute_largest_rectangle(matrix: np.ndarray) -> Tuple[int, int]:
@@ -711,9 +675,7 @@ class CraterSampler:
 
             # Get all the existing craters in the region (should be empty except
             # for the neighbors). This is done for the hardcore rejection.
-            blocks, _, _ = self.crater_db.get_blocks_within_region_with_neighbors(
-                new_region
-            )
+            blocks, _, _ = self.crater_db.get_blocks_within_region_with_neighbors(new_region)
 
             # Converts the metadatas into numpy arrays
             prev_coords = self.crater_metadata_gen.castMetadata(blocks)
@@ -722,12 +684,8 @@ class CraterSampler:
             new_blocks = self.crater_dist_gen.run(new_region, prev_coords=prev_coords)
 
             # Dissects the region into blocks and adds the craters to the database
-            new_blocks_list, block_coordinates_list = self.dissect_region_blocks(
-                new_blocks, region
-            )
-            for (coordinates, radius), block_coordinates in zip(
-                new_blocks_list, block_coordinates_list
-            ):
+            new_blocks_list, block_coordinates_list = self.dissect_region_blocks(new_blocks, region)
+            for (coordinates, radius), block_coordinates in zip(new_blocks_list, block_coordinates_list):
                 metadata = self.crater_metadata_gen.run(coordinates, radius)
                 self.crater_db.add_block_data(metadata, block_coordinates)
 
@@ -767,9 +725,7 @@ class CraterSampler:
         for i, block in enumerate(blocks):
             coordinates, radius = self.crater_metadata_gen.castMetadata(block)
             ppm = 3000 / self.settings.block_size / 5
-            plt.scatter(
-                coordinates[:, 0], coordinates[:, 1], s=radius * ppm, c=[colors[i]]
-            )
+            plt.scatter(coordinates[:, 0], coordinates[:, 1], s=radius * ppm, c=[colors[i]])
 
         plt.axis("equal")
 
@@ -784,15 +740,11 @@ class CraterSampler:
         fig = plt.figure(figsize=(10, 10), dpi=300)
         blocks, _, _ = self.crater_db.get_blocks_within_region(region)
         coordinates, radius = self.crater_metadata_gen.castMetadata(blocks)
-        blocks, block_coordinates = self.dissect_region_blocks(
-            (coordinates, radius), region
-        )
+        blocks, block_coordinates = self.dissect_region_blocks((coordinates, radius), region)
         color_interp = np.linspace(0, 1, len(blocks), endpoint=False)
         colors = [colorsys.hsv_to_rgb(i, 1, 1) for i in color_interp]
         for i in range(len(blocks)):
             coordinates, radius = blocks[i]
             ppm = 3000 / self.settings.block_size / 5
-            plt.scatter(
-                coordinates[:, 0], coordinates[:, 1], s=radius * ppm, c=[colors[i]]
-            )
+            plt.scatter(coordinates[:, 0], coordinates[:, 1], s=radius * ppm, c=[colors[i]])
         plt.axis("equal")

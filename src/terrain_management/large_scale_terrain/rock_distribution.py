@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -94,9 +92,7 @@ class Poisson(BaseDistribution):
         area = (region.x_max - region.x_min) * (region.y_max - region.y_min)
         return self.rng.poisson(area * self.density)
 
-    def sample(
-        self, region: BoundingBox = BoundingBox(), density: int = None, **kwargs
-    ):
+    def sample(self, region: BoundingBox = BoundingBox(), density: int = None, **kwargs):
         num_points = self.get_num_points(region)
         if density is not None:
             self.density = density
@@ -126,9 +122,7 @@ class ThomasPointProcess(BaseDistribution):
 
     def __post_init__(self):
         self.seed = int(self.seed)
-        self.parent = Poisson(
-            name="poisson", density=self.parent_density, seed=self.seed
-        )
+        self.parent = Poisson(name="poisson", density=self.parent_density, seed=self.seed)
         self.rng = np.random.default_rng(self.seed)
         self.normal = Normal(name="normal", mean=0, std=self.sigma, seed=self.seed)
         self.extension = 7 * self.sigma
@@ -157,14 +151,10 @@ class ThomasPointProcess(BaseDistribution):
 
         adjusted_density = self.parent_density * ratio
 
-        parent_coords, num_parents = self.parent.sample(
-            region, density=adjusted_density
-        )
+        parent_coords, num_parents = self.parent.sample(region, density=adjusted_density)
         return parent_coords, num_parents
 
-    def sample_children(
-        self, parent_coords: np.ndarray, num_parents: int
-    ) -> Tuple[np.ndarray, int]:
+    def sample_children(self, parent_coords: np.ndarray, num_parents: int) -> Tuple[np.ndarray, int]:
         """
         Sample children of the thomas point process.
 
@@ -179,9 +169,7 @@ class ThomasPointProcess(BaseDistribution):
         children_coords = children_coords + np.repeat(parent_coords, num_child, axis=0)
         return children_coords, num_points
 
-    def sample(
-        self, region: BoundingBox = BoundingBox(), **kwargs
-    ) -> Tuple[np.ndarray, int]:
+    def sample(self, region: BoundingBox = BoundingBox(), **kwargs) -> Tuple[np.ndarray, int]:
         """
         Sample from a Thomas point process.
         It first samples the number of parents in the region using a Poisson distribution.
@@ -379,9 +367,7 @@ class RockDynamicDistributionCfg:
             "seed": self.seed + 3,
         }
 
-        self.position_distribution = distribution_factory.create(
-            self.position_distribution
-        )
+        self.position_distribution = distribution_factory.create(self.position_distribution)
         self.scale_distribution = distribution_factory.create(self.scale_distribution)
         self.id_sampler = distribution_factory.create(id_sampler_cfg)
 
@@ -424,9 +410,7 @@ class DynamicDistribute:
         self.scale_sampler = self.settings.scale_distribution
         self.id_sampler = self.settings.id_sampler
 
-    def run(
-        self, region: BoundingBox, map_coordinates: Tuple[float, float]
-    ) -> RockBlockData:
+    def run(self, region: BoundingBox, map_coordinates: Tuple[float, float]) -> RockBlockData:
         """
         Runs the rock distribution.
 
@@ -441,9 +425,7 @@ class DynamicDistribute:
         xy_position, num_points = self.position_sampler(region=region)
         scale = self.scale_sampler(num_points=num_points, dim=3)
         ids = self.id_sampler(num_points=num_points)
-        z_position, quat = self.sampling_func(
-            xy_position[:, 0], xy_position[:, 1], map_coordinates, self.settings.seed
-        )
+        z_position, quat = self.sampling_func(xy_position[:, 0], xy_position[:, 1], map_coordinates, self.settings.seed)
         xyz_position = np.stack([xy_position[:, 0], xy_position[:, 1], z_position]).T
         block = RockBlockData(xyz_position, quat, scale, ids)
         return block
@@ -498,9 +480,7 @@ class RockSampler:
         """
 
         self.settings = rock_sampler_cfg
-        self.rock_dist_gen = DynamicDistribute(
-            self.settings.rock_dist_cfg, sampling_func=map_sampling_func
-        )
+        self.rock_dist_gen = DynamicDistribute(self.settings.rock_dist_cfg, sampling_func=map_sampling_func)
         self.rock_db = db
         self.profiling = profiling
 
@@ -558,9 +538,7 @@ class RockSampler:
         coords = ((s_i - s_height + 1, s_i + 1), (s_left, s_right))
         return max_area, coords
 
-    def sample_rocks_by_block(
-        self, block_coordinates: Tuple[int, int], map_coordinates: Tuple[float, float]
-    ) -> None:
+    def sample_rocks_by_block(self, block_coordinates: Tuple[int, int], map_coordinates: Tuple[float, float]) -> None:
         """
         Samples rocks by block. This method is used to sample rocks in a block
         that does not contain any rocks.
@@ -604,12 +582,8 @@ class RockSampler:
         coordinate_list = []
 
         xy = self.rock_dist_gen.get_xy_coordinates_from_block(block)
-        for i, x in enumerate(
-            range(region.x_min, region.x_max, self.settings.block_size)
-        ):
-            for j, y in enumerate(
-                range(region.y_min, region.y_max, self.settings.block_size)
-            ):
+        for i, x in enumerate(range(region.x_min, region.x_max, self.settings.block_size)):
+            for j, y in enumerate(range(region.y_min, region.y_max, self.settings.block_size)):
                 # If rocks are generated outside the regin boundaries, we store them
                 # in the boundary blocks. We do this to prevent the db from believing
                 # data has been generated in the neighboring blocks. Ideally, we would
@@ -651,9 +625,7 @@ class RockSampler:
                     coordinate_list.append((x, y))
         return block_list, coordinate_list
 
-    def sample_rocks_by_region(
-        self, region: BoundingBox, map_coordinates: Tuple[float, float]
-    ) -> None:
+    def sample_rocks_by_region(self, region: BoundingBox, map_coordinates: Tuple[float, float]) -> None:
         """
         Samples rocks by region. This method is used to sample rocks in a region.
         It will sample rocks only in the blocks that do not contain any rocks.
@@ -693,23 +665,15 @@ class RockSampler:
             with ScopedTimer("Sampling rocks in region", active=self.profiling):
                 new_block = self.rock_dist_gen.run(new_region, map_coordinates)
 
-            with ScopedTimer(
-                "Getting xy coordinates from block", active=self.profiling
-            ):
+            with ScopedTimer("Getting xy coordinates from block", active=self.profiling):
                 coords = self.rock_dist_gen.get_xy_coordinates_from_block(new_block)
 
             # Dissects the region into blocks and adds the rocks to the database
             with ScopedTimer("Dissecting region into blocks", active=self.profiling):
-                new_blocks_list, block_coordinates_list = self.dissect_region_blocks(
-                    new_block, new_region
-                )
+                new_blocks_list, block_coordinates_list = self.dissect_region_blocks(new_block, new_region)
 
-            with ScopedTimer(
-                "Adding block data to the database", active=self.profiling
-            ):
-                for block_data, block_coordinates in zip(
-                    new_blocks_list, block_coordinates_list
-                ):
+            with ScopedTimer("Adding block data to the database", active=self.profiling):
+                for block_data, block_coordinates in zip(new_blocks_list, block_coordinates_list):
                     self.rock_db.add_block_data(block_data, block_coordinates)
 
         # If the largest rectangle is smaller or equal to 1 block, we sample rocks
@@ -719,7 +683,7 @@ class RockSampler:
                 coordinates = self.rock_db.get_missing_blocks(region)
 
             for coord in coordinates:
-                self.sample_rocks_by_block(coord)
+                self.sample_rocks_by_block(coord, map_coordinates)
 
     def display_block(self, coordinates: Tuple[float, float]):
         """

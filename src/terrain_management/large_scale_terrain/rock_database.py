@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -50,9 +48,7 @@ class RockDB:
         self.rock_db = {}
         self.rock_db_config = cfg
 
-    def add_block_data(
-        self, block_data: RockBlockData, block_coordinates: Tuple[float, float]
-    ) -> None:
+    def add_block_data(self, block_data: RockBlockData, block_coordinates: Tuple[float, float]) -> None:
         """
         Adds a block of data to the database. That is, a RockBlockData object
         indexed by the block coordinates.
@@ -107,9 +103,7 @@ class RockDB:
 
         return self.rock_db[block_coordinates].decompress()
 
-    def get_block_data_with_neighbors(
-        self, block_coordinates: Tuple[float, float]
-    ) -> RockBlockData:
+    def get_block_data_with_neighbors(self, block_coordinates: Tuple[float, float]) -> RockBlockData:
         """
         Gets the block data with the given coordinates and its neighbors.
         That is 1 block in each direction, so the resulting block is
@@ -262,9 +256,7 @@ class RockDB:
             occupied_block_matrix,
         )
 
-    def get_occupancy_matrix_within_region_with_neighbors(
-        self, region: BoundingBox
-    ) -> np.ndarray:
+    def get_occupancy_matrix_within_region_with_neighbors(self, region: BoundingBox) -> np.ndarray:
         """
         Gets the occupancy matrix within the given region and its neighbors. It collects all
         the block available in the given region, plus 1 block in each direction.
@@ -306,9 +298,7 @@ class RockDB:
 
         return occupied_block_matrix
 
-    def get_blocks_within_region_with_neighbors(
-        self, region: BoundingBox
-    ) -> RockBlockData:
+    def get_blocks_within_region_with_neighbors(self, region: BoundingBox) -> RockBlockData:
         """
         Gets the blocks within the given region and its neighbors. It collects all
         the block available in the given region, plus 1 block in each direction.
@@ -392,9 +382,7 @@ class RockDB:
         """
         allowed_units = ["bytes", "KB", "MB", "GB"]
 
-        size = np.sum(
-            [sys.getsizeof(block) for block in self.get_all_blocks_compressed()]
-        )
+        size = np.sum([sys.getsizeof(block) for block in self.get_all_blocks_compressed()])
         if unit == "bytes":
             pass
         elif unit == "KB":

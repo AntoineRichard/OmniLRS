@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -58,9 +56,7 @@ class MapManager:
     interract with the DEMs.
     """
 
-    def __init__(
-        self, hrdem_settings: HighResDEMGenCfg, map_manager_settings: MapManagerCfg
-    ) -> None:
+    def __init__(self, hrdem_settings: HighResDEMGenCfg, map_manager_settings: MapManagerCfg) -> None:
         """
         Args:
             hrdem_settings (HighResDEMGenCfg): settings for the high resolution DEM generation.
@@ -102,9 +98,7 @@ class MapManager:
         for folder in os.listdir(self.settings.folder_path):
             if os.path.isdir(os.path.join(self.settings.folder_path, folder)):
                 dem_path = os.path.join(self.settings.folder_path, folder, "dem.npy")
-                dem_info_path = os.path.join(
-                    self.settings.folder_path, folder, "dem.yaml"
-                )
+                dem_info_path = os.path.join(self.settings.folder_path, folder, "dem.yaml")
                 if os.path.exists(dem_path):
                     self.dem_paths[folder] = dem_path
                 else:
@@ -134,13 +128,9 @@ class MapManager:
             if name in self.dem_infos:
                 self.lr_dem_info = self.dem_infos[name]
             else:
-                raise ValueError(
-                    f"DEM info {name} does not exist in the folder path {self.settings.folder_path}"
-                )
+                raise ValueError(f"DEM info {name} does not exist in the folder path {self.settings.folder_path}")
         else:
-            warnings.warn(
-                f"DEM {name} does not exist in the folder path {self.settings.folder_path}"
-            )
+            warnings.warn(f"DEM {name} does not exist in the folder path {self.settings.folder_path}")
         self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
 
     def load_lr_dem_by_path(self, path: str) -> None:
@@ -159,9 +149,7 @@ class MapManager:
                 self.lr_dem = np.load(dem_path)
                 self.lr_dem_info = DemInfo(**yaml.load(open(dem_info_path, "r")))
             else:
-                raise ValueError(
-                    f"DEM {dem_path} or DEM info {dem_info_path} does not exist in the folder path {path}"
-                )
+                raise ValueError(f"DEM {dem_path} or DEM info {dem_info_path} does not exist in the folder path {path}")
         self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
 
     def load_lr_dem_by_id(self, id: int) -> None:
@@ -173,9 +161,7 @@ class MapManager:
             id (int): id of the DEM to load.
         """
 
-        warnings.warn(
-            "load_lr_dem_by_id is a legacy method and should not be used. Use load_lr_dem_by_name instead."
-        )
+        warnings.warn("load_lr_dem_by_id is a legacy method and should not be used. Use load_lr_dem_by_name instead.")
         if id in list(range(len(self.dem_paths.keys()))):
             key = list(self.dem_paths.keys())[id]
             self.hr_dem = np.load(self.dem_paths[key])
@@ -224,9 +210,7 @@ class MapManager:
 
         return math.fabs(self.lr_dem_info.pixel_size[0])
 
-    def get_lr_coordinates(
-        self, coordinates: Tuple[float, float]
-    ) -> Tuple[float, float]:
+    def get_lr_coordinates(self, coordinates: Tuple[float, float]) -> Tuple[float, float]:
         """
         Converts the global coordinates in meters to the low resolution DEM coordinates in meters.
 
@@ -237,16 +221,8 @@ class MapManager:
             Tuple[float, float]: coordinates in meters in the LR dem space.
         """
 
-        x = (
-            coordinates[0]
-            + self.get_lr_dem_res() * self.get_lr_dem_shape()[0] // 2
-            - self.get_lr_dem_res() / 2
-        )
-        y = (
-            coordinates[1]
-            + self.get_lr_dem_res() * self.get_lr_dem_shape()[1] // 2
-            - self.get_lr_dem_res() / 2
-        )
+        x = coordinates[0] + self.get_lr_dem_res() * self.get_lr_dem_shape()[0] // 2 - self.get_lr_dem_res() / 2
+        y = coordinates[1] + self.get_lr_dem_res() * self.get_lr_dem_shape()[1] // 2 - self.get_lr_dem_res() / 2
         return (x, y)
 
     def get_hr_dem(self) -> np.ndarray:
@@ -279,9 +255,7 @@ class MapManager:
 
         return self.hr_dem_gen.settings.resolution
 
-    def get_hr_coordinates(
-        self, coordinates: Tuple[float, float]
-    ) -> Tuple[float, float]:
+    def get_hr_coordinates(self, coordinates: Tuple[float, float]) -> Tuple[float, float]:
         """
         Converts the global coordinates in meters to the high resolution DEM coordinates in meters.
 

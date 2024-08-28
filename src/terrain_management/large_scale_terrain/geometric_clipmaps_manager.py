@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -65,6 +63,7 @@ class GeoClipmapManager:
             cfg.geo_clipmap_specs,
             interpolation_method=interpolation_method,
             acceleration_mode=acceleration_mode,
+            profiling=profiling,
         )
         self._root_path = cfg.root_path
         self.profiling = profiling
@@ -128,9 +127,7 @@ class GeoClipmapManager:
         self._mesh_pos = position
         mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
         if mesh:
-            pxr_utils.setDefaultOps(
-                mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale
-            )
+            pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
 
     def createXforms(self) -> None:
         """
@@ -140,9 +137,7 @@ class GeoClipmapManager:
         if not self._stage.GetPrimAtPath(self._root_path):
             pxr_utils.createXform(self._stage, self._root_path, add_default_op=True)
         if not self._stage.GetPrimAtPath(self._root_path + "/Terrain"):
-            pxr_utils.createXform(
-                self._stage, self._root_path + "/Terrain", add_default_op=True
-            )
+            pxr_utils.createXform(self._stage, self._root_path + "/Terrain", add_default_op=True)
         pxr_utils.createXform(self._stage, self._mesh_path, add_default_op=True)
 
     def renderMesh(
@@ -181,9 +176,7 @@ class GeoClipmapManager:
             mesh.GetFaceVertexIndicesAttr().Set(idxs)
             mesh.GetFaceVertexCountsAttr().Set([3] * len(idxs))
             UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
-            pv = UsdGeom.PrimvarsAPI(mesh.GetPrim()).CreatePrimvar(
-                "st", Sdf.ValueTypeNames.Float2Array
-            )
+            pv = UsdGeom.PrimvarsAPI(mesh.GetPrim()).CreatePrimvar("st", Sdf.ValueTypeNames.Float2Array)
             pv.Set(uvs)
             pv.SetInterpolation("faceVarying")
 
@@ -196,6 +189,7 @@ class GeoClipmapManager:
         self,
         x: np.ndarray,
         y: np.ndarray,
+        map_coordinates: Tuple[float, float],
         seed: int = 0,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -204,9 +198,11 @@ class GeoClipmapManager:
         Args:
             x (np.ndarray): x value.
             y (np.ndarray): y value.
+            map_coordinates (Tuple[float, float]): coordinates of the map.
+            seed (int): seed to use for the random orientation.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: height and random orientation.
         """
 
-        return self._geo_clipmap.get_height_and_random_orientation(x, y, seed=seed)
+        return self._geo_clipmap.get_height_and_random_orientation(x, y, map_coordinates, seed=seed)

@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -126,9 +124,7 @@ class CraterDB:
 
         return self.profile_db["craters"][id]
 
-    def add_block_data(
-        self, block_data: List[CraterMetadata], block_coordinates: Tuple[float, float]
-    ) -> None:
+    def add_block_data(self, block_data: List[CraterMetadata], block_coordinates: Tuple[float, float]) -> None:
         """
         Adds a block of data to the database. That is, a list of crater metadata
         indexed by the block coordinates.
@@ -167,9 +163,7 @@ class CraterDB:
         ), "Block y-coordinate must be a multiple of the block size."
         return True
 
-    def get_block_data(
-        self, block_coordinates: Tuple[float, float]
-    ) -> List[CraterMetadata]:
+    def get_block_data(self, block_coordinates: Tuple[float, float]) -> List[CraterMetadata]:
         """
         Gets the block data with the given coordinates.
 
@@ -182,9 +176,7 @@ class CraterDB:
 
         return self.crater_db[block_coordinates]
 
-    def get_block_data_with_neighbors(
-        self, block_coordinates: Tuple[float, float]
-    ) -> List[CraterMetadata]:
+    def get_block_data_with_neighbors(self, block_coordinates: Tuple[float, float]) -> List[CraterMetadata]:
         """
         Gets the block data with the given coordinates and its neighbors.
         That is 1 block in each direction, so the resulting block is
@@ -336,9 +328,7 @@ class CraterDB:
             occupied_block_matrix,
         )
 
-    def get_occupancy_matrix_within_region_with_neighbors(
-        self, region: BoundingBox
-    ) -> np.ndarray:
+    def get_occupancy_matrix_within_region_with_neighbors(self, region: BoundingBox) -> np.ndarray:
         """
         Gets the occupancy matrix within the given region and its neighbors. It collects all
         the block available in the given region, plus 1 block in each direction.
@@ -378,9 +368,7 @@ class CraterDB:
 
         return occupied_block_matrix
 
-    def get_blocks_within_region_with_neighbors(
-        self, region: BoundingBox
-    ) -> List[CraterMetadata]:
+    def get_blocks_within_region_with_neighbors(self, region: BoundingBox) -> List[CraterMetadata]:
         """
         Gets the blocks within the given region and its neighbors. It collects all
         the block available in the given region, plus 1 block in each direction.
