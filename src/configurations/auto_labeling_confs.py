@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -45,28 +43,21 @@ class AutoLabelingConf:
     seed: int = dataclasses.field(default_factory=int)
 
     def __post_init__(self):
-        print(type(self.annotator_list))
         assert type(self.num_images) is int, "num images must be an integer"
         assert type(self.prim_path) is str, "prim_path must be a string"
         assert type(self.camera_name) is str, "camera_name must be a string"
-        assert (
-            type(self.camera_resolution) is tuple
-        ), "camera_resolution must be a tuple"
+        assert type(self.camera_resolution) is tuple, "camera_resolution must be a tuple"
         assert type(self.sigma) is float, "sigma must be a float"
         assert type(self.seed) is int, "seed must be an integer"
         assert type(self.data_dir) is str, "data_dir must be a string"
         assert type(self.annotator_list) is list, "annotator_list must be a list"
         assert type(self.image_format) is str, "image_format must be a string"
         assert type(self.annot_format) is str, "annot_format must be a string"
-        assert (
-            type(self.element_per_folder) is int
-        ), "element_per_folder must be an integer"
+        assert type(self.element_per_folder) is int, "element_per_folder must be an integer"
         assert type(self.add_noise_to_rgb) is bool, "add_noise_to_rgb must be a boolean"
 
         assert self.num_images > 0, "num_images must be larger than 0"
-        assert (
-            len(self.camera_resolution) == 2
-        ), "camera_resolution must be a tuple of length 2"
+        assert len(self.camera_resolution) == 2, "camera_resolution must be a tuple of length 2"
         assert self.element_per_folder > 0, "element_per_folder must be greater than 0"
         assert self.sigma >= 0, "sigma must be greater or equal than 0"
         assert self.image_format in [
@@ -97,25 +88,17 @@ class CameraConf:
     def __post_init__(self):
         assert type(self.camera_path) is str, "camera_path must be a string"
         assert type(self.focal_length) is float, "focal_length must be a float"
-        assert (
-            type(self.horizontal_aperture) is float
-        ), "horizontal_aperture must be a float"
-        assert (
-            type(self.vertical_aperture) is float
-        ), "vertical_aperture must be a float"
+        assert type(self.horizontal_aperture) is float, "horizontal_aperture must be a float"
+        assert type(self.vertical_aperture) is float, "vertical_aperture must be a float"
         assert type(self.fstop) is float, "fstop must be a float"
         assert type(self.focus_distance) is float, "focus_distance must be a float"
         assert type(self.clipping_range) is tuple, "clipping_range must be a tuple"
 
         assert self.camera_path != "", "camera_path must not be empty"
-        assert (
-            len(self.clipping_range) == 2
-        ), "clipping_range must be a tuple of length 2"
+        assert len(self.clipping_range) == 2, "clipping_range must be a tuple of length 2"
         assert self.focal_length > 0, "focal_length must be greater than 0"
         assert self.focus_distance > 0, "focusDistance must be greater than 0"
-        assert (
-            self.horizontal_aperture > 0
-        ), "horizontal_aperture must be greater than 0"
+        assert self.horizontal_aperture > 0, "horizontal_aperture must be greater than 0"
         assert self.vertical_aperture > 0, "vertical_aperture must be greater than 0"
         assert self.fstop >= 0, "fstop must be greater or equal to 0"
         assert (

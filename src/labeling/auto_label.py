@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard, Junnosuke Kahamora"
-__copyright__ = (
-    "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -11,7 +9,7 @@ __status__ = "development"
 from typing import List, Tuple, Dict, Union
 import omni.kit.actions.core
 import random, string
-from pxr import Usd
+from pxr import Usd, UsdGeom
 import omni
 import os
 
@@ -19,6 +17,27 @@ import os
 from src.labeling.rep_utils import writerFactory
 from src.configurations.auto_labeling_confs import AutoLabelingConf
 import omni.replicator.core as rep
+
+
+class PoseAnnotator:
+    def __init__(self, prim):
+        self.prim = prim
+        self.xform = UsdGeom.Xformable(prim)
+
+    def get_data(self):
+        time = Usd.TimeCode.Default()
+        world_transform = self.xform.ComputeLocalToWorldTransform(time)
+        translation = world_transform.ExtractTranslation()
+        rotation = world_transform.ExtractRotationQuat()
+        return {
+            "position_x": [translation[0]],
+            "position_y": [translation[1]],
+            "position_z": [translation[2]],
+            "quaternion_x": [rotation.GetImaginary()[0]],
+            "quaternion_y": [rotation.GetImaginary()[1]],
+            "quaternion_z": [rotation.GetImaginary()[2]],
+            "quaternion_w": [rotation.GetReal()],
+        }
 
 
 class AutonomousLabeling:
@@ -40,7 +59,7 @@ class AutonomousLabeling:
             camera_resolution (Tuple[int,int], optional): The resolution of the camera. Defaults to (640, 480).
             data_dir (str, optional): The directory where the synthetic data will be stored. Defaults to ".".
             annotator_list (List[str], optional): The list of annotators that will be used to generate the synthetic data.
-                                                  Defaults to ["rgb, instance_segmentation, semantic_segmentation"].
+                                                  Defaults to ["rgb, instance_segmentation, semantic_segmentation, depth, ir"].
             image_format (str, optional): The format of the images. Defaults to "png".
             annot_format (str, optional): The format of the annotations. Defaults to "json".
             element_per_folder (int, optional): The number of elements per folder. Defaults to 10000.
@@ -50,14 +69,11 @@ class AutonomousLabeling:
         """
 
         # Camera parameters
-        print(cfg.prim_path)
         self.camera_name = cfg.camera_name
         self.camera_resolution = cfg.camera_resolution
 
         # Data storage parameters
-        self.data_hash = "".join(
-            random.sample(string.ascii_letters + string.digits, 16)
-        )
+        self.data_hash = "".join(random.sample(string.ascii_letters + string.digits, 16))
         self.data_dir = os.path.join(cfg.data_dir, self.data_hash)
 
         # Synthetic data parameters
@@ -69,14 +85,14 @@ class AutonomousLabeling:
         self.annot_format = cfg.annot_format
         self.element_per_folder = cfg.element_per_folder
         writer_cfg = self.formatWriterConfig()
-        self.synthetic_writers = {
-            name: writerFactory(name, **writer_cfg) for name in cfg.annotator_list
-        }
+        self.synthetic_writers = {name: writerFactory(name, **writer_cfg) for name in cfg.annotator_list}
         self.loggers = {
+            "pose": self.enablePose,
             "rgb": self.enableRGBData,
             "instance_segmentation": self.enableInstanceData,
             "semantic_segmentation": self.enableSemanticData,
             "depth": self.enableDepthData,
+            "ir": self.enableIRData,
         }
 
         self.stage = omni.usd.get_context().get_stage()
@@ -129,6 +145,13 @@ class AutonomousLabeling:
 
         self.render_product = rep.create.render_product(camera_path, res)
 
+    def enablePose(self) -> None:
+        """
+        Enable the collection of pose data.
+        """
+        pose_annot = PoseAnnotator(self.camera_prim)
+        self.annotator["pose"] = pose_annot
+
     def enableRGBData(self) -> None:
         """
         Enable the collection of RGB data.
@@ -137,6 +160,15 @@ class AutonomousLabeling:
         rgb_annot = rep.AnnotatorRegistry.get_annotator("rgb")
         self.annotator["rgb"] = rgb_annot
         rgb_annot.attach([self.render_product])
+
+    def enableIRData(self) -> None:
+        """
+        Enable the collection of RGB data.
+        """
+
+        ir_annot = rep.AnnotatorRegistry.get_annotator("rgb")
+        self.annotator["ir"] = ir_annot
+        ir_annot.attach([self.render_product])
 
     def enableDepthData(self) -> None:
         """
@@ -147,15 +179,12 @@ class AutonomousLabeling:
         self.annotator["depth"] = rgb_annot
         rgb_annot.attach([self.render_product])
 
-
     def enableSemanticData(self) -> None:
         """
         Enable the collection of semantic segmentation data.
         """
 
-        semantic_annot = rep.AnnotatorRegistry.get_annotator(
-            "semantic_segmentation", init_params={"colorize": True}
-        )
+        semantic_annot = rep.AnnotatorRegistry.get_annotator("semantic_segmentation", init_params={"colorize": True})
         self.annotator["semantic_segmentation"] = semantic_annot
         semantic_annot.attach([self.render_product])
 
