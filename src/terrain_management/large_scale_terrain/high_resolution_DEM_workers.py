@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -17,6 +15,7 @@ import dataclasses
 import threading
 import time
 import copy
+import PIL
 import cv2
 
 from src.terrain_management.large_scale_terrain.crater_generation import (
@@ -64,9 +63,7 @@ class InterpolatorCfg:
         if self.method == "bicubic":
             self.method = cv2.INTER_CUBIC
             if self.fx < 1.0:
-                print(
-                    "Warning: Bicubic interpolation with downscaling. Consider using a different method."
-                )
+                print("Warning: Bicubic interpolation with downscaling. Consider using a different method.")
         elif self.method == "nearest":
             self.method = cv2.INTER_NEAREST
         elif self.method == "linear":
@@ -74,9 +71,7 @@ class InterpolatorCfg:
         elif self.method == "area":
             self.method = cv2.INTER_AREA
             if self.fx > 1.0:
-                print(
-                    "Warning: Area interpolation with upscaling. Consider using a different method."
-                )
+                print("Warning: Area interpolation with upscaling. Consider using a different method.")
         else:
             raise ValueError(f"Invalid interpolation method: {self.method}")
 
@@ -115,6 +110,13 @@ class Interpolator:
 class CPUInterpolator(Interpolator):
     """
     An interpolator that uses the CPU to interpolate the terrain data.
+    This interpolator uses the cv2 library to interpolate the data.
+    In our testing, cv2 was generating nasty banding artifacts when
+    upscaling the data. So unless the upsampling factor is small, and
+    the data isn't smooth to start with, I'd recommend using the PIL
+    interpolator instead.
+
+    The cv2 interpolator is faster than the PIL interpolator by about 4 times.
     """
 
     def __init__(self, settings: InterpolatorCfg):
@@ -144,6 +146,50 @@ class CPUInterpolator(Interpolator):
             fy=self.settings.fy,
             interpolation=self.settings.method,
         )[
+            int(self.settings.source_padding * self.settings.fx) : -int(
+                self.settings.source_padding * self.settings.fy
+            ),
+            int(self.settings.source_padding * self.settings.fx) : -int(
+                self.settings.source_padding * self.settings.fy
+            ),
+        ]
+
+
+class CPUInterpolator_PIL(Interpolator):
+    """
+    An interpolator that uses the CPU to interpolate the terrain data.
+    This interpolator uses the PIL library to interpolate the data.
+    I found PIL to be more accurate than cv2 for bicubic interpolation.
+
+    That's because cv2 uses an alpha value of -0.75 for its bicubic interpolation,
+    when it should be -0.5.
+
+    PIL uses a value of -0.5 for bicubic interpolation, which provides more accurate results,
+    but is about 4 times slower than cv2.
+    """
+
+    def __init__(self, settings: InterpolatorCfg):
+        """
+        Args:
+            settings (InterpolatorCfg): The settings for the interpolator.
+        """
+
+        super().__init__(settings)
+
+        if self.settings.method == cv2.INTER_CUBIC:
+            self.settings.method = PIL.Image.BICUBIC
+        else:
+            raise ValueError(
+                "PIL interpolation only supports bicubic interpolation. Use the CV2 interpolator instead. It's faster."
+            )
+
+    def interpolate(self, data: np.ndarray) -> np.ndarray:
+        image = PIL.Image.fromarray(data)
+        image = image.resize(
+            (int(data.shape[1] * self.settings.fx), int(data.shape[0] * self.settings.fy)),
+            resample=self.settings.method,
+        )
+        return np.array(image)[
             int(self.settings.source_padding * self.settings.fx) : -int(
                 self.settings.source_padding * self.settings.fy
             ),
@@ -222,9 +268,7 @@ class BaseWorkerManager:
         worker_instance = self.worker_class(self.thread_timeout, **kwargs)
 
         self.workers = [
-            multiprocessing.Process(
-                target=worker_instance.run, args=(self.input_queue, self.output_queue)
-            )
+            multiprocessing.Process(target=worker_instance.run, args=(self.input_queue, self.output_queue))
             for _ in range(self.num_workers)
         ]
         for worker in self.workers:
@@ -372,9 +416,7 @@ class CraterBuilderWorker:
         self.thread_timeout = thread_timeout
         self.builder = copy.copy(builder)
 
-    def run(
-        self, input_queue: multiprocessing.Queue, output_queue: multiprocessing.Queue
-    ) -> None:
+    def run(self, input_queue: multiprocessing.Queue, output_queue: multiprocessing.Queue) -> None:
         """
         The main function of the worker process.
         This function is called when the worker process is started.
