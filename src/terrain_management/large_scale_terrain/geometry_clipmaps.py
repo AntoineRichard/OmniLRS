@@ -13,10 +13,10 @@ import warp as wp
 import hashlib
 import os
 
-from src.terrain_management.large_scale_terrain.geometric_clipmaps_numba import (
+from src.terrain_management.large_scale_terrain.geometry_clipmaps_numba import (
     _buildMesh,
 )
-from src.terrain_management.large_scale_terrain.geometric_clipmaps_warp import (
+from src.terrain_management.large_scale_terrain.geometry_clipmaps_warp import (
     _preprocess,
     _bilinear_interpolation,
     _bicubic_interpolation,
@@ -50,7 +50,7 @@ class GeoClipmapSpecs:
 
 class GeoClipmap:
     """
-    Class to create and update a geometric clipmap.
+    Class to create and update a geometry clipmap.
     This code makes intensive usage of JIT compiled methods using Numba and Warp.
     This is done to accelerate almost all the operations in this class.
     Numba is used to create the mesh backbone, while Warp is used to update the mesh.
@@ -99,7 +99,7 @@ class GeoClipmap:
 
     def build(self, dem: np.ndarray, dem_shape: Tuple[int, int], dem_center: Tuple[float, float] = (250, 250)) -> None:
         """
-        Build the DEM sampler used to update the geometric clipmap.
+        Build the DEM sampler used to update the geometry clipmap.
 
         Args:
             dem (np.ndarray): DEM data.

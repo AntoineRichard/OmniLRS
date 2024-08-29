@@ -127,9 +127,9 @@ def _addTriangle(
 @nb.jit(nopython=True)
 def _buildMesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
     """
-    Build the mesh backbone for the geometric clipmaps. The mesh backbone is a series of triangles
+    Build the mesh backbone for the geometry clipmaps. The mesh backbone is a series of triangles
     that tessellate the terrain. The mesh backbone is built from the bottom up, starting at the
-    lowest level and working up to the highest level. Geometric clipmaps are used to render the
+    lowest level and working up to the highest level. Geometry clipmaps are used to render the
     terrain at different levels of detail. At the center, the terrain is rendered at the highest
     level of detail. As the distance from the center increases, the level of detail decreases.
 

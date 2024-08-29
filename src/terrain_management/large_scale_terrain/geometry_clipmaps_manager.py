@@ -6,13 +6,13 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
-from src.terrain_management.large_scale_terrain.geometric_clipmaps import (
+from src.terrain_management.large_scale_terrain.geometry_clipmaps import (
     GeoClipmapSpecs,
     GeoClipmap,
 )
 from dataclasses import dataclass, field
 from WorldBuilders import pxr_utils
-from pxr import UsdGeom, Sdf
+from pxr import UsdGeom, Sdf, Usd
 from typing import Tuple
 import numpy as np
 import warp as wp
@@ -39,7 +39,7 @@ class GeoClipmapManagerConf:
 
 class GeoClipmapManager:
     """
-    Class to manage the geometric clipmap.
+    Class to manage the geometry clipmap.
     """
 
     def __init__(
@@ -49,6 +49,7 @@ class GeoClipmapManager:
         acceleration_mode: str = "hybrid",
         name_prefix: str = "",
         profiling: bool = False,
+        stage: Usd.Stage = None,
     ) -> None:
         """
         Args:
@@ -58,7 +59,6 @@ class GeoClipmapManager:
             name_prefix (str): prefix to add to the mesh name.
         """
 
-        self._stage = omni.usd.get_context().get_stage()
         self._geo_clipmap = GeoClipmap(
             cfg.geo_clipmap_specs,
             interpolation_method=interpolation_method,
@@ -67,6 +67,7 @@ class GeoClipmapManager:
         )
         self._root_path = cfg.root_path
         self.profiling = profiling
+        self._stage = stage
 
         self._mesh_pos = cfg.mesh_position
         self._mesh_rot = cfg.mesh_orientation
@@ -163,7 +164,6 @@ class GeoClipmapManager:
         self._mesh_path = self._og_mesh_path
         if not mesh:
             mesh = UsdGeom.Mesh.Define(self._stage, self._mesh_path)
-            UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
             pxr_utils.addDefaultOps(mesh)
 
             # force topology update on first update
@@ -175,13 +175,9 @@ class GeoClipmapManager:
             idxs = np.array(indices).reshape(-1, 3)
             mesh.GetFaceVertexIndicesAttr().Set(idxs)
             mesh.GetFaceVertexCountsAttr().Set([3] * len(idxs))
-            UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
             pv = UsdGeom.PrimvarsAPI(mesh.GetPrim()).CreatePrimvar("st", Sdf.ValueTypeNames.Float2Array)
             pv.Set(uvs)
             pv.SetInterpolation("faceVarying")
-
-        if colors:
-            mesh.GetDisplayColorAttr().Set(colors)
 
         pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
 
