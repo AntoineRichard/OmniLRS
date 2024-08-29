@@ -1,6 +1,17 @@
-from pxr import UsdGeom, Gf, Usd, Vt
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
+import os
+
+from pxr import UsdGeom, Gf, Usd, Vt, UsdShade
 
 from omni.physx.scripts import utils as physx_utils
+import omni
 
 
 def set_xform_op(prim: Usd.Prim, value, property: UsdGeom.XformOp.Type) -> None:
@@ -201,3 +212,42 @@ def enable_smooth_shade(
         prim.GetAttribute("triangleSubdivisionRule").Set(UsdGeom.Tokens.smooth)
     else:
         prim.GetAttribute("triangleSubdivisionRule").Set(UsdGeom.Tokens.catmullClark)
+
+
+def bindMaterial(stage: Usd.Stage, mtl_prim_path: str, prim_path: str):
+    """
+    Binds a material to a prim.
+
+    Args:
+        stage (Usd.Stage): The stage.
+        mtl_prim_path (str): The path to the material prim.
+        prim_path (str): The path to the prim.
+    """
+
+    mtl_prim = stage.GetPrimAtPath(mtl_prim_path)
+    prim = stage.GetPrimAtPath(prim_path)
+    shade = UsdShade.Material(mtl_prim)
+    UsdShade.MaterialBindingAPI(prim).Bind(shade, UsdShade.Tokens.strongerThanDescendants)
+
+
+def loadMaterial(material_name: str, material_path: str):
+    """
+    Loads a material.
+
+    Args:
+        material_name (str): The name that will be given to the material in the scene.
+        material_path (str): The path to the material file (on the drive).
+
+    Raises:
+        AssertionError: If the material file is not found.
+    """
+
+    assert os.path.exists(material_path), "Material file not found at: {}".format(material_path)
+
+    omni.kit.commands.execute(
+        "CreateMdlMaterialPrimCommand",
+        mtl_url=material_path,
+        mtl_name=material_name,
+        mtl_path=os.path.join("/Looks", material_name),
+    )
+    return os.path.join("/Looks", material_name)
