@@ -6,7 +6,6 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
-
 import multiprocessing.managers
 from typing import List, Tuple, Dict
 import multiprocessing
