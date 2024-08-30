@@ -7,31 +7,6 @@ import numpy as np
 from omni.isaac.kit import SimulationApp
 from scipy.spatial.transform import Rotation as SSTR
 
-R_Z90 = np.array(
-    [
-        [math.cos(math.pi / 2), -math.sin(math.pi / 2), 0],
-        [math.sin(math.pi / 2), math.cos(math.pi / 2), 0],
-        [0, 0, 1],
-    ]
-)
-R_X90 = np.array(
-    [
-        [1, 0, 0],
-        [0, math.cos(math.pi / 2), -math.sin(math.pi / 2)],
-        [0, math.sin(math.pi / 2), math.cos(math.pi / 2)],
-    ]
-)
-
-
-def loadSandMaterial(asset_path: str):
-    omni.kit.commands.execute(
-        "CreateMdlMaterialPrimCommand",
-        # mtl_url="http://omniverse-content-production.s3-us-west-2.amazonaws.com/Materials/Base/Natural/Sand.mdl",
-        mtl_url=asset_path + "/Textures/LunarRegolith8k.mdl",
-        mtl_name="LunarRegolith8k",
-        mtl_path="/Looks/LunarRegolith8k",
-    )
-
 
 def EMAquat(q1, q2, alpha):
     dot = q1[0] * q2[0] + q1[1] * q2[1] + q1[2] * q2[2] + q1[3] * q2[3]
@@ -49,7 +24,7 @@ def EMAquat(q1, q2, alpha):
 
 cfg = {
     "renderer": "PathTracing",
-    "headless": False,
+    "headless": True,
     "samples_per_pixel_per_frame": 32,
     "max_bounces": 6,
     "max_specular_transmission_bounces": 6,
@@ -145,6 +120,9 @@ NGCMMCfg_D = {
     "fine_acceleration_mode": "hybrid",
     "coarse_acceleration_mode": "gpu",
     "profiling": True,
+    "semantic_label": "terrain",
+    "texture_name": "LunarRegolith8k",
+    "texture_path": "assets/Textures/LunarRegolith8k.mdl",
 }
 RDBCfg_D = {
     "block_size": 50,
@@ -200,6 +178,8 @@ RGCfg_1_D = {
     "seed": 42,
     "block_span": 0,
     "block_size": 50,
+    "add_colliders": False,
+    "collider_mode": "none",
 }
 RGCfg_2_D = {
     "rock_db_cfg": RDBCfg_D,
@@ -209,6 +189,9 @@ RGCfg_2_D = {
     "seed": 42,
     "block_span": 1,
     "block_size": 50,
+    "add_colliders": False,
+    "collider_mode": "none",
+    "semantic_label": "medium_rock",
 }
 RMCfg_D = {
     "rock_gen_cfgs": [RGCfg_1_D, RGCfg_2_D],
@@ -223,132 +206,24 @@ if __name__ == "__main__":
     from omni.usd import get_context
     from pxr import UsdLux, UsdGeom, Gf, UsdShade, Vt, Sdf, Usd
 
-    from WorldBuilders.pxr_utils import setDefaultOps, addDefaultOps, createXform
+    from src.terrain_management.large_scale_terrain.pxr_utils import set_xform_ops
 
     from src.terrain_management.large_scale_terrain.map_manager import MapManagerCfg
-    from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator import (
-        HighResDEMGenCfg,
-    )
     from src.terrain_management.large_scale_terrain_manager import (
-        NestedGeometricClipMapManagerCfg,
         LargeScaleTerrainManagerCfg,
         LargeScaleTerrainManager,
+    )
+    from src.terrain_management.large_scale_terrain.nested_geometry_clipmaps_manager import (
+        NestedGeometryClipmapManagerCfg,
     )
     from src.terrain_management.large_scale_terrain.rock_manager import RockManagerCfg
     from src.labeling.auto_label import AutonomousLabeling
     from src.configurations.auto_labeling_confs import AutoLabelingConf
     from omni.isaac.sensor import Camera
 
-    def setXformOp(prim: Usd.Prim, value, property: UsdGeom.XformOp.Type) -> None:
-        """
-        Sets a transform operatios on a prim.
-
-        Args:
-            prim (Usd.Prim): The prim to set the transform operation.
-            value: The value of the transform operation.
-            property (UsdGeom.XformOp.Type): The type of the transform operation.
-        """
-
-        xform = UsdGeom.Xformable(prim)
-        op = None
-        for xformOp in xform.GetOrderedXformOps():
-            if xformOp.GetOpType() == property:
-                op = xformOp
-        if op:
-            xform_op = op
-        else:
-            xform_op = xform.AddXformOp(property, UsdGeom.XformOp.PrecisionDouble, "")
-        xform_op.Set(value)
-
-    def setScale(prim: Usd.Prim, value: Gf.Vec3d) -> None:
-        """
-        Sets the scale of a prim.
-
-        Args:
-            prim (Usd.Prim): The prim to set the scale.
-            value (Gf.Vec3d): The value of the scale.
-        """
-
-        setXformOp(prim, value, UsdGeom.XformOp.TypeScale)
-
-    def setTranslate(prim: Usd.Prim, value: Gf.Vec3d) -> None:
-        """
-        Sets the translation of a prim.
-
-        Args:
-            prim (Usd.Prim): The prim to set the translation.
-            value (Gf.Vec3d): The value of the translation.
-        """
-
-        setXformOp(prim, value, UsdGeom.XformOp.TypeTranslate)
-
-    def setRotateXYZ(prim: Usd.Prim, value: Gf.Vec3d) -> None:
-        """
-        Sets the rotation of a prim.
-
-        Args:
-            prim (Usd.Prim): The prim to set the rotation.
-            value (Gf.Vec3d): The value of the rotation.
-        """
-
-        setXformOp(prim, value, UsdGeom.XformOp.TypeRotateXYZ)
-
-    def setOrient(prim: Usd.Prim, value: Gf.Quatd) -> None:
-        """
-        Sets the rotation of a prim.
-
-        Args:
-            prim (Usd.Prim): The prim to set the rotation.
-            value (Gf.Quatd): The value of the rotation.
-        """
-
-        setXformOp(prim, value, UsdGeom.XformOp.TypeOrient)
-
-    def setTransform(prim, value: Gf.Matrix4d) -> None:
-        """
-        Sets the transform of a prim.
-
-        Args:
-            prim (Usd.Prim): The prim to set the transform.
-            value (Gf.Matrix4d): The value of the transform.
-        """
-
-        setXformOp(prim, value, UsdGeom.XformOp.TypeTransform)
-
-    def setXformOps(
-        prim,
-        translate: Gf.Vec3d = Gf.Vec3d([0, 0, 0]),
-        orient: Gf.Quatd = Gf.Quatd(1, Gf.Vec3d([0, 0, 0])),
-        scale: Gf.Vec3d = Gf.Vec3d([1, 1, 1]),
-    ) -> None:
-        """
-        Sets the transform of a prim.
-
-        Args:
-            prim (Usd.Prim): The prim to set the transform.
-            translate (Gf.Vec3d): The value of the translation.
-            orient (Gf.Quatd): The value of the rotation.
-            scale (Gf.Vec3d): The value of the scale.
-        """
-
-        setTranslate(prim, translate)
-        setOrient(prim, orient)
-        setScale(prim, scale)
-
-    def getTransform(prim: Usd.Prim, parent: Usd.Prim) -> Gf.Matrix4d:
-        """
-        Gets the transform of a prim relative to its parent.
-
-        Args:
-            prim (Usd.Prim): The prim to get the transform.
-            parent (Usd.Prim): The parent of the prim.
-        """
-
-        return UsdGeom.XformCache(0).ComputeRelativeTransform(prim, parent)[0]
-
     def buildRealSenseRGB(stage, camera_path):
         rs_d455 = stage.DefinePrim(camera_path, "Xform")
-        setXformOps(rs_d455, Gf.Vec3d(0, 0, 0), Gf.Quatd(1, (0, 0, 0)), Gf.Vec3d(1, 1, 1))
+        set_xform_ops(rs_d455, Gf.Vec3d(0, 0, 0), Gf.Quatd(1, (0, 0, 0)), Gf.Vec3d(1, 1, 1))
         # Mono
         camera_mono = UsdGeom.Camera.Define(stage, camera_path + "/mono")
         camera_mono.GetClippingRangeAttr().Set(Gf.Vec2f(0.01, 100000))
@@ -358,7 +233,7 @@ if __name__ == "__main__":
         camera_mono.GetHorizontalApertureAttr().Set(3.896)
         camera_mono.GetVerticalApertureAttr().Set(2.453)
         camera_mono_prim = camera_mono.GetPrim()
-        setXformOps(camera_mono_prim, Gf.Vec3d(0, -0.0115, 0), Gf.Quatd(0.5, (0.5, -0.5, -0.5)), Gf.Vec3d(1, 1, 1))
+        set_xform_ops(camera_mono_prim, Gf.Vec3d(0, -0.0115, 0), Gf.Quatd(0.5, (0.5, -0.5, -0.5)), Gf.Vec3d(1, 1, 1))
         # Left
         camera_left = UsdGeom.Camera.Define(stage, camera_path + "/left")
         camera_left.GetClippingRangeAttr().Set(Gf.Vec2f(0.01, 100000))
@@ -368,7 +243,7 @@ if __name__ == "__main__":
         camera_left.GetHorizontalApertureAttr().Set(3.896)
         camera_left.GetVerticalApertureAttr().Set(2.453)
         camera_left_prim = camera_left.GetPrim()
-        setXformOps(camera_left_prim, Gf.Vec3d(0, 0.0475, 0), Gf.Quatd(0.5, (0.5, -0.5, -0.5)), Gf.Vec3d(1, 1, 1))
+        set_xform_ops(camera_left_prim, Gf.Vec3d(0, 0.0475, 0), Gf.Quatd(0.5, (0.5, -0.5, -0.5)), Gf.Vec3d(1, 1, 1))
         # Right
         camera_right = UsdGeom.Camera.Define(stage, camera_path + "/right")
         camera_right.GetClippingRangeAttr().Set(Gf.Vec2f(0.01, 100000))
@@ -378,7 +253,7 @@ if __name__ == "__main__":
         camera_right.GetHorizontalApertureAttr().Set(3.896)
         camera_right.GetVerticalApertureAttr().Set(2.453)
         camera_right_prim = camera_right.GetPrim()
-        setXformOps(camera_right_prim, Gf.Vec3d(0, -0.0475, 0), Gf.Quatd(0.5, (0.5, -0.5, -0.5)), Gf.Vec3d(1, 1, 1))
+        set_xform_ops(camera_right_prim, Gf.Vec3d(0, -0.0475, 0), Gf.Quatd(0.5, (0.5, -0.5, -0.5)), Gf.Vec3d(1, 1, 1))
         # Depth
         camera_depth = UsdGeom.Camera.Define(stage, camera_path + "/depth")
         camera_depth.GetClippingRangeAttr().Set(Gf.Vec2f(0.01, 100000))
@@ -388,7 +263,7 @@ if __name__ == "__main__":
         camera_depth.GetHorizontalApertureAttr().Set(3.896)
         camera_depth.GetVerticalApertureAttr().Set(2.453)
         camera_depth_prim = camera_depth.GetPrim()
-        setXformOps(camera_depth_prim, Gf.Vec3d(0, 0, 0), Gf.Quatd(0.5, (0.5, -0.5, -0.5)), Gf.Vec3d(1, 1, 1))
+        set_xform_ops(camera_depth_prim, Gf.Vec3d(0, 0, 0), Gf.Quatd(0.5, (0.5, -0.5, -0.5)), Gf.Vec3d(1, 1, 1))
         return rs_d455
 
     # attr = camera.GetPrim().CreateAttribute("cameraProjectionType", Sdf.ValueTypeNames.Token)
@@ -427,72 +302,49 @@ if __name__ == "__main__":
     # camera.GetPrim().GetAttribute("fthetaMaxFov").Set(98.0)
     # return camera
 
-    def get_intrinsics_matrix(camera_prim) -> np.ndarray:
-        """
-        Returns:
-            np.ndarray: the intrinsics of the camera (used for calibration)
-        """
-        focal_length = camera_prim.GetAttribute("focalLength").Get() / 10.0
-        (width, height) = (1280, 720)
-        horizontal_aperture = camera_prim.GetAttribute("horizontalAperture").Get() / 10.0
-        vertical_aperture = (camera_prim.GetAttribute("horizontalAperture").Get() / 10.0) * (float(height) / width)
-        fx = width * focal_length / horizontal_aperture
-        fy = height * focal_length / vertical_aperture
-        cx = width * 0.5
-        cy = height * 0.5
-        return np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]], dtype="float32")
-
-    def bindMaterial(stage, mtl_prim_path, prim_path):
-        mtl_prim = stage.GetPrimAtPath(mtl_prim_path)
-        prim = stage.GetPrimAtPath(prim_path)
-        shade = UsdShade.Material(mtl_prim)
-        UsdShade.MaterialBindingAPI(prim).Bind(shade, UsdShade.Tokens.strongerThanDescendants)
-
     world = World(stage_units_in_meters=1.0)
     stage = get_context().get_stage()
     asset_path = os.path.join(os.getcwd(), "assets")
-    loadSandMaterial(asset_path)
 
     # Let there be light
     light = UsdLux.DistantLight.Define(stage, "/World/sun")
     light.CreateIntensityAttr(1000.0)
-    addDefaultOps(light.GetPrim())
-    setDefaultOps(light.GetPrim(), (0, 0, 0), (0.65, 0, 0, 0.76), (1, 1, 1))
+    set_xform_ops(light.GetPrim(), Gf.Vec3d(0, 0, 0), Gf.Quatd(0.76, (0.65, 0, 0)), Gf.Vec3d(1, 1, 1))
 
     camera = buildRealSenseRGB(stage, "/World/camera")
 
-    left_light = UsdLux.DiskLight.Define(stage, "/World/camera/left_light")
-    left_light.CreateRadiusAttr(0.05)
-    left_light.CreateIntensityAttr(10000000.0)
-    left_light.CreateColorAttr(Gf.Vec3f(0.87, 0.97, 0.97))
-    left_shaping_api = UsdLux.ShapingAPI(left_light.GetPrim())
-    left_shaping_api.CreateShapingIesFileAttr().Set(asset_path + "/Textures/RobotProjector.ies")
-    left_shaping_api.CreateShapingIesNormalizeAttr().Set(True)
-    setXformOps(
-        left_light.GetPrim(),
-        Gf.Vec3d(0, 0.5, 0),
-        Gf.Quatd(0.5, (0.5, -0.5, -0.5)),
-        Gf.Vec3d(1, 1, 1),
-    )
-    right_light = UsdLux.DiskLight.Define(stage, "/World/camera/right_light")
-    right_light.CreateRadiusAttr(0.05)
-    right_light.CreateIntensityAttr(10000000.0)
-    right_light.CreateColorAttr(Gf.Vec3f(0.87, 0.97, 0.97))
-    right_shaping_api = UsdLux.ShapingAPI(right_light.GetPrim())
-    right_shaping_api.CreateShapingIesFileAttr().Set(asset_path + "/Textures/RobotProjector.ies")
-    right_shaping_api.CreateShapingIesNormalizeAttr().Set(True)
-    setXformOps(
-        right_light.GetPrim(),
-        Gf.Vec3d(0.0, -0.5, 0),
-        Gf.Quatd(0.5, (0.5, -0.5, -0.5)),
-        Gf.Vec3d(1, 1, 1),
-    )
+    # left_light = UsdLux.DiskLight.Define(stage, "/World/camera/left_light")
+    # left_light.CreateRadiusAttr(0.05)
+    # left_light.CreateIntensityAttr(10000000.0)
+    # left_light.CreateColorAttr(Gf.Vec3f(0.87, 0.97, 0.97))
+    # left_shaping_api = UsdLux.ShapingAPI(left_light.GetPrim())
+    # left_shaping_api.CreateShapingIesFileAttr().Set(asset_path + "/Textures/RobotProjector.ies")
+    # left_shaping_api.CreateShapingIesNormalizeAttr().Set(True)
+    # set_xform_ops(
+    #    left_light.GetPrim(),
+    #    Gf.Vec3d(0, 0.5, 0),
+    #    Gf.Quatd(0.5, (0.5, -0.5, -0.5)),
+    #    Gf.Vec3d(1, 1, 1),
+    # )
+    # right_light = UsdLux.DiskLight.Define(stage, "/World/camera/right_light")
+    # right_light.CreateRadiusAttr(0.05)
+    # right_light.CreateIntensityAttr(10000000.0)
+    # right_light.CreateColorAttr(Gf.Vec3f(0.87, 0.97, 0.97))
+    # right_shaping_api = UsdLux.ShapingAPI(right_light.GetPrim())
+    # right_shaping_api.CreateShapingIesFileAttr().Set(asset_path + "/Textures/RobotProjector.ies")
+    # right_shaping_api.CreateShapingIesNormalizeAttr().Set(True)
+    # set_xform_ops(
+    #    right_light.GetPrim(),
+    #    Gf.Vec3d(0.0, -0.5, 0),
+    #    Gf.Quatd(0.5, (0.5, -0.5, -0.5)),
+    #    Gf.Vec3d(1, 1, 1),
+    # )
 
     C = 0
-    R = 50
+    R = 200
     render_substeps = 4
     max_displacement = 2.0 / 30
-    acquisition_rate = 1
+    acquisition_rate = 15
     perimeter = 2 * np.pi * R
     rotation_rate = int(perimeter / max_displacement)
     spiral_rate = 0.0 / rotation_rate
@@ -513,82 +365,28 @@ if __name__ == "__main__":
         "coordinate_format": "meters",
         "visual_mesh_update_threshold": 2.0,
     }
-    AL_1_Cfg_D = {
+    AL_Cfg_D = {
         "num_images": 10000000,
         "prim_path": "/World",
-        "camera_name": "mono",
-        "camera_resolution": (1280, 720),
+        "camera_names": ["mono", "left", "right", "depth"],
+        "camera_resolutions": [(1280, 720), (1280, 720), (1280, 720), (1280, 720)],
         "data_dir": "data",
-        "annotator_list": ["rgb", "pose"],
-        "image_format": "png",
-        "annot_format": "json",
+        "annotators_list": [["rgb", "pose"], ["ir", "pose"], ["ir", "pose"], ["depth", "pose"]],
+        "image_formats": ["png", "png", "png", "png"],
+        "annot_formats": ["json", "json", "json", "json"],
         "element_per_folder": 10000000,
-        "add_noise_to_rgb": False,
-        "sigma": 0.0,
-        "seed": 42,
+        "save_intrinsics": True,
     }
-    AL_2_Cfg_D = {
-        "num_images": 10000000,
-        "prim_path": "/World",
-        "camera_name": "left",
-        "camera_resolution": (1280, 720),
-        "data_dir": "data",
-        "annotator_list": ["ir", "pose"],
-        "image_format": "png",
-        "annot_format": "json",
-        "element_per_folder": 10000000,
-        "add_noise_to_rgb": False,
-        "sigma": 0.0,
-        "seed": 42,
-    }
-    AL_3_Cfg_D = {
-        "num_images": 10000000,
-        "prim_path": "/World",
-        "camera_name": "right",
-        "camera_resolution": (1280, 720),
-        "data_dir": "data",
-        "annotator_list": ["ir", "pose"],
-        "image_format": "png",
-        "annot_format": "json",
-        "element_per_folder": 10000000,
-        "add_noise_to_rgb": False,
-        "sigma": 0.0,
-        "seed": 42,
-    }
-    AL_4_Cfg_D = {
-        "num_images": 10000000,
-        "prim_path": "/World",
-        "camera_name": "depth",
-        "camera_resolution": (1280, 720),
-        "data_dir": "data",
-        "annotator_list": ["depth", "pose"],
-        "image_format": "png",
-        "annot_format": "json",
-        "element_per_folder": 10000000,
-        "add_noise_to_rgb": False,
-        "sigma": 0.0,
-        "seed": 42,
-    }
-
     # Prime the world
     for i in range(100):
         world.step(render=True)
 
-    ALCFG_1 = AutoLabelingConf(**AL_1_Cfg_D)
-    ALCFG_2 = AutoLabelingConf(**AL_2_Cfg_D)
-    ALCFG_3 = AutoLabelingConf(**AL_3_Cfg_D)
-    ALCFG_4 = AutoLabelingConf(**AL_4_Cfg_D)
-    AL_1 = AutonomousLabeling(ALCFG_1)
-    AL_2 = AutonomousLabeling(ALCFG_2)
-    AL_3 = AutonomousLabeling(ALCFG_3)
-    AL_4 = AutonomousLabeling(ALCFG_4)
-    AL_1.load()
-    AL_2.load()
-    AL_3.load()
-    AL_4.load()
+    ALCFG = AutoLabelingConf(**AL_Cfg_D)
+    AL = AutonomousLabeling(ALCFG)
+    AL.load()
 
     mm_settings = MapManagerCfg(**MMCfg_D)
-    ngcmm_settings = NestedGeometricClipMapManagerCfg(**NGCMMCfg_D)
+    ngcmm_settings = NestedGeometryClipmapManagerCfg(**NGCMMCfg_D)
     rm_settings = RockManagerCfg(**RMCfg_D)
     lstm_settings = LargeScaleTerrainManagerCfg(**LSTMCfg_D)
 
@@ -597,12 +395,6 @@ if __name__ == "__main__":
     LSTM.build()
     height = LSTM.get_height_global(initial_position)
 
-    bindMaterial(stage, "/Looks/LunarRegolith8k", "/World/Terrain")
-
-    # Q_camera2 = quat_mul(heading_to_quat(0), Q_camera)
-
-    # setDefaultOps(camera.GetPrim(), (0, 0, height + 0.5), Q_camera2, (1, 1, 1))
-    # LSTM.update_visual_mesh((0, 0))
     timeline = omni.timeline.get_timeline_interface()
     timeline.play()
 
@@ -630,8 +422,6 @@ if __name__ == "__main__":
         heading_vector = heading_vector / np.linalg.norm(heading_vector)
         heading_vector_2 = np.cross(normal_vector, heading_vector)
         RNorm = np.array([heading_vector, heading_vector_2, normal_vector]).T
-        # mat = np.matmul(R_Z90, R_X90)
-        # mat = np.matmul(RNorm, mat)
 
         RM = SSTR.from_matrix(RNorm)
         if Q_camera is None:
@@ -639,7 +429,7 @@ if __name__ == "__main__":
         else:
             Q_camera = EMAquat(Q_camera, RM.as_quat(), 0.0333)
 
-        setXformOps(
+        set_xform_ops(
             camera.GetPrim(),
             Gf.Vec3d(x_delta, y_delta, LSTM.get_height_local(coords) + 0.5),
             Gf.Quatd(Q_camera[-1], (Q_camera[0], Q_camera[1], Q_camera[2])),
@@ -654,10 +444,7 @@ if __name__ == "__main__":
         i = (i + 1) % rotation_rate
         if i % acquisition_rate == 0:
             try:
-                AL_1.record()
-                AL_2.record()
-                AL_3.record()
-                AL_4.record()
+                AL.record()
                 i3 += 1
             except Exception as e:
                 print(e)
