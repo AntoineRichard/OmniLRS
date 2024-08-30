@@ -9,17 +9,17 @@ __status__ = "development"
 from typing import Tuple
 import dataclasses
 import numpy as np
+import warnings
 import math
 
+from semantics.schema.editor import PrimSemanticData
 import omni
 
 from src.terrain_management.large_scale_terrain.geometry_clipmaps_manager import (
     GeoClipmapManagerConf,
     GeoClipmapManager,
 )
-from src.terrain_management.large_scale_terrain.geometry_clipmaps import (
-    GeoClipmapSpecs,
-)
+from src.terrain_management.large_scale_terrain.geometry_clipmaps import GeoClipmapSpecs
 from src.terrain_management.large_scale_terrain.pxr_utils import bindMaterial, loadMaterial
 
 
@@ -34,17 +34,38 @@ class NestedGeometryClipmapManagerCfg:
         fine_acceleration_mode (str): The acceleration mode for the fine clipmap. (hybrid or gpu)
         coarse_acceleration_mode (str): The acceleration mode for the coarse clipmap. (hybrid or gpu)
         profiling (bool): Whether to profile the clipmap manager.
+        semantic_label (str): The semantic label of the terrain. (None if no label is to be used)
+        texture_name (str): The name of the texture. (None if no texture is to be used)
+        texture_path (str): The path to the texture. (None if no texture is to be used)
     """
 
-    num_texels_per_level: int = 256
-    target_res: float = 0.01
-    fine_interpolation_method: str = "bicubic"
-    coarse_interpolation_method: str = "bilinear"
-    fine_acceleration_mode: str = "hybrid"
-    coarse_acceleration_mode: str = "hybrid"
-    profiling: bool = False
-    texture_name: str = "LunarRegolith8k"
-    texture_path: str = "assets/Textures/LunarRegolith8k.mdl"
+    num_texels_per_level: int = dataclasses.field(default_factory=int)
+    target_res: float = dataclasses.field(default_factory=float)
+    fine_interpolation_method: str = dataclasses.field(default_factory=str)
+    coarse_interpolation_method: str = dataclasses.field(default_factory=str)
+    fine_acceleration_mode: str = dataclasses.field(default_factory=str)
+    coarse_acceleration_mode: str = dataclasses.field(default_factory=str)
+    profiling: bool = dataclasses.field(default_factory=bool)
+    semantic_label: str = dataclasses.field(default_factory=str)
+    texture_name: str = dataclasses.field(default_factory=str)
+    texture_path: str = dataclasses.field(default_factory=str)
+
+    def __post_init__(self) -> None:
+        """
+        Post initialization checks.
+        """
+
+        assert self.fine_interpolation_method in ["bicubic", "bilinear"]
+        assert self.coarse_interpolation_method in ["bicubic", "bilinear"]
+        assert self.fine_acceleration_mode in ["hybrid", "gpu"]
+        assert self.coarse_acceleration_mode in ["hybrid", "gpu"]
+
+        if self.semantic_label == "":
+            self.semantic_label = None
+        if self.texture_name == "":
+            self.texture_name = None
+        if self.texture_path == "":
+            self.texture_path = None
 
 
 class NestedGeometryClipmapManager:
@@ -164,6 +185,7 @@ class NestedGeometryClipmapManager:
         self.fine_clipmap_manager.build(hr_dem, hr_dem_shape)
         self.coarse_clipmap_manager.build(lr_dem, lr_dem_shape)
         self.load_and_apply_material()
+        self.add_semantic_label()
 
     def update_clipmaps(
         self,
@@ -208,8 +230,27 @@ class NestedGeometryClipmapManager:
     def load_and_apply_material(self):
         """
         Load and apply the material to the clipmaps.
+
+        Warnings:
+            - If the texture name is not provided, a warning is raised.
+            - If the texture path is not provided, a warning is raised.
         """
 
-        material_path = loadMaterial(self.settings.texture_name, self.settings.texture_path)
-        bindMaterial(self.fine_clipmap_manager._stage, material_path, self.fine_clipmap_manager._mesh_path)
-        bindMaterial(self.coarse_clipmap_manager._stage, material_path, self.coarse_clipmap_manager._mesh_path)
+        if (self.settings.texture_name is not None) and (self.settings.texture_path is not None):
+            material_path = loadMaterial(self.settings.texture_name, self.settings.texture_path)
+            bindMaterial(self.fine_clipmap_manager._stage, material_path, self.fine_clipmap_manager._mesh_path)
+            bindMaterial(self.coarse_clipmap_manager._stage, material_path, self.coarse_clipmap_manager._mesh_path)
+        elif (self.settings.texture_name is not None) and (self.settings.texture_path is None):
+            warnings.warn("No texture path provided. Material will not be applied.")
+        elif (self.settings.texture_name is None) and (self.settings.texture_path is not None):
+            warnings.warn("No texture name provided. Material will not be applied.")
+
+    def add_semantic_label(self):
+        """
+        Add the semantic label to the clipmaps.
+        """
+        if self.settings.semantic_label is not None:
+            prim_sd = PrimSemanticData(self.stage.GetPrimAtPath(self.fine_clipmap_manager._mesh_path))
+            prim_sd.add_entry("class", self.settings.semantic_label)
+            prim_sd = PrimSemanticData(self.stage.GetPrimAtPath(self.coarse_clipmap_manager._mesh_path))
+            prim_sd.add_entry("class", self.settings.semantic_label)
