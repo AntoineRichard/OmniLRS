@@ -1,43 +1,71 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 from typing import List, Tuple, Dict
 import numpy as np
 import dataclasses
 import threading
+import warnings
 import time
-import copy
 import os
 
+from semantics.schema.editor import PrimSemanticData
 import omni
 
-from src.terrain_management.large_scale_terrain.rock_distribution import (
-    RockSamplerCfg,
-    RockSampler,
-)
-from src.terrain_management.large_scale_terrain.rock_database import RockDB, RockDBCfg
-from WorldBuilders.pxr_utils import createInstancerAndCache, setInstancerParameters
+from src.terrain_management.large_scale_terrain.pxr_utils import add_collider, loadMaterial, bindMaterial
+from src.terrain_management.large_scale_terrain.rock_distribution import RockSamplerCfg, RockSampler
 from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBlockData
+from src.terrain_management.large_scale_terrain.rock_database import RockDB, RockDBCfg
 
 from pxr import UsdGeom, Gf, Usd, Vt
-from omni.physx.scripts import utils as physx_utils
 
 
-class OGInstancer:
+class Instancer:
     """
-    The Original Gangster: the point instancer.
+    Point instancer object with extra capabilities regarding colliders, texturing and semantic labeling.
     """
 
-    def __init__(self, instancer_path: str, assets_path: str, seed: int):
+    def __init__(
+        self,
+        instancer_path: str,
+        assets_path: str,
+        seed: int,
+        add_colliders: bool = False,
+        collider_mode: str = None,
+        semantic_label: str = None,
+        texture_name: str = None,
+        texture_path: str = None,
+    ):
         """
         Args:
             instancer_path (str): The path to the instancer.
             assets_path (str): The path to the assets folder.
             seed (int): The seed for the random number generator.
+            add_colliders (bool): flag to indicate if colliders should be added.
+            collider_mode (str): mode of the collider. (None to use default mode)
+            semantic_label (str): semantic label of the rocks. (None if no label is to be used)
+            texture_name (str): name of the texture. (None if no texture is to be used)
+            texture_path (str): path to the texture. (None if no texture is to be used)
         """
 
         self.instancer_path = instancer_path
         self.stage = omni.usd.get_context().get_stage()
         self.assets_path = assets_path
+        self.add_colliders = add_colliders
+        self.apply_material = False
+        self.add_semantic_label = True if semantic_label is not None else False
+        self.collider_mode = collider_mode
+        self.semantic_label = semantic_label
+        self.texture_name = texture_name
+        self.texture_path = texture_path
         self.prototypes = []
         self.get_asset_list()
+        self.load_material()
         self.create_instancer()
         self.rng = np.random.default_rng(seed=seed)
 
@@ -49,6 +77,27 @@ class OGInstancer:
         self.file_paths = [
             os.path.join(self.assets_path, file) for file in os.listdir(self.assets_path) if file.endswith(".usd")
         ]
+
+    def load_material(self):
+        """
+        Load the material.
+
+        Warnings:
+            - If the texture name is not provided, a warning is raised.
+            - If the texture path is not provided, a warning is raised.
+        """
+        self.apply_material = False
+        if (self.texture_name is not None) and (self.texture_path is not None):
+            self.material_path = loadMaterial(self.texture_name, self.texture_path)
+            self.apply_material = True
+        elif (self.texture_name is not None) and (self.texture_path is None):
+            warnings.warn("Texture path not provided. Material will not be loaded.")
+        elif (self.texture_name is None) and (self.texture_path is not None):
+            warnings.warn("Texture name not provided. Material will not be loaded.")
+
+    def apply_semantic_label(self, prim_path: Usd.Prim):
+        prim_sd = PrimSemanticData(self.stage.GetPrimAtPath(prim_path))
+        prim_sd.add_entry("class", self.semantic_label)
 
     def create_instancer(self):
         """
@@ -63,9 +112,13 @@ class OGInstancer:
         for i, file_path in enumerate(self.file_paths):
             prim = self.stage.DefinePrim(os.path.join(self.instancer_path, "asset_" + str(i)), "Xform")
             prim.GetReferences().AddReference(file_path)
-            iterator = iter(Usd.PrimRange(prim))
-            for prim in iterator:
-                physx_utils.removeCollider(prim)
+            if self.add_colliders:
+                add_collider(self.stage, prim.GetPath(), mode=self.collider_mode)
+            if self.apply_material:
+                bindMaterial(self.stage, self.material_path, prim.GetPath())
+            if self.add_semantic_label:
+                self.apply_semantic_label(prim.GetPath())
+
             prim_paths.append(prim.GetPath())
 
         self.instancer.GetPrototypesRel().SetTargets(prim_paths)
@@ -111,6 +164,10 @@ class RockGeneratorCfg:
         seed (int): The seed for the random number generator.
         block_span (int): The number of blocks to sample around the position.
         block_size (int): The size of the blocks in meters.
+        has_colliders (bool): flag to indicate if the blocks have colliders.
+        semantic_label (str): semantic label of the rocks. (None if no label is to be used)
+        texture_name (str): name of the texture. (None if no texture is to be used)
+        texture_path (str): path to the texture. (None if no texture is to be used)
     """
 
     rock_db_cfg: RockDBCfg = dataclasses.field(default_factory=dict)
@@ -120,11 +177,25 @@ class RockGeneratorCfg:
     seed: int = dataclasses.field(default_factory=int)
     block_span: int = dataclasses.field(default_factory=int)
     block_size: int = dataclasses.field(default_factory=int)
+    add_colliders: bool = dataclasses.field(default_factory=bool)
+    collider_mode: str = dataclasses.field(default_factory=str)
+    semantic_label: str = dataclasses.field(default_factory=str)
+    texture_name: str = dataclasses.field(default_factory=str)
+    texture_path: str = dataclasses.field(default_factory=str)
 
     def __post_init__(self):
         assert self.instancer_name != "", "Instancer name cannot be empty"
         assert self.block_span >= 0, "Block span must be greater or equal to 0"
         assert os.path.exists(self.rock_assets_folder), "Rock assets folder not found"
+
+        if self.collider_mode == "":
+            self.collider_mode = None
+        if self.semantic_label == "":
+            self.semantic_label = None
+        if self.texture_name == "":
+            self.texture_name = None
+        if self.texture_path == "":
+            self.texture_path = None
 
         self.rock_db_cfg = RockDBCfg(**self.rock_db_cfg)
         self.rock_sampler_cfg = RockSamplerCfg(**self.rock_sampler_cfg)
@@ -161,10 +232,15 @@ class RockGenerator:
         self.rock_sampler = RockSampler(
             self.settings.rock_sampler_cfg, self.rock_db, map_sampling_func=self.sampling_func
         )
-        self.rock_instancer = OGInstancer(
+        self.rock_instancer = Instancer(
             os.path.join(self.instancer_path, self.settings.instancer_name),
             self.settings.rock_assets_folder,
             self.settings.seed,
+            self.settings.add_colliders,
+            self.settings.collider_mode,
+            self.settings.semantic_label,
+            self.settings.texture_name,
+            self.settings.texture_path,
         )
 
     def cast_coordinates_to_block_space(self, coordinates: Tuple[float, float]) -> Tuple[int, int]:
