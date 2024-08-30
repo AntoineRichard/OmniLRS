@@ -7,16 +7,17 @@ __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
 from typing import List, Tuple, Dict, Union
-import omni.kit.actions.core
 import random, string
-from pxr import Usd, UsdGeom
+import numpy as np
 import omni
 import os
 
-# import omni.replicator.core as rep
-from src.labeling.rep_utils import writerFactory
-from src.configurations.auto_labeling_confs import AutoLabelingConf
 import omni.replicator.core as rep
+import omni.kit.actions.core
+from pxr import Usd, UsdGeom
+
+from src.configurations.auto_labeling_confs import AutoLabelingConf
+from src.labeling.rep_utils import writerFactory
 
 
 class PoseAnnotator:
@@ -54,38 +55,30 @@ class AutonomousLabeling:
         Initialize the AutonomousLabeling class.
 
         Args:
-            prim_path (str): The path of the USD scene.
-            camera_name (str, optional): The name of the camera. Defaults to "camera".
-            camera_resolution (Tuple[int,int], optional): The resolution of the camera. Defaults to (640, 480).
-            data_dir (str, optional): The directory where the synthetic data will be stored. Defaults to ".".
-            annotator_list (List[str], optional): The list of annotators that will be used to generate the synthetic data.
-                                                  Defaults to ["rgb, instance_segmentation, semantic_segmentation, depth, ir"].
-            image_format (str, optional): The format of the images. Defaults to "png".
-            annot_format (str, optional): The format of the annotations. Defaults to "json".
-            element_per_folder (int, optional): The number of elements per folder. Defaults to 10000.
-            add_noise_to_rgb (bool, optional): Whether to add noise to the RGB data. Defaults to False.
-            sigma (float, optional): The standard deviation of the noise. Defaults to 5.0.
-            seed (int, optional): The seed used to generate the random numbers. Defaults to 42.
+            cfg: Configuration for the autonomous labeling.
         """
 
         # Camera parameters
-        self.camera_name = cfg.camera_name
-        self.camera_resolution = cfg.camera_resolution
+        self.camera_names = cfg.camera_names
+        self.camera_resolutions = cfg.camera_resolutions
+        self.save_camera_intrinsics = cfg.save_intrinsics
 
         # Data storage parameters
         self.data_hash = "".join(random.sample(string.ascii_letters + string.digits, 16))
         self.data_dir = os.path.join(cfg.data_dir, self.data_hash)
+        self.camera_prims = {}
+        self.camera_paths = {}
+        self.render_products = {}
+        self.annotators = {}
+        self.writers_cfgs = {}
+        self.synthetic_writers = {}
 
         # Synthetic data parameters
-        self.annotator_list = cfg.annotator_list
-        self.add_noise_to_rgb = cfg.add_noise_to_rgb
-        self.sigma = cfg.sigma
-        self.seed = cfg.seed
-        self.image_format = cfg.image_format
-        self.annot_format = cfg.annot_format
+        self.annotators_list = cfg.annotators_list
+        self.image_formats = cfg.image_formats
+        self.annot_formats = cfg.annot_formats
         self.element_per_folder = cfg.element_per_folder
-        writer_cfg = self.formatWriterConfig()
-        self.synthetic_writers = {name: writerFactory(name, **writer_cfg) for name in cfg.annotator_list}
+        self.formatWriterConfig()
         self.loggers = {
             "pose": self.enablePose,
             "rgb": self.enableRGBData,
@@ -97,44 +90,77 @@ class AutonomousLabeling:
 
         self.stage = omni.usd.get_context().get_stage()
         self.meta_prim = self.stage.GetPrimAtPath(cfg.prim_path)
-        self.annotator = {}
         self.synth_counter = 0
 
     def formatWriterConfig(self) -> Dict[str, Union[float, bool, int, str]]:
-        cfg = {}
-        cfg["root_path"] = self.data_dir
-        cfg["element_per_folder"] = self.element_per_folder
-        cfg["image_format"] = self.image_format
-        cfg["annot_format"] = self.annot_format
-        cfg["add_noise"] = self.add_noise_to_rgb
-        cfg["sigma"] = self.sigma
-        cfg["seed"] = self.seed
-        return cfg
+        for i, camera_name in enumerate(self.camera_names):
+            self.writers_cfgs[camera_name] = {}
+            self.synthetic_writers[camera_name] = {}
+            for name in self.annotators_list[i]:
+                self.writers_cfgs[camera_name][name] = {}
+                self.writers_cfgs[camera_name][name]["root_path"] = self.data_dir
+                self.writers_cfgs[camera_name][name]["prefix"] = camera_name + "_"
+                self.writers_cfgs[camera_name][name]["element_per_folder"] = self.element_per_folder
+                self.writers_cfgs[camera_name][name]["image_format"] = self.image_formats[i]
+                self.writers_cfgs[camera_name][name]["annot_format"] = self.annot_formats[i]
+                self.synthetic_writers[camera_name][name] = writerFactory(name, **self.writers_cfgs[camera_name][name])
 
-    def findCameraForAnnotation(self, camera_name: str) -> None:
+    def get_intrinsics_matrix(self, camera_prim) -> np.ndarray:
         """
-        Find the camera prim and path of the camera that will be used to generate the synthetic data.
-
-        Args:
-            camera_name (str): The name of the camera.
+        Returns:
+            np.ndarray: the intrinsics of the camera (used for calibration)
         """
+        focal_length = camera_prim.GetAttribute("focalLength").Get() / 10.0
+        (width, height) = (1280, 720)
+        horizontal_aperture = camera_prim.GetAttribute("horizontalAperture").Get() / 10.0
+        vertical_aperture = (camera_prim.GetAttribute("horizontalAperture").Get() / 10.0) * (float(height) / width)
+        fx = width * focal_length / horizontal_aperture
+        fy = height * focal_length / vertical_aperture
+        cx = width * 0.5
+        cy = height * 0.5
+        return np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]], dtype="float32")
 
+    def save_intrinsics(self, camera_name: str) -> None:
+        intrinsics = self.get_intrinsics_matrix(self.camera_prims[camera_name])
+        np.savetxt(os.path.join(self.data_dir, camera_name + "_intrisics.csv"), intrinsics, delimiter=",")
+        np.save(os.path.join(self.data_dir, camera_name + "_intrisics.npy"), intrinsics)
+
+    def findCameraForAnnotation(self) -> None:
+        """
+        Find the prim and path of the cameras that will be used to generate the synthetic data.
+        """
         for prim in Usd.PrimRange(self.meta_prim):
-            if prim.GetName() == camera_name:
-                self.camera_prim = prim
-                self.camera_path = str(prim.GetPath())
+            if prim.GetName() in self.camera_names:
+                self.camera_prims[prim.GetName()] = prim
+                self.camera_paths[prim.GetName()] = str(prim.GetPath())
+
+        if len(self.camera_prims) != len(self.camera_names):
+            raise ValueError("Some cameras were not found in the scene")
+
+    def get_camera_idx(self, camera_name: str) -> int:
+        idx = -1
+        for i, name in enumerate(self.camera_names):
+            if name == camera_name:
+                idx = i
+        if idx == -1:
+            raise ValueError("Camera not found")
+        return idx
 
     def load(self) -> None:
         """
-        Finds the camera and enables the collection of RGB, instance segmentation, and semantic segmentation.
+        Finds the cameras and enables the collection of data from them.
         """
 
-        self.findCameraForAnnotation(self.camera_name)
-        self.setCamera(self.camera_path, self.camera_resolution)
-        for annotator in self.annotator_list:
-            self.loggers[annotator]()
+        self.findCameraForAnnotation()
+        for camera_name in self.camera_names:
+            if self.save_camera_intrinsics:
+                self.save_intrinsics(camera_name)
+            idx = self.get_camera_idx(camera_name)
+            self.setCamera(self.camera_paths[camera_name], camera_name, self.camera_resolutions[idx])
+            for annotator in self.annotators_list[idx]:
+                self.loggers[annotator](camera_name)
 
-    def setCamera(self, camera_path: str, res=(640, 480)) -> None:
+    def setCamera(self, camera_path: str, camera_name: str, res: Tuple[float, float] = (640, 480)) -> None:
         """
         Set the camera resolution that will be used to generate the synthetic data.
 
@@ -143,52 +169,52 @@ class AutonomousLabeling:
             res (tuple, optional): The resolution of the camera. Defaults to (640, 480).
         """
 
-        self.render_product = rep.create.render_product(camera_path, res)
+        self.render_products[camera_name] = rep.create.render_product(camera_path, res)
 
-    def enablePose(self) -> None:
+    def enablePose(self, camera_name: str) -> None:
         """
         Enable the collection of pose data.
         """
-        pose_annot = PoseAnnotator(self.camera_prim)
-        self.annotator["pose"] = pose_annot
+        pose_annot = PoseAnnotator(self.camera_prims[camera_name])
+        self.annotators[camera_name + "_pose"] = (camera_name, "pose", pose_annot)
 
-    def enableRGBData(self) -> None:
+    def enableRGBData(self, camera_name: str) -> None:
         """
         Enable the collection of RGB data.
         """
 
         rgb_annot = rep.AnnotatorRegistry.get_annotator("rgb")
-        self.annotator["rgb"] = rgb_annot
-        rgb_annot.attach([self.render_product])
+        self.annotators[camera_name + "_rgb"] = (camera_name, "rgb", rgb_annot)
+        rgb_annot.attach([self.render_products[camera_name]])
 
-    def enableIRData(self) -> None:
+    def enableIRData(self, camera_name: str) -> None:
         """
         Enable the collection of RGB data.
         """
 
         ir_annot = rep.AnnotatorRegistry.get_annotator("rgb")
-        self.annotator["ir"] = ir_annot
-        ir_annot.attach([self.render_product])
+        self.annotators[camera_name + "_ir"] = (camera_name, "ir", ir_annot)
+        ir_annot.attach([self.render_products[camera_name]])
 
-    def enableDepthData(self) -> None:
+    def enableDepthData(self, camera_name: str) -> None:
         """
         Enable the collection of RGB data.
         """
 
-        rgb_annot = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
-        self.annotator["depth"] = rgb_annot
-        rgb_annot.attach([self.render_product])
+        depth_annot = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
+        self.annotators[camera_name + "_depth"] = (camera_name, "depth", depth_annot)
+        depth_annot.attach([self.render_products[camera_name]])
 
-    def enableSemanticData(self) -> None:
+    def enableSemanticData(self, camera_name: str) -> None:
         """
         Enable the collection of semantic segmentation data.
         """
 
         semantic_annot = rep.AnnotatorRegistry.get_annotator("semantic_segmentation", init_params={"colorize": True})
-        self.annotator["semantic_segmentation"] = semantic_annot
-        semantic_annot.attach([self.render_product])
+        self.annotators[camera_name + "_semantic_segmentation"] = (camera_name, "semantic_segmentation", semantic_annot)
+        semantic_annot.attach([self.render_products[camera_name]])
 
-    def enableInstanceData(self) -> None:
+    def enableInstanceData(self, camera_name: str) -> None:
         """
         Enable the collection of instance segmentation data.
         """
@@ -196,14 +222,18 @@ class AutonomousLabeling:
         instance_annotator = rep.AnnotatorRegistry.get_annotator(
             "instance_segmentation", init_params={"colorize": True}
         )
-        self.annotator["instance_segmentation"] = instance_annotator
-        instance_annotator.attach([self.render_product])
+        self.annotators[camera_name + "_instance_segmentation"] = (
+            camera_name,
+            "instance_segmentation",
+            instance_annotator,
+        )
+        instance_annotator.attach([self.render_products[camera_name]])
 
     def record(self) -> None:
         """
         Record a frame of synthetic data.
         """
 
-        for name, annotator in self.annotator.items():
-            self.synthetic_writers[name].write(annotator.get_data())
+        for camera_name, name, annotator in self.annotators.values():
+            self.synthetic_writers[camera_name][name].write(annotator.get_data())
         self.synth_counter += 1

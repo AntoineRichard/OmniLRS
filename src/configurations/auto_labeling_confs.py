@@ -16,62 +16,74 @@ class AutoLabelingConf:
     Args:
         num_images (int): The number of images to generate.
         prim_path (str): Path to the prim file.
-        camera_name (str): Name of the camera.
-        camera_resolution (tuple): Resolution of the camera.
+        camera_names (list): Name of the cameras.
+        camera_resolutions (list): Resolutions of the camera.
         data_dir (str): Path to the directory where the synthetic data will be saved.
-        annotator_list (list): List of annotators. We currently support 3 annotators: "rgb", "instance", "semantic".
+        annotators_list (list): List of annotators. We currently support: "rgb", "instance", "semantic", "depth", "ir".
         image_format (str): Format of the images. For instance: "png", or "jpg".
         annot_format (str): Format of the annotations. For instance: "json".
         element_per_folder (int): Number of elements that will be saved per folder.
                                   This is done to avoid having too many files in a single folder.
-        add_noise_to_rgb (bool): Whether to add gaussian noise to the rgb image.
-        sigma (float): Sigma of the noise.
-        seed (int): Seed for the random number generator.
+        save_intrisics (bool): Whether to save the intrinsics of the camera.
     """
 
     num_images: int = dataclasses.field(default=int)
     prim_path: str = dataclasses.field(default_factory=str)
-    camera_name: str = dataclasses.field(default_factory=str)
-    camera_resolution: tuple = dataclasses.field(default_factory=tuple)
+    camera_names: list = dataclasses.field(default_factory=list)
+    camera_resolutions: list = dataclasses.field(default_factory=list)
     data_dir: str = dataclasses.field(default_factory=str)
-    annotator_list: list = dataclasses.field(default_factory=list)
-    image_format: str = dataclasses.field(default_factory=str)
-    annot_format: str = dataclasses.field(default_factory=str)
+    annotators_list: list = dataclasses.field(default_factory=list)
+    image_formats: list = dataclasses.field(default_factory=list)
+    annot_formats: list = dataclasses.field(default_factory=list)
     element_per_folder: int = dataclasses.field(default_factory=int)
-    add_noise_to_rgb: bool = dataclasses.field(default_factory=bool)
-    sigma: float = dataclasses.field(default_factory=float)
-    seed: int = dataclasses.field(default_factory=int)
+    save_intrinsics: bool = dataclasses.field(default_factory=bool)
 
     def __post_init__(self):
+        assert len(self.camera_names) > 0, "camera_names must have at least one element"
+        assert len(self.camera_names) == len(
+            self.camera_resolutions
+        ), "camera_names and camera_resolutions must have the same length"
+        assert len(self.camera_names) == len(
+            self.annotators_list
+        ), "camera_names and annotators_list must have the same length"
+        assert len(self.camera_names) == len(
+            self.image_formats
+        ), "camera_names and image_format must have the same length"
+        assert len(self.camera_names) == len(
+            self.annot_formats
+        ), "camera_names and annot_format must have the same length"
+
+        for camera_name in self.camera_names:
+            assert type(camera_name) is str, "camera_name must be a string"
+        for camera_resolution in self.camera_resolutions:
+            assert type(camera_resolution) is tuple, "camera_resolution must be a tuple"
+            assert len(camera_resolution) == 2, "camera_resolution must be a tuple of length 2"
+        for annotator in self.annotators_list:
+            assert type(annotator) is list, "annotator_list must be a list"
+        for image_format in self.image_formats:
+            assert type(image_format) is str, "image_format must be a string"
+            assert image_format in [
+                "png",
+                "jpeg",
+                "jpg",
+                "tiff",
+                "tif",
+            ], "image_format must be png, jpg, jpeg, tiff or tif"
+        for annot_format in self.annot_formats:
+            assert type(annot_format) is str, "annot_format must be a string"
+            assert annot_format in [
+                "json",
+                "csv",
+                "yaml",
+            ], "annot_format must be json, csv, or yaml"
+
         assert type(self.num_images) is int, "num images must be an integer"
         assert type(self.prim_path) is str, "prim_path must be a string"
-        assert type(self.camera_name) is str, "camera_name must be a string"
-        assert type(self.camera_resolution) is tuple, "camera_resolution must be a tuple"
-        assert type(self.sigma) is float, "sigma must be a float"
-        assert type(self.seed) is int, "seed must be an integer"
         assert type(self.data_dir) is str, "data_dir must be a string"
-        assert type(self.annotator_list) is list, "annotator_list must be a list"
-        assert type(self.image_format) is str, "image_format must be a string"
-        assert type(self.annot_format) is str, "annot_format must be a string"
         assert type(self.element_per_folder) is int, "element_per_folder must be an integer"
-        assert type(self.add_noise_to_rgb) is bool, "add_noise_to_rgb must be a boolean"
 
         assert self.num_images > 0, "num_images must be larger than 0"
-        assert len(self.camera_resolution) == 2, "camera_resolution must be a tuple of length 2"
         assert self.element_per_folder > 0, "element_per_folder must be greater than 0"
-        assert self.sigma >= 0, "sigma must be greater or equal than 0"
-        assert self.image_format in [
-            "png",
-            "jpeg",
-            "jpg",
-            "tiff",
-            "tif",
-        ], "image_format must be png, jpg, jpeg, tiff or tif"
-        assert self.annot_format in [
-            "json",
-            "csv",
-            "yaml",
-        ], "annot_format must be json, csv, or yaml"
         assert self.data_dir != "", "data_dir cannot be empty"
 
 

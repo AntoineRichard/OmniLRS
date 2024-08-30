@@ -19,7 +19,9 @@ class BaseWriter:
     Base class for writers.
     """
 
-    def __init__(self, root_path: str, name: str, element_per_folder: int = 1000, **kwargs) -> None:
+    def __init__(
+        self, root_path: str = None, name: str = None, element_per_folder: int = 1000, prefix: str = "", **kwargs
+    ) -> None:
         """
         Initialize the BaseWriter class.
 
@@ -27,10 +29,11 @@ class BaseWriter:
             root_path (str): The root path of the data.
             name (str): The name of the data.
             element_per_folder (int, optional): The number of elements per folder. Defaults to 1000.
+            prefix (str, optional): The preffix of the data. Defaults to "".
         """
 
         self.root_path = root_path
-        self.data_path = os.path.join(root_path, name)
+        self.data_path = os.path.join(root_path, prefix + name)
         self.element_per_folder = element_per_folder
         self.counter = 0
         self.folder_counter = 0
@@ -69,6 +72,7 @@ class WritePoseData(BaseWriter):
         root_path: str,
         name: str = "pose",
         format: str = "csv",
+        prefix: str = "",
         **kwargs,
     ) -> None:
         """
@@ -78,10 +82,11 @@ class WritePoseData(BaseWriter):
             root_path (str): The root path of the data.
             name (str, optional): The name of the data. Defaults to "pose".
             format (str, optional): The format of the data. Defaults to "csv".
+            prefix (str, optional): The prefix of the data. Defaults to "".
             **kwargs: Additional arguments.
         """
 
-        super().__init__(root_path, name)
+        super().__init__(root_path, name=name, prefix=prefix)
         self.format = format
         self.path_to_data = os.path.join(self.data_path, name + "." + format)
 
@@ -123,11 +128,9 @@ class WriteRGBData(BaseWriter):
         self,
         root_path: str,
         name: str = "rgb",
+        prefix: str = "",
         element_per_folder: int = 1000,
         image_format: str = "png",
-        add_noise: bool = False,
-        sigma: float = 5.0,
-        seed: int = 42,
         **kwargs,
     ) -> None:
         """
@@ -136,31 +139,13 @@ class WriteRGBData(BaseWriter):
         Args:
             root_path (str): The root path of the data.
             name (str, optional): The name of the data. Defaults to "rgb".
+            prefix (str, optional): The prefix of the data. Defaults to "".
             element_per_folder (int, optional): The number of elements per folder. Defaults to 10000.
             image_format (str, optional): The image format. Defaults to "png".
-            add_noise (bool, optional): Whether to add noise to the RGB data. Defaults to False.
-            sigma (float, optional): The standard deviation of the Gaussian noise. Defaults to 5.0.
-            seed (int, optional): The seed used to generate the random numbers. Defaults to 42.
         """
 
-        super().__init__(root_path, name, element_per_folder)
+        super().__init__(root_path, name=name, prefix=prefix, element_per_folder=element_per_folder)
         self.image_format = image_format
-        self.add_noise = add_noise
-        self.sigma = sigma
-        self.rng = np.random.default_rng(seed)
-
-    def imageGaussianNoise(self, data_in: np.ndarray) -> np.ndarray:
-        """
-        Add Gaussian noise to the RGB data.
-
-        Args:
-            data_in (np.ndarray): The RGB data.
-
-        Returns:
-            np.ndarray: The RGB data with Gaussian noise.
-        """
-
-        return (data_in + self.rng.normal(loc=0.0, scale=self.sigma, size=data_in.shape)).astype(np.uint8)
 
     def write(self, data: np.ndarray, **kwargs) -> None:
         """
@@ -174,8 +159,6 @@ class WriteRGBData(BaseWriter):
         rgb_image = np.frombuffer(data, dtype=np.uint8).reshape(*data.shape, -1)
         rgb_image = np.squeeze(rgb_image)
         rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGBA2BGRA)
-        if self.add_noise:
-            rgb_image = self.imageGaussianNoise(rgb_image)
         self.makeFolder()
         cv2.imwrite(
             os.path.join(
@@ -196,11 +179,9 @@ class WriteIRData(BaseWriter):
         self,
         root_path: str,
         name: str = "ir",
+        prefix: str = "",
         element_per_folder: int = 1000,
         image_format: str = "png",
-        add_noise: bool = False,
-        sigma: float = 5.0,
-        seed: int = 42,
         **kwargs,
     ) -> None:
         """
@@ -209,31 +190,14 @@ class WriteIRData(BaseWriter):
         Args:
             root_path (str): The root path of the data.
             name (str, optional): The name of the data. Defaults to "rgb".
+            prefix (str, optional): The prefix of the data. Defaults to "".
             element_per_folder (int, optional): The number of elements per folder. Defaults to 10000.
             image_format (str, optional): The image format. Defaults to "png".
-            add_noise (bool, optional): Whether to add noise to the RGB data. Defaults to False.
-            sigma (float, optional): The standard deviation of the Gaussian noise. Defaults to 5.0.
             seed (int, optional): The seed used to generate the random numbers. Defaults to 42.
         """
 
-        super().__init__(root_path, name, element_per_folder)
+        super().__init__(root_path, name=name, prefix=prefix, element_per_folder=element_per_folder)
         self.image_format = image_format
-        self.add_noise = add_noise
-        self.sigma = sigma
-        self.rng = np.random.default_rng(seed)
-
-    def imageGaussianNoise(self, data_in: np.ndarray) -> np.ndarray:
-        """
-        Add Gaussian noise to the RGB data.
-
-        Args:
-            data_in (np.ndarray): The RGB data.
-
-        Returns:
-            np.ndarray: The RGB data with Gaussian noise.
-        """
-
-        return (data_in + self.rng.normal(loc=0.0, scale=self.sigma, size=data_in.shape)).astype(np.uint8)
 
     def write(self, data: np.ndarray, **kwargs) -> None:
         """
@@ -247,8 +211,6 @@ class WriteIRData(BaseWriter):
         rgb_image = np.frombuffer(data, dtype=np.uint8).reshape(*data.shape, -1)
         rgb_image = np.squeeze(rgb_image)
         rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
-        if self.add_noise:
-            rgb_image = self.imageGaussianNoise(rgb_image)
         self.makeFolder()
         cv2.imwrite(
             os.path.join(
@@ -265,19 +227,22 @@ class WriteDepthData(BaseWriter):
     Write Depth data to a file.
     """
 
-    def __init__(self, root_path: str, name: str = "depth", element_per_folder: int = 1000, **kwargs) -> None:
+    def __init__(
+        self, root_path: str, name: str = "depth", prefix: str = "", element_per_folder: int = 1000, **kwargs
+    ) -> None:
         """
         Initialize the WriteRGBData class.
 
         Args:
             root_path (str): The root path of the data.
             name (str, optional): The name of the data. Defaults to "depth".
+            prefix (str, optional): The prefix of the data. Defaults to "".
             element_per_folder (int, optional): The number of elements per folder. Defaults to 10000.
             image_format (str, optional): The image format. Defaults to "png".
         """
 
         image_format = "npz"
-        super().__init__(root_path, name, element_per_folder)
+        super().__init__(root_path, name=name, prefix=prefix, element_per_folder=element_per_folder)
         self.image_format = image_format
 
     def write(self, data: np.ndarray, **kwargs) -> None:
@@ -308,6 +273,7 @@ class WriteSemanticData(BaseWriter):
         self,
         root_path: str,
         name: str = "semantic_segmentation",
+        prefix: str = "",
         element_per_folder: int = 1000,
         image_format: str = "png",
         annot_format: str = "json",
@@ -319,13 +285,14 @@ class WriteSemanticData(BaseWriter):
         Args:
             root_path (str): The root path of the data.
             name (str, optional): The name of the data. Defaults to "semantic_segmentation".
+            prefix (str, optional): The prefix of the data. Defaults to "".
             element_per_folder (int, optional): The number of elements per folder. Defaults to 10000.
             image_format (str, optional): The image format. Defaults to "png".
             annot_format (str, optional): The annotation format. Defaults to "json".
             **kwargs: Additional arguments.
         """
 
-        super().__init__(root_path, name, element_per_folder)
+        super().__init__(root_path, name=name, prefix=prefix, element_per_folder=element_per_folder)
         self.image_format = image_format
         self.annot_format = annot_format
 
@@ -383,6 +350,7 @@ class WriteInstanceData(BaseWriter):
         self,
         root_path: str,
         name: str = "semantic_segmentation",
+        prefix: str = "",
         element_per_folder: int = 10000,
         image_format: str = "png",
         annot_format: str = "json",
@@ -394,13 +362,14 @@ class WriteInstanceData(BaseWriter):
         Args:
             root_path (str): The root path of the data.
             name (str, optional): The name of the data. Defaults to "semantic_segmentation".
+            prefix (str, optional): The prefix of the data. Defaults to "".
             element_per_folder (int, optional): The number of elements per folder. Defaults to 10000.
             image_format (str, optional): The image format. Defaults to "png".
             annot_format (str, optional): The annotation format. Defaults to "json".
             **kwargs: Additional arguments.
         """
 
-        super().__init__(root_path, name, element_per_folder)
+        super().__init__(root_path, name=name, prefix=prefix, element_per_folder=element_per_folder)
         self.image_format = image_format
         self.annot_format = annot_format
 
@@ -480,7 +449,7 @@ class WriterFactory:
 
         self.writers[name] = writer
 
-    def __call__(self, name: str, **kwargs) -> BaseWriter:
+    def __call__(self, name: str = None, **kwargs) -> BaseWriter:
         """
         Create a writer.
 
@@ -494,10 +463,8 @@ class WriterFactory:
         Raises:
             AssertionError: If the writer is not registered.
         """
-
         assert name in self.writers, f"Writer {name} not registered"
-
-        return self.writers[name](name=name, **kwargs)
+        return self.writers[name](**kwargs)
 
 
 writerFactory = WriterFactory()
