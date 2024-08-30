@@ -143,14 +143,19 @@ def add_collider(
         mode (str, optional): The mode of the collision. Defaults to "none".
     """
 
+    if mode is None:
+        mode = "none"
+
     # Checks that the mode selected by the user is correct.
     accepted_modes = [
         "none",
         "convexHull",
         "convexDecomposition",
         "meshSimplification",
+        "convexMeshSimplification",
         "boundingSphere",
         "boundingCube",
+        "sphereFill",
     ]
     assert mode in accepted_modes, "Decimation mode: " + mode + " for colliders unknown."
     # Get the prim and add collisions.
