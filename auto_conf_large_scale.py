@@ -1,35 +1,101 @@
 import dataclasses
 
+from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator import HighResDEMGenCfg
+
+@dataclasses.dataclass
+class SeedOverride:
+    override: bool = False
+    general_seed: int = dataclasses.field(default_factory=int)
+    crater_gen_distribution_seed: int = dataclasses.field(default_factory=int)
+    crater_gen_metadata_seed: int = dataclasses.field(default_factory=int)
+
+
+    
 
 @dataclasses.dataclass
 class LargeScaleTerrainCfg:
     seed: int = 42
+    profiling: bool = False
+    update_every_n_meters: float = 2.0
+    z_scale: float = 1.0
+    block_size: int = 50
+
+    max_elements_in_dbs = int(1e7)
+    save_dbs_to_disk: bool = False
+    dbs_write_interval: int = 1000
+
     hr_dem_resolution: float = 0.025
+    hr_dem_generate_craters: bool = True
+    hr_dem_num_blocks: int = 4
 
+    num_workers_craters: int = 8
+    num_workers_interpolation: int = 1
+    input_queue_size: int = 400
+    output_queue_size: int = 30
 
-HRDEMCfg_D = {
-    "num_blocks": 4,
-    "block_size": 50,
-    "pad_size": 10.0,
-    "max_blocks": int(1e7),
-    "seed": 42,
-    "resolution": 0.05,
-    "z_scale": 1.0,
-    "source_resolution": 5.0,
-    "resolution": 0.025,
-    "interpolation_padding": 2,
-    "generate_craters": True,
-}
-CWMCfg_D = {
-    "num_workers": 8,
-    "input_queue_size": 400,
-    "output_queue_size": 30,
-}
-IWMCfg_D = {
-    "num_workers": 1,
-    "input_queue_size": 400,
-    "output_queue_size": 30,
-}
+    crater_gen_densities: list = dataclasses.field(default_factory=list)
+    crater_gen_radius: list = dataclasses.field(default_factory=list)
+    crater_gen_profiles_path: str = "assets/Terrains/crater_spline_profiles.pkl"
+    crater_gen_padding: float = 10
+    crater_gen_min_xy_ratio: float = 0.85
+    crater_gen_max_xy_ratio: float = 1.0
+    crater_gen_random_rotation: bool = True
+    ccrater_gen_rater_gen_num_unique_profiles: int = 10000
+
+    hrdem_interpolation_method: str = "bicubic"
+    hrdem_interpolator_name: str = "PIL"
+    hrdem_interpolator_padding: int = 2
+
+    lr_dem_folder_path: str = "assets/Terrains/SouthPole"
+    lr_dem_name: str = "Site20_final_adj_5mpp_surf"
+
+    num_texels_per_level: int = 384
+    target_res: float = 0.02
+    fine_interpolation_method: str = "bilinear"
+    coarse_interpolation_method: str = "bicubic"
+    fine_acceleration_mode: str = "hybrid"
+    coarse_acceleration_mode: str = "gpu"
+    apply_smooth_shading: bool = False
+
+    rock_gen_cfgs: list = dataclasses.field(default_factory=list)
+
+    def __post_init__(self):
+
+        assert type(self.seed) == int, "Seed must be an integer."
+        assert type(self.profiling) == bool, "Profiling must be a boolean."
+        assert type(self.update_every_n_meters) == float, "Update every n meters must be a float."
+        assert type(self.z_scale) == float, "Z scale must be a float."
+        assert type(self.block_size) == int, "Block size must be an integer."
+        assert type(self.max_elements_in_dbs) == int, "Max elements in dbs must be an integer."
+        assert type(self.save_dbs_to_disk) == bool, "Save dbs to disk must be a boolean."
+        assert type(self.dbs_write_interval) == int, "Dbs write interval must be an integer."
+        assert type(self.hr_dem_resolution) == float, "HR DEM resolution must be a float."
+        assert type(self.hr_dem_generate_craters) == bool, "HR DEM generate craters must be a boolean."
+        assert type(self.hr_dem_num_blocks) == int, "HR DEM num blocks must be an integer."
+
+        
+        HRDEMCfg_D = {
+            "num_blocks": self.hr_dem_num_blocks,
+            "block_size": self.block_size,
+            "pad_size": self.crater_gen_padding,
+            "max_blocks": self.max_elements_in_dbs,
+            "seed": 42,
+            "z_scale": self.z_scale,
+            "resolution": self.hr_dem_resolution,
+            "interpolation_padding": self.hrdem_interpolator_padding,
+            "generate_craters": self.hr_dem_generate_craters,
+        }
+        CWMCfg_D = {
+            "num_workers": self.num_workers_craters,
+            "input_queue_size": self.input_queue_size,
+            "output_queue_size": self.output_queue_size,
+        }
+        IWMCfg_D = {
+            "num_workers": self.num_workers_interpolation,
+            "input_queue_size": self.input_queue_size,
+            "output_queue_size": self.output_queue_size,
+        }
+        
 CraterDBCfg_D = {
     "block_size": 50,
     "max_blocks": int(1e7),
@@ -47,7 +113,6 @@ CGCfg_D = {
 CDDCfg_D = {
     "densities": [0.025, 0.05, 0.5],
     "radius": [[1.5, 2.5], [0.75, 1.5], [0.25, 0.5]],
-    "num_repeat": 1,
     "seed": 42,
 }
 CraterSamplerCfg_D = {
