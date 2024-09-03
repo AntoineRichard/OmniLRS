@@ -14,7 +14,7 @@ import hashlib
 import os
 
 from src.terrain_management.large_scale_terrain.geometry_clipmaps_numba import (
-    _buildMesh,
+    _build_mesh,
 )
 from src.terrain_management.large_scale_terrain.geometry_clipmaps_warp import (
     _preprocess,
@@ -29,7 +29,7 @@ from src.terrain_management.large_scale_terrain.utils import ScopedTimer
 
 
 @dataclasses.dataclass
-class GeoClipmapSpecs:
+class GeometryClipmapConf:
     """
     Args:
         startingLODLevel (int): starting level of detail.
@@ -71,14 +71,14 @@ class GeoClipmap:
 
     def __init__(
         self,
-        specs: GeoClipmapSpecs,
+        specs: GeometryClipmapConf,
         interpolation_method: str = "bilinear",
         acceleration_mode: str = "hybrid",
         profiling: bool = False,
     ) -> None:
         """
         Args:
-            specs (GeoClipmapSpecs): specifications for the clipmap.
+            specs (GeometryClipmapConf): specifications for the clipmap.
             interpolation_method (str): method to use for interpolation.
             acceleration_mode (str): mode to use for acceleration.
         """
@@ -120,13 +120,13 @@ class GeoClipmap:
         )
 
     @staticmethod
-    def compute_hash(specs: GeoClipmapSpecs) -> str:
+    def compute_hash(specs: GeometryClipmapConf) -> str:
         """
         Compute a hash from the specifications. This hash is used to check if the mesh backbone
         has been generated with the same specifications.
 
         Args:
-            specs (GeoClipmapSpecs): specifications for the clipmap.
+            specs (GeometryClipmapConf): specifications for the clipmap.
 
         Returns:
             str: hash of the specifications
@@ -134,7 +134,7 @@ class GeoClipmap:
 
         return hashlib.sha256(str(specs).encode("utf-8")).hexdigest()
 
-    def buildMesh(self) -> None:
+    def build_mesh(self) -> None:
         """
         Build the mesh backbone. This method is called only once to generate the mesh backbone.
         It relies on Numba to accelerate the mesh generation.
@@ -142,7 +142,7 @@ class GeoClipmap:
 
         with ScopedTimer("Complete mesh backbone generation", active=self.profiling):
             with ScopedTimer("numba mesh backbone generation", active=self.profiling):
-                self.points, self.uvs, self.indices = _buildMesh(
+                self.points, self.uvs, self.indices = _build_mesh(
                     self.specs.startingLODLevel,
                     self.specs.numMeshLODLevels,
                     self.specs.meshBaseLODExtentHeightfieldTexels,
@@ -152,7 +152,7 @@ class GeoClipmap:
                 self.uvs = np.array(self.uvs) * 2 * self.specs.minimum_target_resolution
                 self.indices = np.array(self.indices)
 
-    def saveMesh(self) -> None:
+    def save_mesh(self) -> None:
         """
         Save the mesh backbone to a compressed numpy file.
         """
@@ -165,7 +165,7 @@ class GeoClipmap:
             specs_hash=self.specs_hash,
         )
 
-    def loadMesh(self) -> None:
+    def load_mesh(self) -> None:
         """
         Load the mesh backbone from a compressed numpy file. If the specifications have changed,
         the mesh backbone is rebuilt. Otherwise, the mesh backbone is loaded from the file.
@@ -173,8 +173,8 @@ class GeoClipmap:
 
         data = np.load(self.specs.meshBackBonePath)
         if data["specs_hash"] != self.specs_hash:
-            self.buildMesh()
-            self.saveMesh()
+            self.build_mesh()
+            self.save_mesh()
         else:
             self.points = data["points"]
             self.indices = data["indices"]
@@ -188,27 +188,27 @@ class GeoClipmap:
 
         self.specs_hash = self.compute_hash(self.specs)
         if os.path.exists(self.specs.meshBackBonePath):
-            self.loadMesh()
+            self.load_mesh()
         else:
-            self.buildMesh()
-            self.saveMesh()
+            self.build_mesh()
+            self.save_mesh()
 
-    def updateDEMBuffer(self) -> None:
+    def update_DEM_buffer(self) -> None:
         """
         Updates the DEM buffer. Note that since the DEM is passed to the DEM sampler as a reference,
         it is not required to feed it through that function.
         """
 
-        self.DEM_sampler.updateDEM()
+        self.DEM_sampler.update_DEM()
 
-    def updateElevation(self, coordinates: Tuple[float, float]) -> None:
+    def update_elevation(self, coordinates: Tuple[float, float]) -> None:
         """
         Update the elevation of the mesh backbone at the given coordinates.
 
         Args:
             coordinates (Tuple[float, float]): coordinates to update from (in meters).
         """
-        self.DEM_sampler.getElevation(coordinates)
+        self.DEM_sampler.get_elevation(coordinates)
 
     def get_height_and_random_orientation(
         self, x: np.ndarray, y: np.ndarray, coords: Tuple[float, float], seed: int = 0
@@ -236,7 +236,7 @@ class DEMSampler:
         dem: np.ndarray,
         dem_size: Tuple[int, int],
         dem_center: Tuple[float, float],
-        specs: GeoClipmapSpecs,
+        specs: GeometryClipmapConf,
         points: np.ndarray,
         interpolation_method: str = "bilinear",
         acceleration_mode: str = "hybrid",
@@ -246,7 +246,7 @@ class DEMSampler:
         Args:
             dem (np.ndarray): DEM data.
             dem_size (Tuple[int, int]): shape of the DEM.
-            specs (GeoClipmapSpecs): specifications for the clipmap.
+            specs (GeometryClipmapConf): specifications for the clipmap.
             points (np.ndarray): mesh backbone points.
             interpolation_method (str): method to use for interpolation. Can be "bilinear"
                 or "bicubic".
@@ -277,7 +277,7 @@ class DEMSampler:
         else:
             raise ValueError("Invalid acceleration mode")
 
-    def updateDEM(self) -> None:
+    def update_DEM(self) -> None:
         """
         Update the DEM buffer.
 
@@ -344,7 +344,7 @@ class DEMSampler:
         else:
             raise ValueError("Invalid interpolation method")
 
-    def getElevation(self, position: np.ndarray) -> None:
+    def get_elevation(self, position: np.ndarray) -> None:
         """
         Get the elevation of the mesh backbone at the given position.
 
@@ -353,13 +353,13 @@ class DEMSampler:
         """
 
         if self.acceleration_mode == "hybrid":
-            self.getElevationHybrid(position)
+            self.get_elevation_hybrid(position)
         elif self.acceleration_mode == "gpu":
-            self.getElevationGPU(position)
+            self.get_elevation_GPU(position)
         else:
             raise ValueError("Invalid acceleration mode")
 
-    def getElevationHybrid(self, position: np.ndarray) -> None:
+    def get_elevation_hybrid(self, position: np.ndarray) -> None:
         """
         Get the elevation of the mesh backbone at the given position using the "hybrid" mode.
 
@@ -460,7 +460,7 @@ class DEMSampler:
             )
             self.points[:, -1] = self.z_cuda.numpy()
 
-    def getElevationGPU(self, position: np.ndarray) -> None:
+    def get_elevation_GPU(self, position: np.ndarray) -> None:
         """
         Get the elevation of the mesh backbone at the given position using the "gpu" mode.
 
@@ -643,8 +643,8 @@ class DEMSampler:
 
 if __name__ == "__main__":
     wp.init()
-    GCM = GeoClipmap(specs=GeoClipmapSpecs())
-    GCM.buildMesh()
+    GCM = GeoClipmap(specs=GeometryClipmapConf())
+    GCM.build_mesh()
     print("num points", GCM.points.shape[0])
     print("num_uvs", GCM.uvs.shape[0])
     print("num_indices", GCM.indices.shape)

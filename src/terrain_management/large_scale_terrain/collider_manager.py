@@ -15,7 +15,7 @@ from omni.isaac.core.physics_context.physics_context import PhysicsContext
 import omni
 
 
-from src.terrain_management.large_scale_terrain.collider_builder import ColliderBuilder, ColliderBuilderCfg
+from src.terrain_management.large_scale_terrain.collider_builder import ColliderBuilder, ColliderBuilderConf
 from src.terrain_management.large_scale_terrain.pxr_utils import set_xform_ops
 
 
@@ -68,17 +68,17 @@ class ColliderManagerCfg:
         source_resolution (float): resolution of the source (meter per pixel).
         block_size (int): size of the block (meters).
         collider_path (str): path to the collider.
-        collider_builder_cfg (dict): configuration for the collider builder.
+        collider_builder_conf (dict): configuration for the collider builder.
     """
 
     collider_resolution: float = dataclasses.field(default_factory=float)
     source_resolution: float = dataclasses.field(default_factory=float)
     block_size: int = dataclasses.field(default_factory=int)
     collider_path: str = dataclasses.field(default_factory=str)
-    collider_builder_cfg: ColliderBuilderCfg = dataclasses.field(default_factory=dict)
+    collider_builder_conf: ColliderBuilderConf = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
-        self.collider_builder_cfg = ColliderBuilderCfg(**self.collider_builder_cfg)
+        self.collider_builder_cfg = ColliderBuilderConf(**self.collider_builder_cfg)
 
 
 class ColliderManager:

@@ -7,12 +7,12 @@ __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
 from src.terrain_management.large_scale_terrain.geometry_clipmaps import (
-    GeoClipmapSpecs,
+    GeometryClipmapConf,
     GeoClipmap,
 )
 from dataclasses import dataclass, field
-from WorldBuilders import pxr_utils
-from pxr import UsdGeom, Sdf, Usd
+from src.terrain_management.large_scale_terrain.pxr_utils import set_xform_ops
+from pxr import UsdGeom, Sdf, Usd, Gf
 from typing import Tuple
 import numpy as np
 import warp as wp
@@ -24,17 +24,17 @@ class GeoClipmapManagerConf:
     """
     Args:
         root_path (str): path to the root of the clipmap.
-        geo_clipmap_specs (GeoClipmapSpecs): specifications for the clipmap.
+        geo_clipmap_specs (GeometryClipmapConf): specifications for the clipmap.
         mesh_position (tuple): position of the mesh.
         mesh_orientation (tuple): orientation of the mesh.
         mesh_scale (tuple): scale of the mesh.
     """
 
     root_path: str = "/World"
-    geo_clipmap_specs: GeoClipmapSpecs = field(default_factory=dict)
-    mesh_position: tuple = field(default_factory=np.array)
-    mesh_orientation: tuple = field(default_factory=np.array)
-    mesh_scale: tuple = field(default_factory=np.array)
+    geo_clipmap_specs: GeometryClipmapConf = field(default_factory=dict)
+    mesh_position: tuple = (0.0, 0.0, 0.0)
+    mesh_orientation: tuple = (0.0, 0.0, 0.0, 1.0)
+    mesh_scale: tuple = (1.0, 1.0, 1.0)
 
 
 class GeoClipmapManager:
@@ -76,7 +76,7 @@ class GeoClipmapManager:
         self._og_mesh_path = self._root_path + "/Terrain/terrain_mesh" + name_prefix
         self._mesh_path = self._root_path + "/Terrain/terrain_mesh" + name_prefix
 
-        self.createXforms()
+        self.create_Xforms()
         self.update_topology = True
 
     def build(self, dem: np.ndarray, dem_shape: Tuple[int, int]) -> None:
@@ -90,14 +90,14 @@ class GeoClipmapManager:
 
         self._geo_clipmap.build(dem, dem_shape)
 
-    def updateDEMBuffer(self) -> None:
+    def update_DEM_buffer(self) -> None:
         """
         Updates the DEM buffer of the clipmap.
         """
 
-        self._geo_clipmap.updateDEMBuffer()
+        self._geo_clipmap.update_DEM_buffer()
 
-    def updateGeoClipmap(self, position: np.ndarray, mesh_position: np.ndarray) -> None:
+    def update_geoclipmap(self, position: np.ndarray, mesh_position: np.ndarray) -> None:
         """
         Updates the clipmap with the given position and mesh position.
 
@@ -106,18 +106,18 @@ class GeoClipmapManager:
             mesh_position (np.ndarray): position of the mesh (in meters).
         """
         with wp.ScopedTimer("complete update loop", active=self.profiling):
-            self._geo_clipmap.updateElevation(position)
+            self._geo_clipmap.update_elevation(position)
             with wp.ScopedTimer("mesh update", active=self.profiling):
-                self.renderMesh(
+                self.render_mesh(
                     self._geo_clipmap.points,
                     self._geo_clipmap.indices,
                     self._geo_clipmap.uvs,
                     update_topology=self.update_topology,
                 )
-        self.moveMesh(mesh_position)
+        self.move_mesh(mesh_position)
         self.update_topology = False
 
-    def moveMesh(self, position: np.ndarray) -> None:
+    def move_mesh(self, position: np.ndarray) -> None:
         """
         Moves the mesh to the given position.
 
@@ -128,25 +128,24 @@ class GeoClipmapManager:
         self._mesh_pos = position
         mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
         if mesh:
-            pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
+            set_xform_ops(mesh, Gf.Vec3d(self._mesh_pos[0], self._mesh_pos[1], self._mesh_pos[2]))
 
-    def createXforms(self) -> None:
+    def create_Xforms(self) -> None:
         """
         Creates the xforms for the clipmap.
         """
 
         if not self._stage.GetPrimAtPath(self._root_path):
-            pxr_utils.createXform(self._stage, self._root_path, add_default_op=True)
+            self._stage.DefinePrim(self._root_path, "Xform")
         if not self._stage.GetPrimAtPath(self._root_path + "/Terrain"):
-            pxr_utils.createXform(self._stage, self._root_path + "/Terrain", add_default_op=True)
-        pxr_utils.createXform(self._stage, self._mesh_path, add_default_op=True)
+            self._stage.DefinePrim(self._root_path + "/Terrain", "Xform")
+        self._stage.DefinePrim(self._mesh_path)
 
-    def renderMesh(
+    def render_mesh(
         self,
         points: np.ndarray,
         indices: np.ndarray,
         uvs: np.ndarray,
-        colors=None,
         update_topology: bool = False,
     ) -> None:
         """
@@ -164,7 +163,7 @@ class GeoClipmapManager:
         self._mesh_path = self._og_mesh_path
         if not mesh:
             mesh = UsdGeom.Mesh.Define(self._stage, self._mesh_path)
-            pxr_utils.addDefaultOps(mesh)
+            set_xform_ops(mesh, Gf.Vec3d(0.0, 0.0, 0.0), Gf.Quatd(1.0, (0.0, 0.0, 0.0)), Gf.Vec3d(1.0, 1.0, 1.0))
 
             # force topology update on first update
             update_topology = True
@@ -179,7 +178,12 @@ class GeoClipmapManager:
             pv.Set(uvs)
             pv.SetInterpolation("faceVarying")
 
-        pxr_utils.setDefaultOps(mesh, self._mesh_pos, self._mesh_rot, self._mesh_scale)
+        set_xform_ops(
+            mesh,
+            Gf.Vec3d(self._mesh_pos[0], self._mesh_pos[1], self._mesh_pos[2]),
+            Gf.Quatd(self._mesh_rot[-1], (self._mesh_rot[0], self._mesh_rot[1], self._mesh_rot[2])),
+            Gf.Vec3d(self._mesh_scale[0], self._mesh_scale[1], self._mesh_scale[2]),
+        )
 
     def get_height_and_random_orientation(
         self,

@@ -17,7 +17,7 @@ from src.terrain_management.large_scale_terrain.pxr_utils import set_xform_ops, 
 
 
 @dataclasses.dataclass
-class ColliderBuilderCfg:
+class ColliderBuilderConf:
     """
     Args:
         resolution (float): resolution of the collider (meter per pixel).
@@ -37,7 +37,17 @@ class ColliderBuilderCfg:
 
 
 class ColliderBuilder:
-    def __init__(self, settings: ColliderBuilderCfg, stage: Usd.Stage) -> None:
+    """
+    Class to build a collider mesh for the terrain.
+    """
+
+    def __init__(self, settings: ColliderBuilderConf, stage: Usd.Stage) -> None:
+        """
+        Args:
+            settings (ColliderBuilderConf): settings of the collider.
+            stage (Usd.Stage): stage to create the collider
+        """
+
         self.settings = settings
         self.stage = stage
         self.indices = []

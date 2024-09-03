@@ -17,10 +17,10 @@ import os
 from semantics.schema.editor import PrimSemanticData
 import omni
 
-from src.terrain_management.large_scale_terrain.pxr_utils import add_collider, loadMaterial, bindMaterial
-from src.terrain_management.large_scale_terrain.rock_distribution import RockSamplerCfg, RockSampler
+from src.terrain_management.large_scale_terrain.pxr_utils import add_collider, load_material, bind_material
+from src.terrain_management.large_scale_terrain.rock_distribution import RockSamplerConf, RockSampler
 from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBlockData
-from src.terrain_management.large_scale_terrain.rock_database import RockDB, RockDBCfg
+from src.terrain_management.large_scale_terrain.rock_database import RockDB, RockDBConf
 
 from pxr import UsdGeom, Gf, Usd, Vt
 
@@ -88,7 +88,7 @@ class Instancer:
         """
         self.apply_material = False
         if (self.texture_name is not None) and (self.texture_path is not None):
-            self.material_path = loadMaterial(self.texture_name, self.texture_path)
+            self.material_path = load_material(self.texture_name, self.texture_path)
             self.apply_material = True
         elif (self.texture_name is not None) and (self.texture_path is None):
             warnings.warn("Texture path not provided. Material will not be loaded.")
@@ -115,7 +115,7 @@ class Instancer:
             if self.add_colliders:
                 add_collider(self.stage, prim.GetPath(), mode=self.collider_mode)
             if self.apply_material:
-                bindMaterial(self.stage, self.material_path, prim.GetPath())
+                bind_material(self.stage, self.material_path, prim.GetPath())
             if self.add_semantic_label:
                 self.apply_semantic_label(prim.GetPath())
 
@@ -154,11 +154,11 @@ class Instancer:
 
 
 @dataclasses.dataclass
-class RockGeneratorCfg:
+class RockGeneratorConf:
     """
     Args:
-        rock_db_cfg (RockDBCfg): The configuration for the rock database.
-        rock_sampler_cfg (RockSamplerCfg): The configuration for the rock sampler.
+        rock_db_cfg (RockDBConf): The configuration for the rock database.
+        rock_sampler_cfg (RockSamplerConf): The configuration for the rock sampler.
         rock_assets_folder (str): The path to the rock assets folder.
         instancer_name (str): The name of the instancer.
         seed (int): The seed for the random number generator.
@@ -170,8 +170,8 @@ class RockGeneratorCfg:
         texture_path (str): path to the texture. (None if no texture is to be used)
     """
 
-    rock_db_cfg: RockDBCfg = dataclasses.field(default_factory=dict)
-    rock_sampler_cfg: RockSamplerCfg = dataclasses.field(default_factory=dict)
+    rock_db_cfg: RockDBConf = dataclasses.field(default_factory=dict)
+    rock_sampler_cfg: RockSamplerConf = dataclasses.field(default_factory=dict)
     rock_assets_folder: str = dataclasses.field(default_factory=list)
     instancer_name: str = dataclasses.field(default_factory=str)
     seed: int = dataclasses.field(default_factory=int)
@@ -197,8 +197,8 @@ class RockGeneratorCfg:
         if self.texture_path == "":
             self.texture_path = None
 
-        self.rock_db_cfg = RockDBCfg(**self.rock_db_cfg)
-        self.rock_sampler_cfg = RockSamplerCfg(**self.rock_sampler_cfg)
+        self.rock_db_cfg = RockDBConf(**self.rock_db_cfg)
+        self.rock_sampler_cfg = RockSamplerConf(**self.rock_sampler_cfg)
 
 
 class RockGenerator:
@@ -207,10 +207,12 @@ class RockGenerator:
     around a given position and updates the instancer with the new data.
     """
 
-    def __init__(self, settings: RockGeneratorCfg, sampling_func: callable, is_map_done: callable, instancer_path: str):
+    def __init__(
+        self, settings: RockGeneratorConf, sampling_func: callable, is_map_done: callable, instancer_path: str
+    ):
         """
         Args:
-            settings (RockGeneratorCfg): The settings for the rock generator.
+            settings (RockGeneratorConf): The settings for the rock generator.
             sampling_func (callable): The function to sample the rocks.
             is_map_done (callable): The function to check if the map is done.
             instancer_path (str): The path to the instancer.
@@ -229,6 +231,9 @@ class RockGenerator:
         """
 
         self.rock_db = RockDB(self.settings.rock_db_cfg)
+        if self.settings.rock_sampler_cfg.seed is None:
+            self.settings.rock_sampler_cfg.seed = self.settings.seed + 1
+
         self.rock_sampler = RockSampler(
             self.settings.rock_sampler_cfg, self.rock_db, map_sampling_func=self.sampling_func
         )
@@ -286,10 +291,10 @@ class RockGenerator:
             BoundingBox: The bounding box of the region.
         """
 
-        x_low = coordinates[0] - (self.settings.block_span + 1) * self.settings.block_size
-        x_high = coordinates[0] + (self.settings.block_span + 2) * self.settings.block_size
-        y_low = coordinates[1] - (self.settings.block_span + 1) * self.settings.block_size
-        y_high = coordinates[1] + (self.settings.block_span + 2) * self.settings.block_size
+        x_low = coordinates[0] - (self.settings.block_span) * self.settings.block_size
+        x_high = coordinates[0] + (self.settings.block_span + 1) * self.settings.block_size
+        y_low = coordinates[1] - (self.settings.block_span) * self.settings.block_size
+        y_high = coordinates[1] + (self.settings.block_span + 1) * self.settings.block_size
 
         return BoundingBox(x_min=x_low, x_max=x_high, y_min=y_low, y_max=y_high)
 
@@ -384,21 +389,26 @@ class RockGenerator:
 
 
 @dataclasses.dataclass
-class RockManagerCfg:
+class RockManagerConf:
     """
     Args:
-        rock_gen_cfgs (List[RockGeneratorCfg]): The configuration for the rock generators.
+        rock_gen_cfgs (List[RockGeneratorConf]): The configuration for the rock generators.
         instancers_path (str): The path to the instancers.
         seed (int): The seed for the random number generator.
     """
 
-    rock_gen_cfgs: List[RockGeneratorCfg] = dataclasses.field(default_factory=list)
+    rock_gen_cfgs: List[RockGeneratorConf] = dataclasses.field(default_factory=list)
     instancers_path: str = dataclasses.field(default_factory=str)
     seed: int = dataclasses.field(default_factory=int)
     block_size: int = dataclasses.field(default_factory=int)
+    rock_dbs_cfg: RockDBConf = dataclasses.field(default_factory=dict)
+    profiling: bool = dataclasses.field(default_factory=bool)
 
     def __post_init__(self):
-        self.rock_gen_cfgs = [RockGeneratorCfg(**cfg) for cfg in self.rock_gen_cfgs]
+        for cfg in self.rock_gen_cfgs:
+            cfg["rock_db_cfg"] = self.rock_dbs_cfg
+            cfg["block_size"] = self.block_size
+        self.rock_gen_cfgs = [RockGeneratorConf(**cfg) for cfg in self.rock_gen_cfgs]
 
 
 class RockManager:
@@ -407,10 +417,10 @@ class RockManager:
     rock generators and samples the rocks around a given position.
     """
 
-    def __init__(self, settings: RockManagerCfg, sampling_func: callable, is_map_done: callable) -> None:
+    def __init__(self, settings: RockManagerConf, sampling_func: callable, is_map_done: callable) -> None:
         """
         Args:
-            settings (RockManagerCfg): The settings for the rock manager.
+            settings (RockManagerConf): The settings for the rock manager.
             sampling_func (callable): The function to sample the rocks height and normals.
             is_map_done (callable): The function to check if the map is done.
         """
@@ -427,7 +437,9 @@ class RockManager:
 
         self.rock_generators: List[RockGenerator] = []
 
-        for rock_gen_cfg in self.settings.rock_gen_cfgs:
+        for i, rock_gen_cfg in enumerate(self.settings.rock_gen_cfgs):
+            if rock_gen_cfg.seed is None:
+                rock_gen_cfg.seed = self.settings.seed + i * 4
             rock_generator = RockGenerator(
                 rock_gen_cfg, self.sampling_func, self.is_map_done, self.settings.instancers_path
             )

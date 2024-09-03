@@ -19,7 +19,7 @@ from src.terrain_management.large_scale_terrain.crater_database import CraterDB
 
 
 @dataclasses.dataclass
-class CraterDynamicDistributionCfg:
+class CraterDynamicDistributionConf:
     """
     Args:
         densities (List[float]): list of densities for the craters.
@@ -46,17 +46,17 @@ class DynamicDistribute:
 
     def __init__(
         self,
-        settings: CraterDynamicDistributionCfg,
+        settings: CraterDynamicDistributionConf,
     ) -> None:
         """
         Args:
-            settings (CraterDynamicDistributionCfg): settings for the crater distribution.
+            settings (CraterDynamicDistributionConf): settings for the crater distribution.
         """
 
         self.settings = settings
         self._rng = np.random.default_rng(self.settings.seed)
 
-    def sampleFromPoisson(
+    def sample_from_poisson(
         self,
         region: BoundingBox,
         l: float,
@@ -81,7 +81,7 @@ class DynamicDistribute:
         y_coords = self._rng.uniform(region.y_min, region.y_max, num_points)
         return np.stack([x_coords, y_coords]).T, radius
 
-    def hardcoreRejection(self, coords: np.ndarray, radius: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def hardcore_rejection(self, coords: np.ndarray, radius: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Performs hardcore rejection on the craters. This operation is
         expensive and should be used with caution.
@@ -105,7 +105,7 @@ class DynamicDistribute:
                 boole_keep[i] = all(mark_age[i] < mark_age[in_disk])
         return coords[boole_keep], radius[boole_keep]
 
-    def checkPrevious(
+    def check_previous(
         self, new_coords: np.ndarray, radius: np.ndarray, prev_coords: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -130,7 +130,7 @@ class DynamicDistribute:
                 boole_keep[in_disk] = False
         return new_coords[boole_keep], radius[boole_keep]
 
-    def simulateHCPoissonProcess(
+    def simulate_HC_poisson_process(
         self,
         region: BoundingBox,
         l: float,
@@ -150,18 +150,18 @@ class DynamicDistribute:
             Tuple[np.ndarray, np.ndarray]: coordinates of the craters, radii of the craters.
         """
 
-        coords, radius = self.sampleFromPoisson(region, l, r_minmax)
+        coords, radius = self.sample_from_poisson(region, l, r_minmax)
         for _ in range(self.settings.num_repeat):
-            coords, radius = self.hardcoreRejection(coords, radius)
-            new_coords, new_radius = self.sampleFromPoisson(region, l, r_minmax)
+            coords, radius = self.hardcore_rejection(coords, radius)
+            new_coords, new_radius = self.sample_from_poisson(region, l, r_minmax)
             coords = np.concatenate([coords, new_coords])
             radius = np.concatenate([radius, new_radius])
-            self.checkPrevious(coords, radius, prev_coords)
-        coords, radius = self.hardcoreRejection(coords, radius)
-        coords, radius = self.checkPrevious(coords, radius, prev_coords)
+            self.check_previous(coords, radius, prev_coords)
+        coords, radius = self.hardcore_rejection(coords, radius)
+        coords, radius = self.check_previous(coords, radius, prev_coords)
         return coords, radius
 
-    def simulatePoissonProcess(
+    def simulate_poisson_process(
         self,
         region: BoundingBox,
         l: float,
@@ -180,7 +180,7 @@ class DynamicDistribute:
             tuple: coordinates of the craters, radii of the craters.
         """
 
-        coords, radius = self.sampleFromPoisson(region, l, r_minmax)
+        coords, radius = self.sample_from_poisson(region, l, r_minmax)
         return coords, radius
 
     def run_HC(
@@ -205,7 +205,7 @@ class DynamicDistribute:
         coords_to_save = []
         rads_to_save = []
         for d, r_minmax in zip(self.settings.densities, self.settings.radius):
-            new_coords, new_radius = self.simulateHCPoissonProcess(region, d, r_minmax, prev_coords)
+            new_coords, new_radius = self.simulate_HC_poisson_process(region, d, r_minmax, prev_coords)
             coords_to_save.append(new_coords)
             rads_to_save.append(new_radius)
             if prev_coords is not None:
@@ -244,7 +244,7 @@ class DynamicDistribute:
         coords_to_save = []
         rads_to_save = []
         for d, r_minmax in zip(self.settings.densities, self.settings.radius):
-            new_coords, new_radius = self.simulatePoissonProcess(region, d, r_minmax)
+            new_coords, new_radius = self.simulate_poisson_process(region, d, r_minmax)
             coords_to_save.append(new_coords)
             rads_to_save.append(new_radius)
             if prev_coords is not None:
@@ -286,7 +286,7 @@ class DynamicDistribute:
 
 
 @dataclasses.dataclass
-class CraterGeneratorCfg:
+class CraterGeneratorConf:
     """
     Args:
         profiles_path (str): path to the profiles.
@@ -325,10 +325,10 @@ class CraterMetadataGenerator:
     without having to store the entire crater DEM in memory.
     """
 
-    def __init__(self, settings: CraterGeneratorCfg) -> None:
+    def __init__(self, settings: CraterGeneratorConf) -> None:
         """
         Args:
-            settings (CraterGeneratorCfg): settings for the crater generation.
+            settings (CraterGeneratorConf): settings for the crater generation.
         """
 
         self.settings = settings
@@ -347,7 +347,7 @@ class CraterMetadataGenerator:
         print("Warming up crater generation...")
         self.generate_deformation_profiles()
         self.generate_marking_profiles()
-        self.loadProfiles()
+        self.load_profiles()
 
     def get_crater_profiles(self) -> List[CubicSpline]:
         """
@@ -404,7 +404,7 @@ class CraterMetadataGenerator:
             tmp_x = np.linspace(0, 1, marks_profile.shape[0])
             self.marking_profiles.append(CubicSpline(tmp_x, marks_profile, bc_type=((1, 0.0), (1, 0.0))))
 
-    def loadProfiles(self) -> None:
+    def load_profiles(self) -> None:
         """
         Loads the half crater spline profiles from a pickle file.
         """
@@ -413,7 +413,7 @@ class CraterMetadataGenerator:
         with open(self.settings.profiles_path, "rb") as handle:
             self.crater_profiles = pickle.load(handle)
 
-    def randomizeCraterParameters(self, coordinates: Tuple[float, float], radius: float) -> CraterMetadata:
+    def randomize_crater_parameters(self, coordinates: Tuple[float, float], radius: float) -> CraterMetadata:
         """
         Randomizes the parameters of a crater.
 
@@ -455,7 +455,7 @@ class CraterMetadataGenerator:
 
         metadatas = []
         for i in range(coordinates.shape[0]):
-            metadatas.append(self.randomizeCraterParameters(coordinates[i], radius[i]))
+            metadatas.append(self.randomize_crater_parameters(coordinates[i], radius[i]))
         return metadatas
 
     def castMetadata(self, metadatas=List[CraterMetadata]) -> Tuple[np.ndarray, np.ndarray]:
@@ -476,24 +476,24 @@ class CraterMetadataGenerator:
 
 
 @dataclasses.dataclass
-class CraterSamplerCfg:
+class CraterSamplerConf:
     """
     Args:
         block_size (int): size of the blocks.
-        crater_gen_cfg (CraterGeneratorCfg): configuration for the crater generator.
-        crater_dist_cfg (CraterDynamicDistributionCfg): configuration for the crater distribution
+        crater_gen_cfg (CraterGeneratorConf): configuration for the crater generator.
+        crater_dist_cfg (CraterDynamicDistributionConf): configuration for the crater distribution
     """
 
     block_size: int = 50
-    crater_gen_cfg: CraterGeneratorCfg = dataclasses.field(default_factory=dict)
-    crater_dist_cfg: CraterDynamicDistributionCfg = dataclasses.field(default_factory=dict)
+    crater_gen_cfg: CraterGeneratorConf = dataclasses.field(default_factory=dict)
+    crater_dist_cfg: CraterDynamicDistributionConf = dataclasses.field(default_factory=dict)
 
     def __post_init__(self) -> None:
         assert self.crater_gen_cfg is not None, "Crater generator configuration must be provided."
         assert self.crater_dist_cfg is not None, "Crater distribution configuration must be provided."
 
-        self.crater_gen_cfg = CraterGeneratorCfg(**self.crater_gen_cfg)
-        self.crater_dist_cfg = CraterDynamicDistributionCfg(**self.crater_dist_cfg)
+        self.crater_gen_cfg = CraterGeneratorConf(**self.crater_gen_cfg)
+        self.crater_dist_cfg = CraterDynamicDistributionConf(**self.crater_dist_cfg)
 
 
 class CraterSampler:
@@ -502,10 +502,10 @@ class CraterSampler:
     generation and the crater database to generate craters' metadata on the fly.
     """
 
-    def __init__(self, crater_sampler_cfg: CraterSamplerCfg, db: CraterDB) -> None:
+    def __init__(self, crater_sampler_cfg: CraterSamplerConf, db: CraterDB) -> None:
         """
         Args:
-            crater_sampler_cfg (CraterSamplerCfg): configuration for the crater sampler.
+            crater_sampler_cfg (CraterSamplerConf): configuration for the crater sampler.
             db (CraterDB): database to store the craters.
         """
 

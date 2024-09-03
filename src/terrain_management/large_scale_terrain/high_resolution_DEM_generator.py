@@ -14,33 +14,29 @@ import warnings
 import time
 import copy
 
-from src.terrain_management.large_scale_terrain.utils import ScopedTimer
+from src.terrain_management.large_scale_terrain.utils import ScopedTimer, BoundingBox, CraterMetadata
 from src.terrain_management.large_scale_terrain.crater_generation import (
     CraterBuilder,
     CraterDB,
+    CraterBuilderConf,
+    CraterDBConf,
+)
+from src.terrain_management.large_scale_terrain.crater_distribution import (
     CraterSampler,
-)
-from src.terrain_management.large_scale_terrain.crater_generation import (
-    CraterBuilderCfg,
-    CraterDBCfg,
-    CraterSamplerCfg,
-)
-from src.terrain_management.large_scale_terrain.crater_generation import (
-    CraterMetadata,
-    BoundingBox,
+    CraterSamplerConf,
 )
 from src.terrain_management.large_scale_terrain.high_resolution_DEM_workers import (
     CraterBuilderManager,
     BicubicInterpolatorManager,
-    WorkerManagerCfg,
-    InterpolatorCfg,
+    WorkerManagerConf,
+    InterpolatorConf,
     CPUInterpolator_PIL,
     ThreadMonitor,
 )
 
 
 @dataclasses.dataclass
-class HighResDEMCfg:
+class HighResDEMConf:
     """
     Configuration for the high resolution DEM.
 
@@ -72,37 +68,37 @@ class HighResDEMCfg:
 
 
 @dataclasses.dataclass
-class HighResDEMGenCfg:
+class HighResDEMGenConf:
     """
     Configuration for the high resolution DEM generation.
     Note that the class should be fed dictionaries and not objects.
 
     Args:
-        high_res_dem_cfg (HighResDEMCfg): The configuration for the high resolution DEM.
-        crater_db_cfg (CraterDBCfg): The configuration for the crater DB.
-        crater_sampler_cfg (CraterSamplerCfg): The configuration for the crater sampler.
-        crater_builder_cfg (CraterBuilderCfg): The configuration for the crater builder.
-        interpolator_cfg (InterpolatorCfg): The configuration for the interpolator.
-        crater_worker_manager_cfg (WorkerManagerCfg): The configuration for the crater worker manager.
-        interpolator_worker_manager_cfg (WorkerManagerCfg): The configuration for the interpolator worker manager.
+        high_res_dem_cfg (HighResDEMConf): The configuration for the high resolution DEM.
+        crater_db_cfg (CraterDBConf): The configuration for the crater DB.
+        crater_sampler_cfg (CraterSamplerConf): The configuration for the crater sampler.
+        crater_builder_cfg (CraterBuilderConf): The configuration for the crater builder.
+        interpolator_cfg (InterpolatorConf): The configuration for the interpolator.
+        crater_worker_manager_cfg (WorkerManagerConf): The configuration for the crater worker manager.
+        interpolator_worker_manager_cfg (WorkerManagerConf): The configuration for the interpolator worker manager.
     """
 
-    high_res_dem_cfg: HighResDEMCfg = dataclasses.field(default_factory=dict)
-    crater_db_cfg: CraterDBCfg = dataclasses.field(default_factory=dict)
-    crater_sampler_cfg: CraterSamplerCfg = dataclasses.field(default_factory=dict)
-    crater_builder_cfg: CraterBuilderCfg = dataclasses.field(default_factory=dict)
-    interpolator_cfg: InterpolatorCfg = dataclasses.field(default_factory=dict)
-    crater_worker_manager_cfg: WorkerManagerCfg = dataclasses.field(default_factory=dict)
-    interpolator_worker_manager_cfg: WorkerManagerCfg = dataclasses.field(default_factory=dict)
+    high_res_dem_cfg: HighResDEMConf = dataclasses.field(default_factory=dict)
+    crater_db_cfg: CraterDBConf = dataclasses.field(default_factory=dict)
+    crater_sampler_cfg: CraterSamplerConf = dataclasses.field(default_factory=dict)
+    crater_builder_cfg: CraterBuilderConf = dataclasses.field(default_factory=dict)
+    interpolator_cfg: InterpolatorConf = dataclasses.field(default_factory=dict)
+    crater_worker_manager_cfg: WorkerManagerConf = dataclasses.field(default_factory=dict)
+    interpolator_worker_manager_cfg: WorkerManagerConf = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
-        self.high_res_dem_cfg = HighResDEMCfg(**self.high_res_dem_cfg)
-        self.crater_db_cfg = CraterDBCfg(**self.crater_db_cfg)
-        self.crater_sampler_cfg = CraterSamplerCfg(**self.crater_sampler_cfg)
-        self.crater_builder_cfg = CraterBuilderCfg(**self.crater_builder_cfg)
-        self.interpolator_cfg = InterpolatorCfg(**self.interpolator_cfg)
-        self.crater_worker_manager_cfg = WorkerManagerCfg(**self.crater_worker_manager_cfg)
-        self.interpolator_worker_manager_cfg = WorkerManagerCfg(**self.interpolator_worker_manager_cfg)
+        self.high_res_dem_cfg = HighResDEMConf(**self.high_res_dem_cfg)
+        self.crater_db_cfg = CraterDBConf(**self.crater_db_cfg)
+        self.crater_sampler_cfg = CraterSamplerConf(**self.crater_sampler_cfg)
+        self.crater_builder_cfg = CraterBuilderConf(**self.crater_builder_cfg)
+        self.interpolator_cfg = InterpolatorConf(**self.interpolator_cfg)
+        self.crater_worker_manager_cfg = WorkerManagerConf(**self.crater_worker_manager_cfg)
+        self.interpolator_worker_manager_cfg = WorkerManagerConf(**self.interpolator_worker_manager_cfg)
 
 
 class HighResDEMGen:
@@ -113,13 +109,13 @@ class HighResDEMGen:
     def __init__(
         self,
         low_res_dem: np.ndarray,
-        settings: HighResDEMGenCfg,
+        settings: HighResDEMGenConf,
         profiling: bool = True,
     ) -> None:
         """
         Args:
             low_res_dem (np.ndarray): The low resolution DEM.
-            settings (HighResDEMGenCfg): The settings for the high resolution DEM generation.
+            settings (HighResDEMGenConf): The settings for the high resolution DEM generation.
             profiling (bool): True if the profiling is enabled, False otherwise.
         """
         self.low_res_dem = low_res_dem
@@ -462,32 +458,6 @@ class HighResDEMGen:
         x = local_coordinates[0] / self.settings.resolution
         y = local_coordinates[1] / self.settings.resolution
         return self.high_res_dem[int(x), int(y)]
-
-    def euler_to_quaternion(self, roll: float, pitch: float, yaw: float) -> Tuple[float, float, float, float]:
-        """
-        Converts the euler angles to a quaternion.
-
-        Args:
-            roll (float): Roll angle in radians.
-            pitch (float): Pitch angle in radians.
-            yaw (float): Yaw angle in radians.
-
-        Returns:
-            Tuple[float, float, float, float]: Quaternion.
-        """
-
-        cr = np.cos(roll * 0.5)
-        sr = np.sin(roll * 0.5)
-        cp = np.cos(pitch * 0.5)
-        sp = np.sin(pitch * 0.5)
-        cy = np.cos(yaw * 0.5)
-        sy = np.sin(yaw * 0.5)
-
-        x = sr * cp * cy - cr * sp * sy
-        y = cr * sp * cy + sr * cp * sy
-        z = cr * cp * sy - sr * sp * cy
-        w = cr * cp * cy + sr * sp * sy
-        return (x, y, z, w)
 
     def get_normal(self, coordinates: Tuple[float, float]) -> Tuple[float, float, float, float]:
         """
@@ -906,7 +876,7 @@ if __name__ == "__main__":
         "interpolator_worker_manager_cfg": IWMCfg_D,
     }
 
-    settings = HighResDEMGenCfg(**HRDEMGenCfg_D)
+    settings = HighResDEMGenConf(**HRDEMGenCfg_D)
     low_res_dem = np.load("assets/Terrains/SouthPole/NPD_final_adj_5mpp_surf/dem.npy")
     HRDEMGen = HighResDEMGen(low_res_dem, settings)
 

@@ -16,7 +16,7 @@ from src.terrain_management.large_scale_terrain.utils import BoundingBox, Crater
 
 
 @dataclasses.dataclass
-class CraterDBCfg:
+class CraterDBConf:
     """
     Args:
         block_size (int): size of the block in meters
@@ -36,10 +36,10 @@ class CraterDB:
     Class to manage the crater database.
     """
 
-    def __init__(self, cfg: CraterDBCfg) -> None:
+    def __init__(self, cfg: CraterDBConf) -> None:
         """
         Args:
-            cfg (CraterDBCfg): configuration for the database.
+            cfg (CraterDBConf): configuration for the database.
         """
 
         self.crater_db = {}

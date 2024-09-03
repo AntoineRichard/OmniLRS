@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -34,6 +32,7 @@ from src.configurations.auto_labeling_confs import AutoLabelingConf, CameraConf
 from src.configurations.rendering_confs import FlaresConf, RendererConf
 from src.configurations.environments import LunalabConf, LunaryardConf
 from src.configurations.stellar_engine_confs import StellarEngineConf
+from src.configurations.large_scale_terrain_confs import LargeScaleTerrainConf
 
 
 class ConfigFactory:
@@ -69,3 +68,5 @@ configFactory.registerConfig("camera_settings", CameraConf)
 configFactory.registerConfig("generation_settings", AutoLabelingConf)
 # Stellar Engine Configs
 configFactory.registerConfig("stellar_engine_settings", StellarEngineConf)
+# Large Scale Terrain Configs
+configFactory.registerConfig("large_scale_terrain", LargeScaleTerrainConf)

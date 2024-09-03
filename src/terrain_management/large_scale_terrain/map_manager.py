@@ -19,7 +19,7 @@ from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator im
     HighResDEMGen,
 )
 from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator import (
-    HighResDEMGenCfg,
+    HighResDEMGenConf,
 )
 
 
@@ -38,23 +38,20 @@ class DemInfo:
 
 
 @dataclasses.dataclass
-class MapManagerCfg:
+class MapManagerConf:
     """
     Args:
         folder_path (str): path to the folder containing the DEMs.
-        lr_dem_name (str): name of the DEM to load.
-        hrdem_settings (HighResDEMGenCfg): settings for the high resolution DEM generation.
+        hrdem_settings (HighResDEMGenConf): settings for the high resolution DEM generation.
     """
 
     folder_path: str = dataclasses.field(default_factory=str)
-    lr_dem_name: str = dataclasses.field(default_factory=str)
-    hrdem_settings: HighResDEMGenCfg = dataclasses.field(default_factory=dict)
+    hrdem_settings: HighResDEMGenConf = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
         assert type(self.folder_path) is str, "folder_path must be a string"
-        assert type(self.lr_dem_name) is str, "lr_dem_name must be a string"
 
-        self.hrdem_settings = HighResDEMGenCfg(**self.hrdem_settings)
+        self.hrdem_settings = HighResDEMGenConf(**self.hrdem_settings)
 
 
 class MapManager:
@@ -64,15 +61,14 @@ class MapManager:
     interract with the DEMs.
     """
 
-    def __init__(self, map_manager_settings: MapManagerCfg) -> None:
+    def __init__(self, map_manager_settings: MapManagerConf) -> None:
         """
         Args:
-            hrdem_settings (HighResDEMGenCfg): settings for the high resolution DEM generation.
-            map_manager_settings (MapManagerCfg): settings for the map manager.
+            hrdem_settings (HighResDEMGenConf): settings for the high resolution DEM generation.
+            map_manager_settings (MapManagerConf): settings for the map manager.
         """
 
         self.hr_dem_settings = map_manager_settings.hrdem_settings
-        print(self.hr_dem_settings)
         self.settings = map_manager_settings
         self.lr_dem = None
 
@@ -140,6 +136,11 @@ class MapManager:
                 raise ValueError(f"DEM info {name} does not exist in the folder path {self.settings.folder_path}")
         else:
             warnings.warn(f"DEM {name} does not exist in the folder path {self.settings.folder_path}")
+
+        # Override the source resolution
+        lr_dem_res = self.lr_dem_info.pixel_size[0]
+        self.hr_dem_settings.high_res_dem_cfg.source_resolution = lr_dem_res
+        self.hr_dem_settings.interpolator_cfg.source_resolution = lr_dem_res
         self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
 
     def load_lr_dem_by_path(self, path: str) -> None:
@@ -159,6 +160,9 @@ class MapManager:
                 self.lr_dem_info = DemInfo(**yaml.load(open(dem_info_path, "r")))
             else:
                 raise ValueError(f"DEM {dem_path} or DEM info {dem_info_path} does not exist in the folder path {path}")
+        lr_dem_res = self.lr_dem_info.pixel_size[0]
+        self.hr_dem_settings.high_res_dem_cfg.source_resolution = lr_dem_res
+        self.hr_dem_settings.interpolator_cfg.source_resolution = lr_dem_res
         self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
 
     def load_lr_dem_by_id(self, id: int) -> None:
@@ -181,6 +185,9 @@ class MapManager:
             raise ValueError(
                 f"id {id} is not in the range of the number of DEMs in the folder path {self.settings.folder_path}"
             )
+        lr_dem_res = self.lr_dem_info.pixel_size[0]
+        self.hr_dem_settings.high_res_dem_cfg.source_resolution = lr_dem_res
+        self.hr_dem_settings.interpolator_cfg.source_resolution = lr_dem_res
         self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
 
     def generate_procedural_lr_dem(self):
@@ -431,14 +438,14 @@ if __name__ == "__main__":
         "interpolator_worker_manager_cfg": IWMCfg_D,
     }
 
-    hrdem_settings = HighResDEMGenCfg(**HRDEMGenCfg_D)
+    hrdem_settings = HighResDEMGenConf(**HRDEMGenCfg_D)
 
     MMCfg_D = {
         "folder_path": "assets/Terrains/SouthPole",
         "lr_dem_name": "crater",
     }
 
-    mm_settings = MapManagerCfg(**MMCfg_D)
+    mm_settings = MapManagerConf(**MMCfg_D)
     from matplotlib import pyplot as plt
 
     MM = MapManager(hrdem_settings, mm_settings)

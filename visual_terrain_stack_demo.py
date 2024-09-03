@@ -22,182 +22,126 @@ def EMAquat(q1, q2, alpha):
     return x / s, y / s, z / s, w / s
 
 
-cfg = {
-    "renderer": "PathTracing",
-    "headless": True,
-    "samples_per_pixel_per_frame": 32,
-    "max_bounces": 6,
-    "max_specular_transmission_bounces": 6,
-    "max_volume_bounces": 4,
-    "subdiv_refinement_level": 0,
-}
 # cfg = {
+#    "renderer": "PathTracing",
 #    "headless": True,
+#    "samples_per_pixel_per_frame": 32,
+#    "max_bounces": 6,
+#    "max_specular_transmission_bounces": 6,
+#    "max_volume_bounces": 4,
+#    "subdiv_refinement_level": 0,
 # }
+cfg = {
+    "headless": False,
+}
 simulation_app = SimulationApp(cfg)
 
-HRDEMCfg_D = {
-    "num_blocks": 4,
-    "block_size": 50,
-    "pad_size": 10.0,
-    "max_blocks": int(1e7),
-    "seed": 42,
-    "resolution": 0.05,
-    "z_scale": 1.0,
-    "source_resolution": 5.0,
-    "resolution": 0.025,
-    "interpolation_padding": 2,
-    "generate_craters": True,
-}
-CWMCfg_D = {
-    "num_workers": 8,
-    "input_queue_size": 400,
-    "output_queue_size": 30,
-}
-IWMCfg_D = {
-    "num_workers": 1,
-    "input_queue_size": 400,
-    "output_queue_size": 30,
-}
-CraterDBCfg_D = {
-    "block_size": 50,
-    "max_blocks": 7,
-    "save_to_disk": False,
-    "write_to_disk_interval": 100,
-}
-CGCfg_D = {
-    "profiles_path": "assets/Terrains/crater_spline_profiles.pkl",
-    "min_xy_ratio": 0.85,
-    "max_xy_ratio": 1.0,
-    "random_rotation": True,
-    "seed": 42,
-    "num_unique_profiles": 10000,
-}
-CDDCfg_D = {
-    "densities": [0.025, 0.05, 0.5],
-    "radius": [[1.5, 2.5], [0.75, 1.5], [0.25, 0.5]],
-    "num_repeat": 1,
-    "seed": 42,
-}
-CraterSamplerCfg_D = {
-    "block_size": 50,
-    "crater_gen_cfg": CGCfg_D,
-    "crater_dist_cfg": CDDCfg_D,
-}
-CraterBuilderCfg_D = {
-    "block_size": 50,
-    "pad_size": 10.0,
-    "resolution": 0.025,
-    "z_scale": 1.0,
-}
-ICfg = {
-    "source_resolution": 5.0,
-    "target_resolution": 0.025,
-    "source_padding": 2,
-    "method": "bicubic",
-}
-HRDEMGenCfg_D = {
-    "high_res_dem_cfg": HRDEMCfg_D,
-    "crater_db_cfg": CraterDBCfg_D,
-    "crater_sampler_cfg": CraterSamplerCfg_D,
-    "crater_builder_cfg": CraterBuilderCfg_D,
-    "interpolator_cfg": ICfg,
-    "crater_worker_manager_cfg": CWMCfg_D,
-    "interpolator_worker_manager_cfg": IWMCfg_D,
-}
 
-MMCfg_D = {
-    "folder_path": "assets/Terrains/SouthPole",
-    "lr_dem_name": "crater",
-    "hrdem_settings": HRDEMGenCfg_D,
-}
-
-NGCMMCfg_D = {
-    "num_texels_per_level": 384,
-    "target_res": 0.02,
-    "fine_interpolation_method": "bilinear",
-    "coarse_interpolation_method": "bicubic",
-    "fine_acceleration_mode": "hybrid",
-    "coarse_acceleration_mode": "gpu",
-    "profiling": True,
-    "semantic_label": "terrain",
-    "texture_name": "LunarRegolith8k",
-    "texture_path": "assets/Textures/LunarRegolith8k.mdl",
-}
-RDBCfg_D = {
-    "block_size": 50,
-    "max_blocks": int(1e7),
-    "save_to_disk": False,
-    "write_to_disk_interval": 1000,
-}
 RSCfg_1_D = {
     "block_size": 50,
+    "seed": 42,
     "rock_dist_cfg": {
         "position_distribution": {
             "name": "thomas_point_process",
             "parent_density": 0.04,
             "child_density": 100,
-            "sigma": 3,
+            "sigma": 3.0,
             "seed": 42,
         },
         "scale_distribution": {
             "name": "uniform",
             "min": 0.02,
             "max": 0.05,
-            "seed": 42,
+            "seed": 43,
         },
-        "seed": 42,
-        "num_rock_id": 49,
     },
 }
 RSCfg_2_D = {
     "block_size": 50,
+    "seed": 42,
     "rock_dist_cfg": {
         "position_distribution": {
             "name": "thomas_point_process",
             "parent_density": 0.01,
             "child_density": 25,
-            "sigma": 3,
-            "seed": 42,
+            "sigma": 3.0,
+            "seed": 44,
         },
         "scale_distribution": {
             "name": "uniform",
             "min": 0.05,
             "max": 0.2,
-            "seed": 42,
+            "seed": 45,
         },
-        "seed": 43,
-        "num_rock_id": 49,
     },
 }
 RGCfg_1_D = {
-    "rock_db_cfg": RDBCfg_D,
     "rock_sampler_cfg": RSCfg_1_D,
     "rock_assets_folder": "assets/USD_Assets/rocks/small",
     "instancer_name": "very_small_rock_instancer",
-    "seed": 42,
-    "block_span": 0,
-    "block_size": 50,
+    "seed": 46,
+    "block_span": 1,
     "add_colliders": False,
     "collider_mode": "none",
 }
 RGCfg_2_D = {
-    "rock_db_cfg": RDBCfg_D,
     "rock_sampler_cfg": RSCfg_2_D,
     "rock_assets_folder": "assets/USD_Assets/rocks/small",
-    "instancer_name": "large_rock_instancer",
-    "seed": 42,
-    "block_span": 1,
-    "block_size": 50,
+    "instancer_name": "small_rock_instancer",
+    "seed": 47,
+    "block_span": 2,
     "add_colliders": False,
     "collider_mode": "none",
-    "semantic_label": "medium_rock",
+    "semantic_label": "small_rock",
 }
-RMCfg_D = {
-    "rock_gen_cfgs": [RGCfg_1_D, RGCfg_2_D],
-    "instancers_path": "/World/rock_instancers",
+LSTCfg_D = {
     "seed": 42,
+    "crater_gen_seed": None,
+    "crater_gen_distribution_seed": None,
+    "crater_gen_metadata_seed": None,
+    "rock_gen_main_seed": None,
+    "profiling": True,
+    "update_every_n_meters": 2.0,
+    "z_scale": 1.0,
     "block_size": 50,
+    "dbs_max_elements": 10000000,
+    "dbs_save_to_disk": False,
+    "dbs_write_interval": 1000,
+    "hr_dem_resolution": 0.025,
+    "hr_dem_generate_craters": True,
+    "hr_dem_num_blocks": 4,
+    "crater_gen_densities": [0.025, 0.05, 0.5],
+    "crater_gen_radius": [[1.5, 2.5], [0.75, 1.5], [0.25, 0.5]],
+    "crater_gen_profiles_path": "assets/Terrains/crater_spline_profiles.pkl",
+    "crater_gen_padding": 10.0,
+    "crater_gen_min_xy_ratio": 0.85,
+    "crater_gen_max_xy_ratio": 1.0,
+    "crater_gen_random_rotation": True,
+    "crater_gen_num_unique_profiles": 10000,
+    "num_workers_craters": 8,
+    "num_workers_interpolation": 1,
+    "input_queue_size": 400,
+    "output_queue_size": 30,
+    "hrdem_interpolation_method": "bicubic",
+    "hrdem_interpolator_name": "PIL",
+    "hrdem_interpolator_padding": 2,
+    "lr_dem_folder_path": "assets/Terrains/SouthPole",
+    "lr_dem_name": "Site20_final_adj_5mpp_surf",
+    "starting_position": (0, 0),
+    "geo_cm_num_texels_per_level": 384,
+    "geo_cm_target_res": 0.02,
+    "geo_cm_fine_interpolation_method": "bilinear",
+    "geo_cm_coarse_interpolation_method": "bicubic",
+    "geo_cm_fine_acceleration_mode": "hybrid",
+    "geo_cm_coarse_acceleration_mode": "gpu",
+    "geo_cm_semantic_label": "terrain",
+    "geo_cm_texture_name": "LunarRegolith8k",
+    "geo_cm_texture_path": "assets/Textures/LunarRegolith8k.mdl",
+    "geo_cm_apply_smooth_shading": False,
+    "rock_gen_cfgs": [
+        RGCfg_1_D,
+        RGCfg_2_D,
+    ],
 }
 
 
@@ -207,16 +151,10 @@ if __name__ == "__main__":
     from pxr import UsdLux, UsdGeom, Gf, UsdShade, Vt, Sdf, Usd
 
     from src.terrain_management.large_scale_terrain.pxr_utils import set_xform_ops
-
-    from src.terrain_management.large_scale_terrain.map_manager import MapManagerCfg
+    from src.configurations.large_scale_terrain_confs import LargeScaleTerrainConf
     from src.terrain_management.large_scale_terrain_manager import (
-        LargeScaleTerrainManagerCfg,
         LargeScaleTerrainManager,
     )
-    from src.terrain_management.large_scale_terrain.nested_geometry_clipmaps_manager import (
-        NestedGeometryClipmapManagerCfg,
-    )
-    from src.terrain_management.large_scale_terrain.rock_manager import RockManagerCfg
     from src.labeling.auto_label import AutonomousLabeling
     from src.configurations.auto_labeling_confs import AutoLabelingConf
     from omni.isaac.sensor import Camera
@@ -313,35 +251,35 @@ if __name__ == "__main__":
 
     camera = buildRealSenseRGB(stage, "/World/camera")
 
-    # left_light = UsdLux.DiskLight.Define(stage, "/World/camera/left_light")
-    # left_light.CreateRadiusAttr(0.05)
-    # left_light.CreateIntensityAttr(10000000.0)
-    # left_light.CreateColorAttr(Gf.Vec3f(0.87, 0.97, 0.97))
-    # left_shaping_api = UsdLux.ShapingAPI(left_light.GetPrim())
-    # left_shaping_api.CreateShapingIesFileAttr().Set(asset_path + "/Textures/RobotProjector.ies")
-    # left_shaping_api.CreateShapingIesNormalizeAttr().Set(True)
-    # set_xform_ops(
-    #    left_light.GetPrim(),
-    #    Gf.Vec3d(0, 0.5, 0),
-    #    Gf.Quatd(0.5, (0.5, -0.5, -0.5)),
-    #    Gf.Vec3d(1, 1, 1),
-    # )
-    # right_light = UsdLux.DiskLight.Define(stage, "/World/camera/right_light")
-    # right_light.CreateRadiusAttr(0.05)
-    # right_light.CreateIntensityAttr(10000000.0)
-    # right_light.CreateColorAttr(Gf.Vec3f(0.87, 0.97, 0.97))
-    # right_shaping_api = UsdLux.ShapingAPI(right_light.GetPrim())
-    # right_shaping_api.CreateShapingIesFileAttr().Set(asset_path + "/Textures/RobotProjector.ies")
-    # right_shaping_api.CreateShapingIesNormalizeAttr().Set(True)
-    # set_xform_ops(
-    #    right_light.GetPrim(),
-    #    Gf.Vec3d(0.0, -0.5, 0),
-    #    Gf.Quatd(0.5, (0.5, -0.5, -0.5)),
-    #    Gf.Vec3d(1, 1, 1),
-    # )
+    left_light = UsdLux.DiskLight.Define(stage, "/World/camera/left_light")
+    left_light.CreateRadiusAttr(0.05)
+    left_light.CreateIntensityAttr(10000000.0)
+    left_light.CreateColorAttr(Gf.Vec3f(0.87, 0.97, 0.97))
+    left_shaping_api = UsdLux.ShapingAPI(left_light.GetPrim())
+    left_shaping_api.CreateShapingIesFileAttr().Set(asset_path + "/Textures/RobotProjector.ies")
+    left_shaping_api.CreateShapingIesNormalizeAttr().Set(True)
+    set_xform_ops(
+        left_light.GetPrim(),
+        Gf.Vec3d(0, 0.5, 0),
+        Gf.Quatd(0.5, (0.5, -0.5, -0.5)),
+        Gf.Vec3d(1, 1, 1),
+    )
+    right_light = UsdLux.DiskLight.Define(stage, "/World/camera/right_light")
+    right_light.CreateRadiusAttr(0.05)
+    right_light.CreateIntensityAttr(10000000.0)
+    right_light.CreateColorAttr(Gf.Vec3f(0.87, 0.97, 0.97))
+    right_shaping_api = UsdLux.ShapingAPI(right_light.GetPrim())
+    right_shaping_api.CreateShapingIesFileAttr().Set(asset_path + "/Textures/RobotProjector.ies")
+    right_shaping_api.CreateShapingIesNormalizeAttr().Set(True)
+    set_xform_ops(
+        right_light.GetPrim(),
+        Gf.Vec3d(0.0, -0.5, 0),
+        Gf.Quatd(0.5, (0.5, -0.5, -0.5)),
+        Gf.Vec3d(1, 1, 1),
+    )
 
     C = 0
-    R = 200
+    R = 800
     render_substeps = 4
     max_displacement = 2.0 / 30
     acquisition_rate = 15
@@ -357,14 +295,8 @@ if __name__ == "__main__":
 
     initial_position = (x, y)
 
-    LSTMCfg_D = {
-        "map_name": "Site20_final_adj_5mpp_surf",
-        "pixel_coordinates": (0, 0),
-        "ll_coordinates": (0, 0),
-        "meters_coordinates": initial_position,
-        "coordinate_format": "meters",
-        "visual_mesh_update_threshold": 2.0,
-    }
+    LSTCfg_D["starting_position"] = initial_position
+
     AL_Cfg_D = {
         "num_images": 10000000,
         "prim_path": "/World",
@@ -385,12 +317,8 @@ if __name__ == "__main__":
     AL = AutonomousLabeling(ALCFG)
     AL.load()
 
-    mm_settings = MapManagerCfg(**MMCfg_D)
-    ngcmm_settings = NestedGeometryClipmapManagerCfg(**NGCMMCfg_D)
-    rm_settings = RockManagerCfg(**RMCfg_D)
-    lstm_settings = LargeScaleTerrainManagerCfg(**LSTMCfg_D)
-
-    LSTM = LargeScaleTerrainManager(lstm_settings, ngcmm_settings, mm_settings, rm_settings)
+    lstm_settings = LargeScaleTerrainConf(**LSTCfg_D)
+    LSTM = LargeScaleTerrainManager(lstm_settings)
 
     LSTM.build()
     height = LSTM.get_height_global(initial_position)

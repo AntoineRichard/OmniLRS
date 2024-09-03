@@ -19,22 +19,11 @@ import cv2
 
 from src.terrain_management.large_scale_terrain.crater_generation import (
     CraterBuilder,
-    CraterDB,
-    CraterSampler,
-)
-from src.terrain_management.large_scale_terrain.crater_generation import (
-    CraterBuilderCfg,
-    CraterDBCfg,
-    CraterSamplerCfg,
-)
-from src.terrain_management.large_scale_terrain.crater_generation import (
-    CraterMetadata,
-    BoundingBox,
 )
 
 
 @dataclasses.dataclass
-class InterpolatorCfg:
+class InterpolatorConf:
     """
     Configuration for the interpolator.
 
@@ -52,9 +41,7 @@ class InterpolatorCfg:
 
     def __post_init__(self):
         self.method = self.method.lower()
-        self.fx = self.source_resolution / self.target_resolution
-        self.fy = self.source_resolution / self.target_resolution
-        self.target_padding = int(self.source_padding * self.fx)
+        self.update()
         if self.source_padding < 2:
             print("Warning: Padding may be too small for interpolation.")
             self.source_padding = 2
@@ -74,6 +61,11 @@ class InterpolatorCfg:
         else:
             raise ValueError(f"Invalid interpolation method: {self.method}")
 
+    def update(self):
+        self.fx = self.source_resolution / self.target_resolution
+        self.fy = self.source_resolution / self.target_resolution
+        self.target_padding = int(self.source_padding * self.fx)
+
 
 class Interpolator:
     """
@@ -82,13 +74,14 @@ class Interpolator:
     The Interpolator class is responsible for interpolating the terrain data.
     """
 
-    def __init__(self, settings: InterpolatorCfg):
+    def __init__(self, settings: InterpolatorConf):
         """
         Args:
-            settings (InterpolatorCfg): The settings for the interpolator.
+            settings (InterpolatorConf): The settings for the interpolator.
         """
 
         self.settings = settings
+        self.settings.update()
 
     def interpolate(self, data: np.ndarray) -> np.ndarray:
         """
@@ -118,7 +111,7 @@ class CPUInterpolator(Interpolator):
     The cv2 interpolator is faster than the PIL interpolator by about 4 times.
     """
 
-    def __init__(self, settings: InterpolatorCfg):
+    def __init__(self, settings: InterpolatorConf):
         """
         Args:
             settings (InterpolatorCfg): The settings for the interpolator.
@@ -167,7 +160,7 @@ class CPUInterpolator_PIL(Interpolator):
     but is about 4 times slower than cv2.
     """
 
-    def __init__(self, settings: InterpolatorCfg):
+    def __init__(self, settings: InterpolatorConf):
         """
         Args:
             settings (InterpolatorCfg): The settings for the interpolator.
@@ -199,7 +192,7 @@ class CPUInterpolator_PIL(Interpolator):
 
 
 @dataclasses.dataclass
-class WorkerManagerCfg:
+class WorkerManagerConf:
     """
     Configuration for the worker manager.
 
@@ -224,7 +217,7 @@ class BaseWorkerManager:
 
     def __init__(
         self,
-        settings: WorkerManagerCfg = WorkerManagerCfg(),
+        settings: WorkerManagerConf = WorkerManagerConf(),
         worker_class=None,
         parent_thread: threading.Thread = None,
         thread_timeout: float = 1.0,
@@ -232,7 +225,7 @@ class BaseWorkerManager:
     ):
         """
         Args:
-            settings (WorkerManagerCfg): The settings for the worker manager.
+            settings (WorkerManagerConf): The settings for the worker manager.
             worker_class (BaseWorker): The worker class to use.
             parent_thread (threading.Thread): The parent thread.
             thread_timeout (float): The timeout for the worker thread. (seconds)
@@ -433,14 +426,14 @@ class CraterBuilderWorker:
                 if crater_meta_data is None:
                     break
                 data_not_in_queue = True
-                out = (coords, self.builder.generateCraters(crater_meta_data, coords))
+                out = (coords, self.builder.generate_craters(crater_meta_data, coords))
                 while data_not_in_queue:
                     try:
-                        output_queue.put(out, timeout=0.01)
+                        output_queue.put(out, timeout=0.1)
                         data_not_in_queue = False
-                    except:
+                    except Exception as e:
                         pass
-            except:
+            except Exception as e:
                 pass
         print("crater worker dead.")
 
@@ -454,7 +447,7 @@ class CraterBuilderManager(BaseWorkerManager):
 
     def __init__(
         self,
-        settings: WorkerManagerCfg = WorkerManagerCfg(),
+        settings: WorkerManagerConf = WorkerManagerConf(),
         parent_thread: threading.Thread = None,
         thread_timeout: float = 1.0,
         builder: CraterBuilder = None,
@@ -516,16 +509,15 @@ class BicubicInterpolatorWorker:
                 coords, data = input_queue.get(timeout=self.thread_timeout)
                 if data is None:
                     break
-
                 out = (coords, self.interpolator.interpolate(data))
                 data_not_in_queue = True
                 while data_not_in_queue:
                     try:
-                        output_queue.put(out, timeout=0.01)
+                        output_queue.put(out, timeout=0.1)
                         data_not_in_queue = False
-                    except:
+                    except Exception as e:
                         pass
-            except:
+            except Exception as e:
                 pass
         print("bicubic worker dead.")
 
@@ -539,7 +531,7 @@ class BicubicInterpolatorManager(BaseWorkerManager):
 
     def __init__(
         self,
-        settings: WorkerManagerCfg = WorkerManagerCfg(),
+        settings: WorkerManagerConf = WorkerManagerConf(),
         interp: Interpolator = None,
         num_cv2_threads: int = 4,
         parent_thread: threading.Thread = None,

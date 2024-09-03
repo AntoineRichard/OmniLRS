@@ -4,17 +4,18 @@ import numpy as np
 import math
 import copy
 
+from src.configurations.large_scale_terrain_confs import LargeScaleTerrainConf
 
 from src.terrain_management.large_scale_terrain.map_manager import (
-    MapManagerCfg,
+    MapManagerConf,
     MapManager,
 )
 from src.terrain_management.large_scale_terrain.rock_manager import (
-    RockManagerCfg,
+    RockManagerConf,
     RockManager,
 )
 from src.terrain_management.large_scale_terrain.nested_geometry_clipmaps_manager import (
-    NestedGeometryClipmapManagerCfg,
+    NestedGeometryClipmapManagerConf,
     NestedGeometryClipmapManager,
 )
 
@@ -23,30 +24,48 @@ def is_map_done():
     return True
 
 
-@dataclasses.dataclass
-class LargeScaleTerrainManagerCfg:
-    map_name: str = dataclasses.field(default_factory=str)
-    pixel_coordinates: tuple = dataclasses.field(default_factory=tuple)
-    ll_coordinates: tuple = dataclasses.field(default_factory=tuple)
-    meters_coordinates: tuple = dataclasses.field(default_factory=tuple)
-    coordinate_format: str = "meters"
-    visual_mesh_update_threshold: float = 2.0
-
-
 class LargeScaleTerrainManager:
     def __init__(
         self,
-        settings: LargeScaleTerrainManagerCfg,
-        nested_geometric_clipmap_manager_cfg: NestedGeometryClipmapManagerCfg,
-        mapmanager_cfg: MapManagerCfg,
-        rock_manager_cfg: RockManagerCfg,
+        settings: LargeScaleTerrainConf,
     ):
-        self.nested_geometric_clipmap_manager_cfg = nested_geometric_clipmap_manager_cfg
-        self.mapmanager_cfg = mapmanager_cfg
-        self.rock_manager_cfg = rock_manager_cfg
         self.settings = settings
 
         self.last_update_coordinates = None
+
+    def build_configs(self):
+        self.nested_geometric_clipmap_manager_cfg = NestedGeometryClipmapManagerConf(**self.settings.NGCMMConf_D)
+        self.mapmanager_cfg = MapManagerConf(**self.settings.MMConf_D)
+        self.rock_manager_cfg = RockManagerConf(**self.settings.RMConf_D)
+
+    def build_managers(self):
+        self.build_map_manager()
+        self.build_geometry_clipmap_manager()
+        self.build_rock_manager()
+
+    def build_map_manager(self):
+        self.map_manager = MapManager(self.mapmanager_cfg)
+        self.map_manager.load_lr_dem_by_name(self.settings.lr_dem_name)
+        self.map_manager.initialize_hr_dem(self.initial_coordinates)
+
+    def build_geometry_clipmap_manager(self):
+        self.nested_clipmap_manager = NestedGeometryClipmapManager(self.nested_geometric_clipmap_manager_cfg)
+        self.nested_clipmap_manager.build(
+            self.map_manager.get_hr_dem(),
+            self.map_manager.get_lr_dem(),
+            self.map_manager.get_hr_dem_shape(),
+            self.map_manager.get_lr_dem_shape(),
+            self.map_manager.get_hr_dem_res(),
+            self.map_manager.get_lr_dem_res(),
+        )
+
+    def build_rock_manager(self):
+        self.rock_manager = RockManager(
+            self.rock_manager_cfg,
+            self.nested_clipmap_manager.get_height_and_random_scale,
+            is_map_done,
+        )
+        self.rock_manager.build()
 
     def cast_coordinates(self):
         """
@@ -56,17 +75,7 @@ class LargeScaleTerrainManager:
         """
 
         # Cast coordinates to meters with 0 at the center of the map
-        if self.settings.coordinate_format == "meters":
-            self.initial_coordinates = self.settings.meters_coordinates
-        elif self.settings.coordinate_format == "ll":
-            raise NotImplementedError
-        elif self.settings.coordinate_format == "pixels":
-            lr_dem_shape = self.map_manager.get_lr_dem_shape()
-            lr_dem_res = self.map_manager.get_lr_dem_res()
-            self.initial_coordinates = (
-                (self.settings.pixel_coordinates[0] - lr_dem_shape // 2) / lr_dem_res,
-                (self.settings.pixel_coordinates[1] - lr_dem_shape // 2) / lr_dem_res,
-            )
+        self.initial_coordinates = self.settings.starting_position
 
     def get_height_local(self, coordinates: Tuple[float, float]) -> float:
         """
@@ -129,27 +138,10 @@ class LargeScaleTerrainManager:
         return self.map_manager.get_normal(coordinates)
 
     def build(self):
-        self.map_manager = MapManager(self.mapmanager_cfg)
-        self.nested_clipmap_manager = NestedGeometryClipmapManager(self.nested_geometric_clipmap_manager_cfg)
-        self.rock_manager = RockManager(
-            self.rock_manager_cfg,
-            self.nested_clipmap_manager.get_height_and_random_scale,
-            is_map_done,
-        )
-
-        self.map_manager.load_lr_dem_by_name(self.settings.map_name)
         self.cast_coordinates()
+        self.build_configs()
+        self.build_managers()
         self.mesh_position = (0, 0)
-        self.map_manager.initialize_hr_dem(self.initial_coordinates)
-        self.nested_clipmap_manager.build(
-            self.map_manager.get_hr_dem(),
-            self.map_manager.get_lr_dem(),
-            self.map_manager.get_hr_dem_shape(),
-            self.map_manager.get_lr_dem_shape(),
-            self.map_manager.get_hr_dem_res(),
-            self.map_manager.get_lr_dem_res(),
-        )
-        self.rock_manager.build()
         self.update_visual_mesh((0, 0))
 
     def update_visual_mesh(self, local_coordinates):
@@ -158,7 +150,7 @@ class LargeScaleTerrainManager:
         if self.last_update_coordinates is None:
             self.last_update_coordinates = copy.copy(local_coordinates)
             delta = (0.0, 0.0)
-            dist = self.settings.visual_mesh_update_threshold * 2
+            dist = self.settings.update_every_n_meters * 2
         else:
             # local coordinates are in meters
             delta = (
@@ -166,14 +158,10 @@ class LargeScaleTerrainManager:
                 local_coordinates[1] - self.last_update_coordinates[1],
             )
             dist = math.sqrt(delta[0] ** 2 + delta[1] ** 2)
-        if dist > self.settings.visual_mesh_update_threshold:
+        if dist > self.settings.update_every_n_meters:
             # cast the coordinates so that they are a multiple of the threshold.
-            x = (
-                local_coordinates[0] // self.settings.visual_mesh_update_threshold
-            ) * self.settings.visual_mesh_update_threshold
-            y = (
-                local_coordinates[1] // self.settings.visual_mesh_update_threshold
-            ) * self.settings.visual_mesh_update_threshold
+            x = (local_coordinates[0] // self.settings.update_every_n_meters) * self.settings.update_every_n_meters
+            y = (local_coordinates[1] // self.settings.update_every_n_meters) * self.settings.update_every_n_meters
             corrected_coordinates = (x, y)
             # Update the visual mesh
             self.last_update_coordinates = local_coordinates

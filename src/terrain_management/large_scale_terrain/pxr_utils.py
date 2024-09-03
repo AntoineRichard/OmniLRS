@@ -219,7 +219,7 @@ def enable_smooth_shade(
         prim.GetAttribute("triangleSubdivisionRule").Set(UsdGeom.Tokens.catmullClark)
 
 
-def bindMaterial(stage: Usd.Stage, mtl_prim_path: str, prim_path: str):
+def bind_material(stage: Usd.Stage, mtl_prim_path: str, prim_path: str):
     """
     Binds a material to a prim.
 
@@ -235,7 +235,7 @@ def bindMaterial(stage: Usd.Stage, mtl_prim_path: str, prim_path: str):
     UsdShade.MaterialBindingAPI(prim).Bind(shade, UsdShade.Tokens.strongerThanDescendants)
 
 
-def loadMaterial(material_name: str, material_path: str):
+def load_material(material_name: str, material_path: str):
     """
     Loads a material.
 

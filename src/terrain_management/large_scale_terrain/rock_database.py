@@ -19,7 +19,7 @@ from src.terrain_management.large_scale_terrain.utils import (
 
 
 @dataclasses.dataclass
-class RockDBCfg:
+class RockDBConf:
     """
     Args:
         block_size (int): size of the block in meters
@@ -39,10 +39,10 @@ class RockDB:
     Class to manage the rock database.
     """
 
-    def __init__(self, cfg: RockDBCfg) -> None:
+    def __init__(self, cfg: RockDBConf) -> None:
         """
         Args:
-            cfg (RockDBCfg): configuration for the database.
+            cfg (RockDBConf): configuration for the database.
         """
 
         self.rock_db = {}

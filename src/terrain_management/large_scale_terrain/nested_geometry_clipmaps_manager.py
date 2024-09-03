@@ -19,12 +19,12 @@ from src.terrain_management.large_scale_terrain.geometry_clipmaps_manager import
     GeoClipmapManagerConf,
     GeoClipmapManager,
 )
-from src.terrain_management.large_scale_terrain.geometry_clipmaps import GeoClipmapSpecs
-from src.terrain_management.large_scale_terrain.pxr_utils import bindMaterial, loadMaterial
+from src.terrain_management.large_scale_terrain.geometry_clipmaps import GeometryClipmapConf
+from src.terrain_management.large_scale_terrain.pxr_utils import bind_material, load_material
 
 
 @dataclasses.dataclass
-class NestedGeometryClipmapManagerCfg:
+class NestedGeometryClipmapManagerConf:
     """
     Args:
         num_texels_per_level (int): The number of texels per level.
@@ -74,10 +74,10 @@ class NestedGeometryClipmapManager:
     It manages the fine and coarse clipmaps and makes sure that they are updated correctly.
     """
 
-    def __init__(self, settings: NestedGeometryClipmapManagerCfg) -> None:
+    def __init__(self, settings: NestedGeometryClipmapManagerConf) -> None:
         """
         Args:
-            settings (NestedGeometryClipMapManagerCfg): The settings for the nested geometry clipmap manager.
+            settings (NestedGeometryClipMapManagerConf): The settings for the nested geometry clipmap manager.
         """
 
         self.settings = settings
@@ -112,7 +112,7 @@ class NestedGeometryClipmapManager:
             math.log(lr_dem_width / (self.settings.num_texels_per_level * coarse_clipmap_res)) / math.log(2)
         )
 
-        self.fine_clipmap_specs = GeoClipmapSpecs(
+        self.fine_clipmap_specs = GeometryClipmapConf(
             startingLODLevel=0,
             numMeshLODLevels=fine_clipmap_levels,
             meshBaseLODExtentHeightfieldTexels=self.settings.num_texels_per_level,
@@ -120,7 +120,7 @@ class NestedGeometryClipmapManager:
             source_resolution=hr_dem_res,
             minimum_target_resolution=self.settings.target_res,
         )
-        self.coarse_clipmap_specs = GeoClipmapSpecs(
+        self.coarse_clipmap_specs = GeometryClipmapConf(
             startingLODLevel=1,
             numMeshLODLevels=coarse_clipmap_levels + 1,
             meshBaseLODExtentHeightfieldTexels=self.settings.num_texels_per_level,
@@ -131,16 +131,16 @@ class NestedGeometryClipmapManager:
         self.fine_clipmap_manager_cfg = GeoClipmapManagerConf(
             root_path="/World",
             geo_clipmap_specs=self.fine_clipmap_specs,
-            mesh_position=np.array([0, 0, 0]),
-            mesh_orientation=np.array([0, 0, 0, 1]),
-            mesh_scale=np.array([1, 1, 1]),
+            mesh_position=np.array([0.0, 0.0, 0.0]),
+            mesh_orientation=np.array([0.0, 0.0, 0.0, 1.0]),
+            mesh_scale=np.array([1.0, 1.0, 1.0]),
         )
         self.coarse_clipmap_manager_cfg = GeoClipmapManagerConf(
             root_path="/World",
             geo_clipmap_specs=self.coarse_clipmap_specs,
-            mesh_position=np.array([0, 0, 0]),
-            mesh_orientation=np.array([0, 0, 0, 1]),
-            mesh_scale=np.array([1, 1, 1]),
+            mesh_position=np.array([0.0, 0.0, 0.0]),
+            mesh_orientation=np.array([0.0, 0.0, 0.0, 1.0]),
+            mesh_scale=np.array([1.0, 1.0, 1.0]),
         )
 
     def build(
@@ -205,8 +205,8 @@ class NestedGeometryClipmapManager:
         position_fine = np.array(position_fine)
         position_coarse = np.array(position_coarse)
         mesh_position = np.array([mesh_position[0], mesh_position[1], 0])
-        self.fine_clipmap_manager.updateGeoClipmap(position_fine, mesh_position)
-        self.coarse_clipmap_manager.updateGeoClipmap(position_coarse, mesh_position)
+        self.fine_clipmap_manager.update_geoclipmap(position_fine, mesh_position)
+        self.coarse_clipmap_manager.update_geoclipmap(position_coarse, mesh_position)
 
     def get_height_and_random_scale(
         self,
@@ -237,9 +237,9 @@ class NestedGeometryClipmapManager:
         """
 
         if (self.settings.texture_name is not None) and (self.settings.texture_path is not None):
-            material_path = loadMaterial(self.settings.texture_name, self.settings.texture_path)
-            bindMaterial(self.fine_clipmap_manager._stage, material_path, self.fine_clipmap_manager._mesh_path)
-            bindMaterial(self.coarse_clipmap_manager._stage, material_path, self.coarse_clipmap_manager._mesh_path)
+            material_path = load_material(self.settings.texture_name, self.settings.texture_path)
+            bind_material(self.fine_clipmap_manager._stage, material_path, self.fine_clipmap_manager._mesh_path)
+            bind_material(self.coarse_clipmap_manager._stage, material_path, self.coarse_clipmap_manager._mesh_path)
         elif (self.settings.texture_name is not None) and (self.settings.texture_path is None):
             warnings.warn("No texture path provided. Material will not be applied.")
         elif (self.settings.texture_name is None) and (self.settings.texture_path is not None):

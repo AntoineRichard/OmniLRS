@@ -18,7 +18,7 @@ idx_list_type = nb.types.ListType(nb.types.int32)
 
 
 @nb.jit(point2(point3), nopython=True)
-def point3_to_point2(point):
+def _point3_to_point2(point):
     """
     Convert a 3D point to a 2D point by dropping the z coordinate.
 
@@ -42,7 +42,7 @@ def point3_to_point2(point):
     ),
     nopython=True,
 )
-def _querryPointIndex(point, points, prev_indices, new_indices, index_count):
+def _query_point_index(point, points, prev_indices, new_indices, index_count):
     """
     Querry the index of a point in the list of points. If the point is not in the list, add it.
     The previous indices are the indices of the points in the list at the previous level.
@@ -56,7 +56,7 @@ def _querryPointIndex(point, points, prev_indices, new_indices, index_count):
         new_indices (idx_dict_type): Dictionary of indices of points in the list.
         index_count (int): Current index count.
     """
-    hash = point3_to_point2(point)
+    hash = _point3_to_point2(point)
     if hash in prev_indices:
         index = prev_indices[hash]
     elif hash in new_indices:
@@ -83,7 +83,7 @@ def _querryPointIndex(point, points, prev_indices, new_indices, index_count):
     ),
     nopython=True,
 )
-def _addTriangle(
+def _add_triangle(
     A,
     B,
     C,
@@ -112,9 +112,9 @@ def _addTriangle(
         index_count (int): Current index count.
     """
 
-    A_idx, index_count = _querryPointIndex(A, points, prev_indices, new_indices, index_count)
-    B_idx, index_count = _querryPointIndex(B, points, prev_indices, new_indices, index_count)
-    C_idx, index_count = _querryPointIndex(C, points, prev_indices, new_indices, index_count)
+    A_idx, index_count = _query_point_index(A, points, prev_indices, new_indices, index_count)
+    B_idx, index_count = _query_point_index(B, points, prev_indices, new_indices, index_count)
+    C_idx, index_count = _query_point_index(C, points, prev_indices, new_indices, index_count)
     indices.append(A_idx)
     indices.append(B_idx)
     indices.append(C_idx)
@@ -125,7 +125,7 @@ def _addTriangle(
 
 
 @nb.jit(nopython=True)
-def _buildMesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
+def _build_mesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
     """
     Build the mesh backbone for the geometry clipmaps. The mesh backbone is a series of triangles
     that tessellate the terrain. The mesh backbone is built from the bottom up, starting at the
@@ -201,58 +201,50 @@ def _buildMesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
                         #   |   / | \   |
                         #   | /   |   \ |
                         #   G-----H-----I
-                        index_count = _addTriangle(
-                            E,
-                            A,
-                            G,
-                            indices,
-                            uvs,
-                            points,
-                            prev_indices,
-                            new_indices,
-                            index_count,
+                        index_count = _add_triangle(
+                            E, A, G, indices, uvs, points, prev_indices, new_indices, index_count
                         )
                     else:
-                        index_count = _addTriangle(
+                        index_count = _add_triangle(
                             E, A, D, indices, uvs, points, prev_indices, new_indices, index_count
                         )
-                        index_count = _addTriangle(
+                        index_count = _add_triangle(
                             E, D, G, indices, uvs, points, prev_indices, new_indices, index_count
                         )
 
                     if y == (radius - step):
-                        index_count = _addTriangle(
+                        index_count = _add_triangle(
                             E, G, I, indices, uvs, points, prev_indices, new_indices, index_count
                         )
                     else:
-                        index_count = _addTriangle(
+                        index_count = _add_triangle(
                             E, G, H, indices, uvs, points, prev_indices, new_indices, index_count
                         )
-                        index_count = _addTriangle(
+                        index_count = _add_triangle(
                             E, H, I, indices, uvs, points, prev_indices, new_indices, index_count
                         )
 
                     if x == (radius - step):
-                        index_count = _addTriangle(
+                        index_count = _add_triangle(
                             E, I, C, indices, uvs, points, prev_indices, new_indices, index_count
                         )
                     else:
-                        index_count = _addTriangle(
+                        index_count = _add_triangle(
                             E, I, F, indices, uvs, points, prev_indices, new_indices, index_count
                         )
-                        index_count = _addTriangle(
+                        index_count = _add_triangle(
                             E, F, C, indices, uvs, points, prev_indices, new_indices, index_count
                         )
 
                     if y == -radius:
-                        index_count = _addTriangle(
+                        index_count = _add_triangle(
                             E, C, A, indices, uvs, points, prev_indices, new_indices, index_count
                         )
                     else:
-                        index_count = _addTriangle(
+                        index_count = _add_triangle(
                             E, C, B, indices, uvs, points, prev_indices, new_indices, index_count
                         )
-                        index_count = _addTriangle(
+                        index_count = _add_triangle(
                             E, B, A, indices, uvs, points, prev_indices, new_indices, index_count
                         )
         prev_indices = new_indices.copy()

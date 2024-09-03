@@ -60,11 +60,16 @@ class BaseDistribution:
     """
 
     name: str = dataclasses.field(default_factory=str)
+    seed: int = None
 
-    def sample(self, **kwargs):
+    def sample(self, **kwargs) -> np.ndarray:
         raise NotImplementedError
 
-    def __call__(self, **kwargs):
+    def set_seed(self, seed: int) -> None:
+        self.seed = int(seed)
+        self.rng = np.random.default_rng(seed)
+
+    def __call__(self, **kwargs) -> np.ndarray:
         return self.sample(**kwargs)
 
 
@@ -80,19 +85,45 @@ class Poisson(BaseDistribution):
     """
 
     name: str = "poisson"
-    density: float = 0.0
-    seed: int = 42
+    density: float = dataclasses.field(default_factory=float)
+    seed: int = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        assert self.density > 0, "density must be larger than 0."
+        assert type(self.density == float), "density must be a float."
+
         self.density = float(self.density)
-        self.seed = int(self.seed)
-        self.rng = np.random.default_rng(self.seed)
+        if self.seed is not None:
+            self.seed = int(self.seed)
+            self.rng = np.random.default_rng(self.seed)
 
-    def get_num_points(self, region: BoundingBox):
+    def get_num_points(self, region: BoundingBox) -> int:
+        """
+        Get the number of points to sample from a Poisson distribution.
+
+        Args:
+            region (BoundingBox): region to sample the points from.
+
+        Returns:
+            int: number of points.
+        """
+
         area = (region.x_max - region.x_min) * (region.y_max - region.y_min)
         return self.rng.poisson(area * self.density)
 
-    def sample(self, region: BoundingBox = BoundingBox(), density: int = None, **kwargs):
+    def sample(self, region: BoundingBox = BoundingBox(), density: int = None, **kwargs) -> Tuple[np.ndarray, int]:
+        """
+        Sample from a Poisson distribution.
+
+        Args:
+            region (BoundingBox): region to sample the points from.
+            density (int): density of the distribution.
+            **kwargs: additional arguments.
+
+        Returns:
+            Tuple[np.ndarray, int]: coordinates of the points, number of points.
+        """
+
         num_points = self.get_num_points(region)
         if density is not None:
             self.density = density
@@ -115,16 +146,23 @@ class ThomasPointProcess(BaseDistribution):
     """
 
     name: str = "thomas_point_process"
-    parent_density: float = 0.0
-    child_density: float = 0.0
-    sigma: float = 0.0
-    seed: int = 42
+    parent_density: float = dataclasses.field(default_factory=float)
+    child_density: float = dataclasses.field(default_factory=float)
+    sigma: float = dataclasses.field(default_factory=float)
+    seed: int = None
 
     def __post_init__(self):
-        self.seed = int(self.seed)
+        if self.seed is not None:
+            self.set_seed(self.seed)
+        assert type(self.parent_density == float), "parent_density must be a float."
+        assert self.parent_density > 0, "parent_density must be larger than 0."
+        assert type(self.child_density == float), "child_density must be a float."
+        assert self.child_density > 0, "child_density must be larger than 0."
+        assert type(self.sigma == float), "sigma must be a float."
+        assert self.sigma > 0, "sigma must be larger than 0."
+
         self.parent = Poisson(name="poisson", density=self.parent_density, seed=self.seed)
-        self.rng = np.random.default_rng(self.seed)
-        self.normal = Normal(name="normal", mean=0, std=self.sigma, seed=self.seed)
+        self.normal = Normal(name="normal", mean=0.0, std=self.sigma, seed=self.seed)
         self.extension = 7 * self.sigma
 
     def sample_parents(self, region: BoundingBox) -> Tuple[np.ndarray, int]:
@@ -203,16 +241,19 @@ class Uniform(BaseDistribution):
     """
 
     name: str = "uniform"
-    min: float = 0.0
-    max: float = 0.0
-    seed: int = 42
+    min: float = dataclasses.field(default_factory=float)
+    max: float = dataclasses.field(default_factory=float)
+    seed: int = None
 
     def __post_init__(self):
+        assert type(self.min) == float, "min must be a float"
+        assert type(self.max) == float, "max must be a float"
         assert self.min < self.max, "min must be smaller than max"
+        if self.seed is not None:
+            self.set_seed(self.seed)
         self.min = float(self.min)
         self.max = float(self.max)
         self.seed = int(self.seed)
-        self.rng = np.random.default_rng(self.seed)
 
     def sample(self, num_points: int = 1, dim: int = 1, **kwargs):
         """
@@ -242,16 +283,18 @@ class Normal(BaseDistribution):
     """
 
     name: str = "normal"
-    mean: float = 0.0
-    std: float = 0.0
-    seed: int = 42
+    mean: float = dataclasses.field(default_factory=float)
+    std: float = dataclasses.field(default_factory=float)
+    seed: int = None
 
     def __post_init__(self):
+        assert type(self.mean) == float, "mean must be a float"
+        assert type(self.std) == float, "std must be a float"
         assert self.std > 0, "std must be larger than 0"
         self.mean = float(self.mean)
         self.std = float(self.std)
-        self.seed = int(self.seed)
-        self.rng = np.random.default_rng(self.seed)
+        if self.seed is not None:
+            self.set_seed(self.seed)
 
     def sample(self, num_points: int = 1, dim: int = 1, **kwargs):
         """
@@ -282,16 +325,18 @@ class Integer(BaseDistribution):
     """
 
     name: str = "integer"
-    min: int = 0
-    max: int = 1
-    seed: int = 42
+    min: int = dataclasses.field(default_factory=int)
+    max: int = dataclasses.field(default_factory=int)
+    seed: int = None
 
     def __post_init__(self):
         assert self.min < self.max, "min must be smaller than max"
+        assert type(self.min) == int, "min must be an integer"
+        assert type(self.max) == int, "max must be an integer"
         self.min = int(self.min)
         self.max = int(self.max)
-        self.seed = int(self.seed)
-        self.rng = np.random.default_rng(self.seed)
+        if self.seed is not None:
+            self.set_seed(self.seed)
 
     def sample(self, num_points: int = 1, **kwargs):
         """
@@ -345,33 +390,24 @@ distribution_factory.add(Integer, "integer")
 
 
 @dataclasses.dataclass
-class RockDynamicDistributionCfg:
+class RockDynamicDistributionConf:
     """
     Args:
+        position_distribution (dict): configuration for the position distribution.
+        scale_distribution (dict): configuration for the scale distribution.
+        seed (int): seed for the random number generator.
+        num_rock_id (int): number of rock ids.
     """
 
     position_distribution: BaseDistribution = dataclasses.field(default_factory=dict)
     scale_distribution: BaseDistribution = dataclasses.field(default_factory=dict)
-    seed: int = dataclasses.field(default_factory=int)
-    num_rock_id: int = dataclasses.field(default_factory=int)
+    seed: int = None
 
     def __post_init__(self):
         # Reseed the random number generator
-        self.position_distribution["seed"] = self.seed + 1
-        self.scale_distribution["seed"] = self.seed + 2
-
-        id_sampler_cfg = {
-            "name": "integer",
-            "min": 0,
-            "max": self.num_rock_id,
-            "seed": self.seed + 3,
-        }
-
-        self.position_distribution = distribution_factory.create(self.position_distribution)
-        self.scale_distribution = distribution_factory.create(self.scale_distribution)
-        self.id_sampler = distribution_factory.create(id_sampler_cfg)
-
-        assert self.num_rock_id > 0, "num_rocks_id must be larger than 0"
+        if self.seed is not None:
+            assert type(self.seed) == int, "seed must be an integer"
+            self.seed = int(self.seed)
 
 
 class DynamicDistribute:
@@ -381,20 +417,21 @@ class DynamicDistribute:
 
     def __init__(
         self,
-        settings: RockDynamicDistributionCfg,
+        settings: RockDynamicDistributionConf,
         sampling_func: callable = mock_call,
+        num_objects: int = 1,
     ) -> None:
         """
         Args:
-            settings (RockDynamicDistributionCfg): settings for the rock distribution.
+            settings (RockDynamicDistributionConf): settings for the rock distribution.
             sampling_func (function): function to sample the z and quaternion values.
+            num_objects (int): number of objects to sample.
         """
 
         self.settings = settings
+        self.num_objects = num_objects
         self._rng = np.random.default_rng(self.settings.seed)
         self.sampling_func = sampling_func
-
-        self.build_samplers()
 
     def build_samplers(self) -> None:
         """
@@ -406,9 +443,21 @@ class DynamicDistribute:
         This process is handed over to the sampling function. (self.sampling_func)
         """
 
-        self.position_sampler = self.settings.position_distribution
-        self.scale_sampler = self.settings.scale_distribution
-        self.id_sampler = self.settings.id_sampler
+        id_sampler_cfg = {
+            "name": "integer",
+            "min": 0,
+            "max": self.num_objects,
+            "seed": self.settings.seed + 1,
+        }
+
+        self.position_sampler: BaseDistribution = distribution_factory.create(self.settings.position_distribution)
+        self.scale_sampler: BaseDistribution = distribution_factory.create(self.settings.scale_distribution)
+        self.id_sampler: Integer = distribution_factory.create(id_sampler_cfg)
+
+        if self.position_sampler.seed is None:
+            self.position_sampler.set_seed(self.settings.seed + 2)
+        if self.scale_sampler.seed is None:
+            self.scale_sampler.set_seed(self.settings.seed + 3)
 
     def run(self, region: BoundingBox, map_coordinates: Tuple[float, float]) -> RockBlockData:
         """
@@ -445,18 +494,19 @@ class DynamicDistribute:
 
 
 @dataclasses.dataclass
-class RockSamplerCfg:
+class RockSamplerConf:
     """
     Args:
         block_size (int): size of the blocks.
-        rock_dist_cfg (RockDynamicDistributionCfg): configuration for the rock distribution
+        rock_dist_cfg (RockDynamicDistributionConf): configuration for the rock distribution
     """
 
-    block_size: int = 50
-    rock_dist_cfg: RockDynamicDistributionCfg = dataclasses.field(default_factory=dict)
+    block_size: int = dataclasses.field(default_factory=int)
+    seed: int = None
+    rock_dist_cfg: RockDynamicDistributionConf = dataclasses.field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        self.rock_dist_cfg = RockDynamicDistributionCfg(**self.rock_dist_cfg)
+        self.rock_dist_cfg = RockDynamicDistributionConf(**self.rock_dist_cfg)
 
 
 class RockSampler:
@@ -467,22 +517,34 @@ class RockSampler:
 
     def __init__(
         self,
-        rock_sampler_cfg: RockSamplerCfg,
+        rock_sampler_cfg: RockSamplerConf,
         db: RockDB,
         map_sampling_func: callable = mock_call,
+        num_objects: int = 1,
         profiling: bool = False,
     ) -> None:
         """
         Args:
-            rock_sampler_cfg (RockSamplerCfg): configuration for the rock sampler.
+            rock_sampler_cfg (RockSamplerConf): configuration for the rock sampler.
             db (RockDB): database to store the rocks.
             map_sampling_func (function): function to sample the z and quaternion values.
+            num_objects (int): number of objects to sample.
+            profiling (bool): flag to enable profiling.
         """
 
         self.settings = rock_sampler_cfg
-        self.rock_dist_gen = DynamicDistribute(self.settings.rock_dist_cfg, sampling_func=map_sampling_func)
+        self.num_objects = num_objects
         self.rock_db = db
         self.profiling = profiling
+        self.build_samplers(map_sampling_func, num_objects)
+
+    def build_samplers(self, map_sampling_func: callable = mock_call, num_objects: int = 1) -> None:
+        self.rock_dist_gen = DynamicDistribute(
+            self.settings.rock_dist_cfg, sampling_func=map_sampling_func, num_objects=num_objects
+        )
+        if self.rock_dist_gen.settings.seed is None:
+            self.rock_dist_gen.settings.seed = self.settings.seed * 4
+        self.rock_dist_gen.build_samplers()
 
     @staticmethod
     def compute_largest_rectangle(matrix: np.ndarray) -> Tuple[int, int]:

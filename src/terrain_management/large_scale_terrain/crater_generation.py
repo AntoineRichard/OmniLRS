@@ -6,26 +6,20 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
-from matplotlib import pyplot as plt
 from scipy.ndimage import rotate
 from typing import Tuple, List
 import numpy as np
 import dataclasses
-import cv2
 
-from src.terrain_management.large_scale_terrain.crater_distribution import (
-    CraterSampler,
-    CraterSamplerCfg,
-)
 from src.terrain_management.large_scale_terrain.crater_database import (
     CraterDB,
-    CraterDBCfg,
+    CraterDBConf,
 )
 from src.terrain_management.large_scale_terrain.utils import CraterMetadata, BoundingBox
 
 
 @dataclasses.dataclass
-class CraterBuilderCfg:
+class CraterBuilderConf:
     """
     Args:
         block_size (int): size of the block in meters.
@@ -46,7 +40,13 @@ class CraterBuilder:
     It can be added to a DEM to create a more realistic terrain.
     """
 
-    def __init__(self, settings: CraterBuilderCfg, db: CraterDB):
+    def __init__(self, settings: CraterBuilderConf, db: CraterDB) -> None:
+        """
+        Args:
+            settings (CraterBuilderConf): configuration for the crater builder.
+            db (CraterDB): database containing the craters data.
+        """
+
         self.settings = settings
         self.db = db
 
@@ -75,7 +75,7 @@ class CraterBuilder:
         x = x.reshape(shape)
         return x
 
-    def centeredDistanceMatrix(self, crater_metadata: CraterMetadata) -> np.ndarray:
+    def centered_distance_matrix(self, crater_metadata: CraterMetadata) -> np.ndarray:
         """
         Generates a distance matrix centered at the center of the matrix.
 
@@ -127,7 +127,7 @@ class CraterBuilder:
         m[m > size / 2] = size / 2
         return m, size
 
-    def applyProfile(self, distance: np.ndarray, crater_metadata: CraterMetadata, size: float) -> np.ndarray:
+    def apply_profile(self, distance: np.ndarray, crater_metadata: CraterMetadata, size: float) -> np.ndarray:
         """
         Applies a profile to the distance matrix.
 
@@ -144,7 +144,7 @@ class CraterBuilder:
         crater = profile_spline(2 * distance / size)
         return crater
 
-    def generateCrater(self, crater_metadata: CraterMetadata) -> np.ndarray:
+    def generate_crater(self, crater_metadata: CraterMetadata) -> np.ndarray:
         """
         Generates a crater DEM.
 
@@ -155,10 +155,10 @@ class CraterBuilder:
             tuple: crater DEM, an image containing all the craters from the metadata.
         """
 
-        distance, size = self.centeredDistanceMatrix(crater_metadata)
+        distance, size = self.centered_distance_matrix(crater_metadata)
 
         crater = (
-            self.applyProfile(distance, crater_metadata, size)
+            self.apply_profile(distance, crater_metadata, size)
             * size
             / 2.0
             * self.settings.z_scale
@@ -166,7 +166,7 @@ class CraterBuilder:
         )
         return crater
 
-    def checkIfCraterIsInBlock(
+    def check_if_crater_is_in_block(
         self, crater_metadata: CraterMetadata, coords_np: np.ndarray, pad_size: int, dem_size: int
     ) -> bool:
         is_in_block = True
@@ -183,7 +183,7 @@ class CraterBuilder:
             is_in_block = False
         return is_in_block, coord_padded
 
-    def generateCraters(
+    def generate_craters(
         self,
         craters_data: List[CraterMetadata],
         coords: Tuple[int, int],
@@ -206,11 +206,11 @@ class CraterBuilder:
         coords_np = np.array(coords)
         # Adds the craters to the DEM
         for crater_data in craters_data:
-            is_in_block, coord_padded = self.checkIfCraterIsInBlock(crater_data, coords_np, pad_size, dem_size)
+            is_in_block, coord_padded = self.check_if_crater_is_in_block(crater_data, coords_np, pad_size, dem_size)
             if not is_in_block:
                 continue
 
-            c = self.generateCrater(crater_data)
+            c = self.generate_crater(crater_data)
             size = c.shape[0]
             coord_offset = (coord_padded - size / 2).astype(np.int64)
             DEM_padded[
@@ -223,13 +223,19 @@ class CraterBuilder:
 
 if __name__ == "__main__":
 
+    from matplotlib import pyplot as plt
+    from src.terrain_management.large_scale_terrain.crater_distribution import (
+        CraterSampler,
+        CraterSamplerConf,
+    )
+
     CDB_CFG_D = {
         "block_size": 50,
         "max_blocks": int(1e7),
         "save_to_disk": False,
         "write_to_disk_interval": 1000,
     }
-    CDB_CFG = CraterDBCfg(**CDB_CFG_D)
+    CDB_CFG = CraterDBConf(**CDB_CFG_D)
     CDB = CraterDB(CDB_CFG)
 
     CDDC_CFG_D = {
@@ -252,14 +258,14 @@ if __name__ == "__main__":
         "crater_dist_cfg": CDDC_CFG_D,
     }
 
-    CS_CFG = CraterSamplerCfg(**CS_CFG_D)
+    CS_CFG = CraterSamplerConf(**CS_CFG_D)
     CS = CraterSampler(crater_sampler_cfg=CS_CFG, db=CDB)
     CB_CFG_D = {
         "resolution": 0.05,
         "block_size": 50,
         "z_scale": 10,
     }
-    CB_CFG = CraterBuilderCfg(**CB_CFG_D)
+    CB_CFG = CraterBuilderConf(**CB_CFG_D)
     CB = CraterBuilder(settings=CB_CFG, db=CDB)
 
     out = CS.sample_craters_by_block((0, 0))
@@ -284,10 +290,10 @@ if __name__ == "__main__":
     CS.display_region(BoundingBox(0, 200, 0, 200))
 
     out = CDB.get_block_data((50, 50))
-    crater = CB.generateCrater(out[0])
+    crater = CB.generate_crater(out[0])
     plt.figure()
     plt.imshow(crater, cmap="terrain")
-    craters = CB.generateCraters(out, (50, 50))
+    craters = CB.generate_craters(out, (50, 50))
     plt.figure()
     plt.imshow(craters[0], cmap="terrain")
 
