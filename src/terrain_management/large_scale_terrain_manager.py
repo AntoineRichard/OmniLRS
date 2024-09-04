@@ -6,17 +6,21 @@ import copy
 
 from src.configurations.large_scale_terrain_confs import LargeScaleTerrainConf
 
-from src.terrain_management.large_scale_terrain.map_manager import (
-    MapManagerConf,
-    MapManager,
+from src.terrain_management.large_scale_terrain.nested_geometry_clipmaps_manager import (
+    NestedGeometryClipmapManagerConf,
+    NestedGeometryClipmapManager,
+)
+from src.terrain_management.large_scale_terrain.collider_manager import (
+    ColliderManagerConf,
+    ColliderManager,
 )
 from src.terrain_management.large_scale_terrain.rock_manager import (
     RockManagerConf,
     RockManager,
 )
-from src.terrain_management.large_scale_terrain.nested_geometry_clipmaps_manager import (
-    NestedGeometryClipmapManagerConf,
-    NestedGeometryClipmapManager,
+from src.terrain_management.large_scale_terrain.map_manager import (
+    MapManagerConf,
+    MapManager,
 )
 
 
@@ -37,16 +41,28 @@ class LargeScaleTerrainManager:
         self.nested_geometric_clipmap_manager_cfg = NestedGeometryClipmapManagerConf(**self.settings.NGCMMConf_D)
         self.mapmanager_cfg = MapManagerConf(**self.settings.MMConf_D)
         self.rock_manager_cfg = RockManagerConf(**self.settings.RMConf_D)
+        self.collider_manager_cfg = ColliderManagerConf(**self.settings.CMConf_D)
 
     def build_managers(self):
         self.build_map_manager()
         self.build_geometry_clipmap_manager()
+        self.build_collider_manager()
         self.build_rock_manager()
 
     def build_map_manager(self):
         self.map_manager = MapManager(self.mapmanager_cfg)
         self.map_manager.load_lr_dem_by_name(self.settings.lr_dem_name)
-        self.map_manager.initialize_hr_dem(self.initial_coordinates)
+        self.map_manager.initialize_hr_dem(self.settings.starting_position)
+
+    def build_collider_manager(self):
+        self.collider_manager = ColliderManager(
+            self.collider_manager_cfg,
+            self.map_manager.get_hr_dem(),
+            self.map_manager.get_hr_dem_shape(),
+            (250, 250),
+            self.map_manager.get_hr_dem_res(),
+        )
+        self.collider_manager.build()
 
     def build_geometry_clipmap_manager(self):
         self.nested_clipmap_manager = NestedGeometryClipmapManager(self.nested_geometric_clipmap_manager_cfg)
@@ -57,6 +73,8 @@ class LargeScaleTerrainManager:
             self.map_manager.get_lr_dem_shape(),
             self.map_manager.get_hr_dem_res(),
             self.map_manager.get_lr_dem_res(),
+            (250, 250),
+            (250, 250),
         )
 
     def build_rock_manager(self):
@@ -66,16 +84,6 @@ class LargeScaleTerrainManager:
             is_map_done,
         )
         self.rock_manager.build()
-
-    def cast_coordinates(self):
-        """
-        Cast the coordinates to the desired format.
-
-        The coordinates are cast to meters with 0 at the center of the map.
-        """
-
-        # Cast coordinates to meters with 0 at the center of the map
-        self.initial_coordinates = self.settings.starting_position
 
     def get_height_local(self, coordinates: Tuple[float, float]) -> float:
         """
@@ -89,8 +97,8 @@ class LargeScaleTerrainManager:
         """
 
         global_coordinates = (
-            coordinates[0] + self.initial_coordinates[0],
-            coordinates[1] + self.initial_coordinates[1],
+            coordinates[0] + self.settings.starting_position[0],
+            coordinates[1] + self.settings.starting_position[1],
         )
         return self.map_manager.get_height(global_coordinates)
 
@@ -119,8 +127,8 @@ class LargeScaleTerrainManager:
         """
 
         global_coordinates = (
-            coordinates[0] + self.initial_coordinates[0],
-            coordinates[1] + self.initial_coordinates[1],
+            coordinates[0] + self.settings.starting_position[0],
+            coordinates[1] + self.settings.starting_position[1],
         )
         return self.map_manager.get_normal(global_coordinates)
 
@@ -138,7 +146,6 @@ class LargeScaleTerrainManager:
         return self.map_manager.get_normal(coordinates)
 
     def build(self):
-        self.cast_coordinates()
         self.build_configs()
         self.build_managers()
         self.mesh_position = (0, 0)
@@ -168,16 +175,20 @@ class LargeScaleTerrainManager:
 
             # Get the global coordinates. The mesh initial position is in (0,0).
             # Thus, we need to add the initial coordinates to the local coordinates.
+            global_corrected_coordinates = (
+                corrected_coordinates[0] + self.settings.starting_position[0],
+                corrected_coordinates[1] + self.settings.starting_position[1],
+            )
             global_coordinates = (
-                corrected_coordinates[0] + self.initial_coordinates[0],
-                corrected_coordinates[1] + self.initial_coordinates[1],
+                local_coordinates[0] + self.settings.starting_position[0],
+                local_coordinates[1] + self.settings.starting_position[1],
             )
             # print("initial_coordinates", self.initial_coordinates)
             # print("global_coordinates", global_coordinates)
 
             # Update the high resolution DEM
             # hr_dem_updated = self.map_manager.update_hr_dem(global_coordinates)
-            self.map_manager.hr_dem_gen.update_terrain_data_blocking(global_coordinates)
+            self.map_manager.hr_dem_gen.update_terrain_data_blocking(global_corrected_coordinates)
             # if the DEM was updated, the high DEM inside the warp buffer of the nested clipmap manager
             # needs to be updated as well.
 
@@ -186,10 +197,9 @@ class LargeScaleTerrainManager:
             #    self.mesh_position[1] + delta[1],
             # )
             print("terrain updated")
-            fine_position = self.map_manager.get_hr_coordinates(global_coordinates)
-            coarse_position = self.map_manager.get_lr_coordinates(global_coordinates)
+            fine_position = self.map_manager.get_hr_coordinates(global_corrected_coordinates)
+            coarse_position = self.map_manager.get_lr_coordinates(global_corrected_coordinates)
             print("coordinates aquired")
-            # print("fine_position", fine_position)
             # print("coarse_position", coarse_position)
             # print("min value lr dem", self.map_manager.get_lr_dem().min())
             # print("max value lr dem", self.map_manager.get_lr_dem().max())
@@ -198,8 +208,10 @@ class LargeScaleTerrainManager:
 
             self.nested_clipmap_manager.update_clipmaps(fine_position, coarse_position, corrected_coordinates)
             print("clipmaps updated")
-            self.rock_manager.sample(corrected_coordinates)
+            self.rock_manager.sample(local_coordinates)
             print("rock manager sampled")
+            self.collider_manager.update_shifting_map(local_coordinates)
+            print("collider manager updated")
             update = True
         else:
             corrected_coordinates = (0, 0)
