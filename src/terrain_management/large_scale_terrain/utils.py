@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -36,12 +34,7 @@ class RockBlockData:
     ids: np.ndarray = dataclasses.field(default_factory=np.ndarray)
 
     def __sizeof__(self) -> int:
-        return (
-            self.coordinates.nbytes
-            + self.quaternion.nbytes
-            + self.scale.nbytes
-            + self.ids.nbytes
-        )
+        return self.coordinates.nbytes + self.quaternion.nbytes + self.scale.nbytes + self.ids.nbytes
 
     def compress(self):
         coordinates = zfpy.compress_numpy(self.coordinates, tolerance=1e-3)
@@ -106,10 +99,14 @@ class CraterMetadata:
 class ScopedTimer:
     _thread_local_data = threading.local()
 
-    def __init__(self, name, active=True, argb_color=None):
+    def __init__(self, name, active=True, argb_color=None, unit="s"):
         self.name = name
         self.active = active
         self.argb_color = argb_color
+        assert unit in ["s", "ms", "us"]
+        self.unit_multiplier = {"s": 1, "ms": 1e3, "us": 1e6}[unit]
+        self.unit = unit
+
         if argb_color:
             self.rgb_color = self.argb_to_rgb(argb_color)
             self.ansi_color = self.rgb_to_ansi(self.rgb_color)
@@ -139,12 +136,10 @@ class ScopedTimer:
     def __exit__(self, exc_type, exc_value, traceback):
         if self.active:
             self.end_time = time.time()
-            elapsed_time = self.end_time - self.start_time
+            elapsed_time = (self.end_time - self.start_time) * self.unit_multiplier
             reset_color = "\033[0m"
-            indentation = (
-                " " * (self._thread_local_data.nesting_level - 1) * self.indent
-            )
-            message = f"{self.ansi_color}{indentation}{self.name} took: {elapsed_time:.4f} seconds{reset_color}"
+            indentation = " " * (self._thread_local_data.nesting_level - 1) * self.indent
+            message = f"{self.ansi_color}{indentation}{self.name} took: {elapsed_time:.4f} {self.unit}{reset_color}"
 
             # Insert the message at the beginning of the list to ensure the outermost message is printed first
             self._thread_local_data.messages.insert(0, message)
