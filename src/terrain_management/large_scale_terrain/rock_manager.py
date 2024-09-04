@@ -136,7 +136,6 @@ class Instancer:
         self.instancer.GetOrientationsAttr().Set(orientations)
         self.instancer.GetScalesAttr().Set(scales)
         self.instancer.GetProtoIndicesAttr().Set(ids)
-        print(ids)
 
         try:
             self.update_extent()
