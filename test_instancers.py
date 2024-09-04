@@ -5,7 +5,6 @@ import os
 
 from omni.isaac.kit import SimulationApp
 
-
 cfg = {
     "headless": False,
 }
@@ -24,7 +23,7 @@ RSCfg_1_D = {
             "name": "thomas_point_process",
             "parent_density": 0.04,
             "child_density": 100,
-            "sigma": 3,
+            "sigma": 3.0,
             "seed": 42,
         },
         "scale_distribution": {
@@ -34,7 +33,6 @@ RSCfg_1_D = {
             "seed": 42,
         },
         "seed": 42,
-        "num_rock_id": 50,
     },
 }
 RSCfg_2_D = {
@@ -44,7 +42,7 @@ RSCfg_2_D = {
             "name": "thomas_point_process",
             "parent_density": 0.01,
             "child_density": 25,
-            "sigma": 3,
+            "sigma": 3.0,
             "seed": 42,
         },
         "scale_distribution": {
@@ -54,33 +52,35 @@ RSCfg_2_D = {
             "seed": 42,
         },
         "seed": 43,
-        "num_rock_id": 50,
     },
 }
 RGCfg_1_D = {
-    "rock_db_cfg": RDBCfg_D,
     "rock_sampler_cfg": RSCfg_1_D,
-    "rock_assets_folder": "assets/USD_Assets/rocks/small",
+    "rock_assets_folder": "assets/USD_Assets/rocks/small_rocks_v2",
     "instancer_name": "very_small_rock_instancer",
-    "seed": 42,
-    "block_span": 0,
-    "block_size": 50,
-}
-RGCfg_2_D = {
-    "rock_db_cfg": RDBCfg_D,
-    "rock_sampler_cfg": RSCfg_2_D,
-    "rock_assets_folder": "assets/USD_Assets/rocks/small",
-    "instancer_name": "large_rock_instancer",
     "seed": 42,
     "block_span": 1,
     "block_size": 50,
+}
+RGCfg_2_D = {
+    "rock_sampler_cfg": RSCfg_2_D,
+    "rock_assets_folder": "assets/USD_Assets/rocks/small_rocks_v2",
+    "instancer_name": "large_rock_instancer",
+    "seed": 42,
+    "block_span": 2,
+    "block_size": 50,
+    "semantic_label": "rock",
+    "collider_mode": "meshSimplification",
+    "add_colliders": True,
 }
 RMCfg_D = {
     "rock_gen_cfgs": [RGCfg_1_D, RGCfg_2_D],
     "instancers_path": "/World/rock_instancers",
     "seed": 42,
+    "block_size": 50,
+    "rock_dbs_cfg": RDBCfg_D,
+    "profiling": True,
 }
-
 
 if __name__ == "__main__":
     from omni.isaac.core import World
@@ -91,10 +91,11 @@ if __name__ == "__main__":
     import numpy as np
 
     from src.terrain_management.large_scale_terrain.rock_manager import (
-        RockManagerCfg,
+        RockManagerConf,
         RockManager,
     )
     from src.terrain_management.large_scale_terrain.rock_distribution import mock_call
+    from src.terrain_management.large_scale_terrain.utils import ScopedTimer
 
     def is_map_done():
         return True
@@ -103,9 +104,7 @@ if __name__ == "__main__":
         mtl_prim = stage.GetPrimAtPath(mtl_prim_path)
         prim = stage.GetPrimAtPath(prim_path)
         shade = UsdShade.Material(mtl_prim)
-        UsdShade.MaterialBindingAPI(prim).Bind(
-            shade, UsdShade.Tokens.strongerThanDescendants
-        )
+        UsdShade.MaterialBindingAPI(prim).Bind(shade, UsdShade.Tokens.strongerThanDescendants)
 
     world = World(stage_units_in_meters=1.0)
     stage = get_context().get_stage()
@@ -116,6 +115,11 @@ if __name__ == "__main__":
     light.CreateIntensityAttr(3000.0)
     addDefaultOps(light.GetPrim())
     setDefaultOps(light.GetPrim(), (0, 0, 0), (0.65, 0, 0, 0.76), (1, 1, 1))
+
+    # Add sphere
+    sphere = UsdGeom.Sphere.Define(stage, "/World/sphere")
+    addDefaultOps(sphere.GetPrim())
+    setDefaultOps(sphere.GetPrim(), (0, 0, 0), (0, 0, 0, 1), (1, 1, 1))
 
     C = 0
     R = 500 * 5
@@ -134,7 +138,7 @@ if __name__ == "__main__":
 
     initial_position = (x, y)
 
-    rm_settings = RockManagerCfg(**RMCfg_D)
+    rm_settings = RockManagerConf(**RMCfg_D)
     RM = RockManager(rm_settings, mock_call, is_map_done)
     RM.build()
     RM.sample((0, 0))
@@ -148,27 +152,19 @@ if __name__ == "__main__":
     target += 10
     Q_camera4 = None
     while True:
-        # x_new = C + i2 * R * math.cos(theta[i])
-        # y_new = C + i2 * R * math.sin(theta[i])
-        # x_delta = x_new - x
-        # y_delta = y_new - y
-        # coords = (x_delta, y_delta)
-        # Q_camera2 = quat_mul(heading_to_quat(theta[i]), Q_camera)
-        # Q_terrain = LSTM.get_normal_local(coords)
-        # Q_camera3 = quat_mul(Q_terrain, Q_camera2)
-        # if Q_camera4 is None:
-        #    Q_camera4 = copy.copy(Q_camera3)
-        # else:
-        #    Q_camera4 = EMAquat(Q_camera4, Q_camera3, 0.0333)
-        # LSTM.update_visual_mesh(coords)
-        # setDefaultOps(
-        #    camera.GetPrim(),
-        #    (x_delta, y_delta, LSTM.get_height_local(coords) + 0.5),
-        #    Q_camera4,
-        #    (1, 1, 1),
-        # )
-        world.step(render=True)
-        # i = (i + 1) % rotation_rate
+        x_new = C + i2 * R * math.cos(theta[i])
+        y_new = C + i2 * R * math.sin(theta[i])
+        x_delta = x_new - x
+        y_delta = y_new - y
+        coords = (x_delta, y_delta)
+
+        # Move sphere
+        setDefaultOps(sphere.GetPrim(), (x_delta, y_delta, 0), (0, 0, 0, 1), (1, 1, 1))
+
+        RM.sample(coords)
+        with ScopedTimer("env_step", active=True):
+            world.step(render=True)
+        i = (i + 1) % rotation_rate
         # if i % acquisition_rate == 0:
         #    try:
         #        AL.record()
