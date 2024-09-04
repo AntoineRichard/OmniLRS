@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -19,6 +17,7 @@ from src.environments_wrappers.ros2.robot_manager_ros2 import ROS_RobotManager
 from src.environments_wrappers.ros2.lunalab_ros2 import ROS_LunalabManager
 from src.environments_wrappers.ros2.lunaryard_ros2 import ROS_LunaryardManager
 from rclpy.executors import SingleThreadedExecutor as Executor
+
 
 class Rate:
     """
@@ -60,7 +59,6 @@ class Rate:
                 time.sleep(to_sleep)
                 # Update last check after sleep
                 self.last_check = time.time()
-        
 
 
 class ROS2_LabManagerFactory:
@@ -127,11 +125,15 @@ class ROS2_SimulationManager:
         Args:
             cfg (dict): Configuration dictionary.
             simulation_app (SimulationApp): SimulationApp instance."""
-        self.cfg  = cfg
+        self.cfg = cfg
         self.simulation_app = simulation_app
         # Setups the physics and acquires the different interfaces to talk with Isaac
         self.timeline = omni.timeline.get_timeline_interface()
-        self.world = World(stage_units_in_meters=1.0, physics_dt=cfg["environment"]["physics_dt"], rendering_dt=cfg["environment"]["rendering_dt"])
+        self.world = World(
+            stage_units_in_meters=1.0,
+            physics_dt=cfg["environment"]["physics_dt"],
+            rendering_dt=cfg["environment"]["rendering_dt"],
+        )
         self.physics_ctx = self.world.get_physics_context()
         self.physics_ctx.set_solver_type("PGS")
         if cfg["environment"]["enforce_realtime"]:
@@ -157,14 +159,20 @@ class ROS2_SimulationManager:
         # 24 topics. More than that and you won't reveive any messages.
         # Keep it in mind if you want to go crazy with the ROS2 calls to modify the sim...
         self.world.reset()
-        
+        for i in range(100):
+            self.world.step(render=True)
+
         self.terrain_manager_conf = cfg["environment"]["terrain_manager"]
         self.render_deform_inv = self.terrain_manager_conf.moon_yard.deformation_engine.render_deform_inv
         self.enable_deformation = self.terrain_manager_conf.moon_yard.deformation_engine.enable
-        
+
         # Preload the assets
         self.ROSRobotManager.RM.preloadRobot(self.world)
         self.ROSLabManager.LC.addRobotManager(self.ROSRobotManager.RM)
+
+        for i in range(100):
+            self.world.step(render=True)
+        self.world.reset()
 
     def run_simulation(self) -> None:
         """
