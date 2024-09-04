@@ -79,16 +79,18 @@ class GeoClipmapManager:
         self.create_Xforms()
         self.update_topology = True
 
-    def build(self, dem: np.ndarray, dem_shape: Tuple[int, int]) -> None:
+    def build(self, dem: np.ndarray, dem_shape: Tuple[int, int], dem_center: Tuple[float, float] = None) -> None:
         """
         Builds the clipmap with the given dem.
 
         Args:
             dem (np.ndarray): dem to use for the clipmap.
             dem_shape (Tuple[int, int]): shape of the dem.
+            dem_center (Tuple[float, float]): center of the dem in meters. Note that this is not necessarily the center
+                of the true center but rather where the [0,0], or the top left of the center block is.
         """
 
-        self._geo_clipmap.build(dem, dem_shape)
+        self._geo_clipmap.build(dem, dem_shape, dem_center=dem_center)
 
     def update_DEM_buffer(self) -> None:
         """

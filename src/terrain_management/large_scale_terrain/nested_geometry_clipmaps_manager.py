@@ -151,6 +151,8 @@ class NestedGeometryClipmapManager:
         lr_dem_shape: Tuple[float, float],
         hr_dem_res: float,
         lr_dem_res: float,
+        hr_dem_center: Tuple[float, float],
+        lr_dem_center: Tuple[float, float],
     ) -> None:
         """
         Build the nested geometry clipmap manager.
@@ -162,6 +164,10 @@ class NestedGeometryClipmapManager:
             lr_dem_shape (tuple): The shape of the low resolution DEM. (pixels)
             hr_dem_res (float): The resolution of the high resolution DEM. (meters per pixel)
             lr_dem_res (float): The resolution of the low resolution DEM. (meters per pixel)
+            hr_dem_center (tuple): The center of the high resolution DEM. (meters) Note that this is not necessarily the
+                true center of the map.
+            lr_dem_center (tuple): The center of the low resolution DEM. (meters) Note that this is not necessarily the
+                true center of the map.
         """
 
         self.generate_geometry_clip_maps_configs(hr_dem_shape, lr_dem_shape, hr_dem_res, lr_dem_res)
@@ -182,8 +188,8 @@ class NestedGeometryClipmapManager:
             profiling=self.settings.profiling,
             stage=self.stage,
         )
-        self.fine_clipmap_manager.build(hr_dem, hr_dem_shape)
-        self.coarse_clipmap_manager.build(lr_dem, lr_dem_shape)
+        self.fine_clipmap_manager.build(hr_dem, hr_dem_shape, dem_center=hr_dem_center)
+        self.coarse_clipmap_manager.build(lr_dem, lr_dem_shape, dem_center=lr_dem_center)
         self.load_and_apply_material()
         self.add_semantic_label()
 

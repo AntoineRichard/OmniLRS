@@ -213,6 +213,12 @@ class HighResDEMGen:
 
         The coordinates are still expressed in meters, but they can only be an increment of
         the block size (in meters).
+
+        Args:
+            coordinates (Tuple[float, float]): Coordinates in meters.
+
+        Returns:
+            Tuple[int, int]: Coordinates in the block space.
         """
 
         x, y = coordinates

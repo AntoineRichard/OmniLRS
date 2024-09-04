@@ -97,15 +97,15 @@ class GeoClipmap:
         self.profiling = profiling
         self.initMesh()
 
-    def build(self, dem: np.ndarray, dem_shape: Tuple[int, int], dem_center: Tuple[float, float] = (250, 250)) -> None:
+    def build(self, dem: np.ndarray, dem_shape: Tuple[int, int], dem_center: Tuple[float, float] = None) -> None:
         """
         Build the DEM sampler used to update the geometry clipmap.
 
         Args:
             dem (np.ndarray): DEM data.
             dem_shape (Tuple[int, int]): shape of the DEM.
-            dem_center (Tuple[float, float]): center coordinates of the DEM (in meters). Note that it is not necessarily the
-                true center of DEM but rather where the [0,0], or the top left of the center block is.
+            dem_center (Tuple[float, float]): center coordinates of the DEM (in meters). Note that it is not necessarily
+                the true center of DEM but rather where the [0,0], or the top left of the center block is.
         """
 
         self.DEM_sampler = DEMSampler(
