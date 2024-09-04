@@ -22,18 +22,18 @@ def EMAquat(q1, q2, alpha):
     return x / s, y / s, z / s, w / s
 
 
-# cfg = {
-#    "renderer": "PathTracing",
-#    "headless": True,
-#    "samples_per_pixel_per_frame": 32,
-#    "max_bounces": 6,
-#    "max_specular_transmission_bounces": 6,
-#    "max_volume_bounces": 4,
-#    "subdiv_refinement_level": 0,
-# }
 cfg = {
-    "headless": False,
+    "renderer": "PathTracing",
+    "headless": True,
+    "samples_per_pixel_per_frame": 32,
+    "max_bounces": 6,
+    "max_specular_transmission_bounces": 6,
+    "max_volume_bounces": 4,
+    "subdiv_refinement_level": 0,
 }
+# cfg = {
+#    "headless": False,
+# }
 simulation_app = SimulationApp(cfg)
 
 
@@ -77,22 +77,25 @@ RSCfg_2_D = {
 }
 RGCfg_1_D = {
     "rock_sampler_cfg": RSCfg_1_D,
-    "rock_assets_folder": "assets/USD_Assets/rocks/small",
+    "rock_assets_folder": "assets/USD_Assets/rocks/small_rocks_v4",
     "instancer_name": "very_small_rock_instancer",
     "seed": 46,
     "block_span": 1,
     "add_colliders": False,
-    "collider_mode": "none",
+    "texture_name": "seaside_rock_2k",
+    "texture_path": "assets/Textures/seaside_rock_2k.mdl",
 }
 RGCfg_2_D = {
     "rock_sampler_cfg": RSCfg_2_D,
-    "rock_assets_folder": "assets/USD_Assets/rocks/small",
+    "rock_assets_folder": "assets/USD_Assets/rocks/small_rocks_v4",
     "instancer_name": "small_rock_instancer",
     "seed": 47,
     "block_span": 2,
     "add_colliders": False,
     "collider_mode": "none",
     "semantic_label": "small_rock",
+    "texture_name": "seaside_rock_2k",
+    "texture_path": "assets/Textures/seaside_rock_2k.mdl",
 }
 LSTCfg_D = {
     "seed": 42,
@@ -138,6 +141,10 @@ LSTCfg_D = {
     "geo_cm_texture_name": "LunarRegolith8k",
     "geo_cm_texture_path": "assets/Textures/LunarRegolith8k.mdl",
     "geo_cm_apply_smooth_shading": False,
+    "terrain_collider_enabled": True,
+    "terrain_collider_resolution": 0.05,
+    "terrain_collider_cache_size": 10,
+    "terrain_collider_building_threshold": 4.0,
     "rock_gen_cfgs": [
         RGCfg_1_D,
         RGCfg_2_D,
@@ -151,6 +158,7 @@ if __name__ == "__main__":
     from pxr import UsdLux, UsdGeom, Gf, UsdShade, Vt, Sdf, Usd
 
     from src.terrain_management.large_scale_terrain.pxr_utils import set_xform_ops
+    from src.terrain_management.large_scale_terrain.utils import ScopedTimer
     from src.configurations.large_scale_terrain_confs import LargeScaleTerrainConf
     from src.terrain_management.large_scale_terrain_manager import (
         LargeScaleTerrainManager,
@@ -280,7 +288,7 @@ if __name__ == "__main__":
 
     C = 0
     R = 800
-    render_substeps = 4
+    render_substeps = 2
     max_displacement = 2.0 / 30
     acquisition_rate = 15
     perimeter = 2 * np.pi * R
@@ -330,9 +338,8 @@ if __name__ == "__main__":
     target = R * 2 * math.pi / max_displacement / acquisition_rate
     target += 10
     Q_camera = None
-    update_done = False
 
-    for i in range(100):
+    for _ in range(100):
         world.step(render=True)
 
     print("Starting simulation")
@@ -364,13 +371,14 @@ if __name__ == "__main__":
             Gf.Vec3d(1, 1, 1),
         )
 
-        update, coords = LSTM.update_visual_mesh(coords)
-
-        for _ in range(render_substeps):
-            world.step(render=True)
+        with ScopedTimer("update_visual_mesh", active=False):
+            update, coords = LSTM.update_visual_mesh(coords)
 
         i = (i + 1) % rotation_rate
         if i % acquisition_rate == 0:
+            for _ in range(render_substeps):
+                with ScopedTimer("env_step", active=False):
+                    world.step(render=True)
             try:
                 AL.record()
                 i3 += 1
