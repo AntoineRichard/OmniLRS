@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -34,9 +32,7 @@ class CraterGeneratorConf:
         assert type(self.z_scale) is float, "z_scale must be a float"
         assert type(self.seed) is int, "seed must be an integer"
 
-        assert (
-            self.min_xy_ratio <= self.max_xy_ratio
-        ), "min_xy_ratio must be smaller than max_xy_ratio"
+        assert self.min_xy_ratio <= self.max_xy_ratio, "min_xy_ratio must be smaller than max_xy_ratio"
         assert self.min_xy_ratio > 0, "min_xy_ratio must be greater than 0"
         assert self.max_xy_ratio > 0, "max_xy_ratio must be greater than 0"
         assert self.min_xy_ratio <= 1, "min_xy_ratio must be smaller than 1"
@@ -63,9 +59,7 @@ class CraterDistributionConf:
 
         assert self.x_size > 0, "x_size must be greater than 0"
         assert self.y_size > 0, "y_size must be greater than 0"
-        assert len(self.densities) == len(
-            self.radius
-        ), "densities and radius must have the same length"
+        assert len(self.densities) == len(self.radius), "densities and radius must have the same length"
         assert self.num_repeat >= 0, "num_repeat must be greater or equal to 0"
 
 
@@ -91,21 +85,21 @@ class BaseTerrainGeneratorConf:
         assert self.x_size > 0, "x_size must be greater than 0"
         assert self.y_size > 0, "y_size must be greater than 0"
         assert self.resolution > 0, "resolution must be greater than 0"
-        assert (
-            self.max_elevation > self.min_elevation
-        ), "max_elevation must be greater than min_elevation"
+        assert self.max_elevation > self.min_elevation, "max_elevation must be greater than min_elevation"
         assert self.z_scale > 0, "z_scale must be greater than 0"
+
 
 @dataclasses.dataclass
 class FootprintConf:
     """
-    Footprint dimension parameters. 
+    Footprint dimension parameters.
     We use FLU (Front, Left, Up) coordinate system for the footprint.
     Args:
         width (float): Width of the footprint.
         height (float): Height of the footprint.
         shape (str): Shape of the footprint.
     """
+
     width: float = 0.5
     height: float = 0.25
     shape: str = "rectangle"
@@ -117,6 +111,7 @@ class FootprintConf:
         assert self.width > 0, "wheel_width must be greater than 0"
         assert self.height > 0, "wheel_radius must be greater than 0"
 
+
 @dataclasses.dataclass
 class DeformConstrainConf:
     """
@@ -126,6 +121,7 @@ class DeformConstrainConf:
         y_deform_offset (float): Y offset betweem deformation center and contact point.
         deform_decay_ratio (float): Decay ratio of the deformation.
     """
+
     x_deform_offset: float = 0.0
     y_deform_offset: float = 0.0
     deform_decay_ratio: float = 0.01
@@ -136,6 +132,7 @@ class DeformConstrainConf:
         assert type(self.deform_decay_ratio) is float, "deform_decay_ratio must be a float"
         assert self.deform_decay_ratio > 0, "deform_decay_ratio must be greater than 0"
 
+
 @dataclasses.dataclass
 class BoundaryDistributionConf:
     """
@@ -144,6 +141,7 @@ class BoundaryDistributionConf:
         distribution (str): Distribution of the boundary.
         angle_of_repose (float): Angle of repose of the boundary (only used for trapezoidal distribution)
     """
+
     distribution: str = "uniform"
     angle_of_repose: float = 1.047
 
@@ -151,6 +149,7 @@ class BoundaryDistributionConf:
         assert type(self.distribution) is str, "distribution must be a string"
         assert type(self.angle_of_repose) is float, "angle_of_repose must be a float"
         assert self.angle_of_repose > 0, "angle_of_repose must be greater than 0"
+
 
 @dataclasses.dataclass
 class DepthDistributionConf:
@@ -160,12 +159,14 @@ class DepthDistributionConf:
         distribution (str): Distribution of the force.
         wave_frequency (float): Frequency of the wave. Under no slip condition, this is num_grouser/pi
     """
+
     distribution: str = "uniform"
     wave_frequency: float = 1.0
 
     def __post_init__(self):
         assert type(self.distribution) is str, "distribution must be a string"
         assert self.wave_frequency > 0, "wave_frequency must be greater than 0"
+
 
 @dataclasses.dataclass
 class ForceDepthRegressionConf:
@@ -178,6 +179,7 @@ class ForceDepthRegressionConf:
         mean_slope (float): Slope of the mean.
         mean_intercept (float): Intercept of the mean.
     """
+
     amplitude_slope: float = 1.0
     amplitude_intercept: float = 0.0
     mean_slope: float = 1.0
@@ -188,6 +190,7 @@ class ForceDepthRegressionConf:
         assert type(self.amplitude_intercept) is float, "intercept must be a float"
         assert type(self.mean_slope) is float, "slope must be a float"
         assert type(self.mean_intercept) is float, "intercept must be a float"
+
 
 @dataclasses.dataclass
 class DeformationEngineConf:
@@ -206,6 +209,7 @@ class DeformationEngineConf:
         depth_distribution (dict): Deformation depth distribution parameters.
         force_depth_regression (dict): Force depth regression parameters.
     """
+
     enable: bool = False
     render_deform_inv: int = 10
     terrain_resolution: float = dataclasses.field(default_factory=float)
@@ -221,17 +225,18 @@ class DeformationEngineConf:
     def __post_init__(self):
         assert type(self.render_deform_inv) is int, "render_deform_inv must be an int"
         assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
-        
+
         assert self.render_deform_inv > 1, "render_deform_inv must be greater than 1"
         assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"
         assert self.terrain_width > 0, "terrain_width must be greater than 0"
         assert self.terrain_height > 0, "terrain_height must be greater than 0"
-        
+
         self.footprint = FootprintConf(**self.footprint)
         self.deform_constrain = DeformConstrainConf(**self.deform_constrain)
         self.boundary_distribution = BoundaryDistributionConf(**self.boundary_distribution)
         self.depth_distribution = DepthDistributionConf(**self.depth_distribution)
         self.force_depth_regression = ForceDepthRegressionConf(**self.force_depth_regression)
+
 
 @dataclasses.dataclass
 class MoonYardConf:
@@ -245,9 +250,7 @@ class MoonYardConf:
     def __post_init__(self):
         self.crater_generator = CraterGeneratorConf(**self.crater_generator)
         self.crater_distribution = CraterDistributionConf(**self.crater_distribution)
-        self.base_terrain_generator = BaseTerrainGeneratorConf(
-            **self.base_terrain_generator
-        )
+        self.base_terrain_generator = BaseTerrainGeneratorConf(**self.base_terrain_generator)
         self.deformation_engine = DeformationEngineConf(**self.deformation_engine)
 
         assert type(self.is_yard) is bool, "is_yard must be a boolean"
@@ -278,9 +281,7 @@ class TerrainManagerConf:
         assert type(self.resolution) is float, "resolution must be a float"
 
         assert len(self.mesh_position) == 3, "mesh_position must be a tuple of length 3"
-        assert (
-            len(self.mesh_orientation) == 4
-        ), "mesh_orientation must be a tuple of length 4"
+        assert len(self.mesh_orientation) == 4, "mesh_orientation must be a tuple of length 4"
         assert len(self.mesh_scale) == 3, "mesh_scale must be a tuple of length 3"
         assert self.sim_length > 0, "sim_length must be greater than 0"
         assert self.sim_width > 0, "sim_width must be greater than 0"

@@ -1,6 +1,15 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 import dataclasses
 import datetime
 import os
+
 
 @dataclasses.dataclass
 class Date:
@@ -22,6 +31,7 @@ class Date:
         assert 0 <= self.hour <= 23, "Hour must be between 0 and 23."
         assert 0 <= self.minute <= 59, "Minute must be between 0 and 59."
         assert 1970 <= self.year <= 2050, "Year must be between 1970 and 2050."
+
 
 @dataclasses.dataclass
 class StellarEngineConf:
@@ -62,4 +72,3 @@ class StellarEngineConf:
         assert os.path.exists(self.moon_pa), f"Moon PA file {self.moon_pa} does not exist."
         assert os.path.exists(self.moon_tf), f"Moon TF file {self.moon_tf} does not exist."
         assert os.path.exists(self.pck), f"PCK file {self.pck} does not exist."
-

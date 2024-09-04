@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -12,10 +10,12 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Dict
 
+
 @dataclass
 class Pose:
     position: List[float] = field(default_factory=list)
     orientation: List[float] = field(default_factory=list)
+
 
 @dataclass
 class RobotParameters:
@@ -24,10 +24,11 @@ class RobotParameters:
     pose: Pose = field(default_factory=dict)
     domain_id: int = field(default_factory=int)
     target_links: List[str] = field(default_factory=list)
-    
+
     def __post_init__(self):
         self.usd_path = os.path.join(os.getcwd(), self.usd_path)
         self.pose = Pose(**self.pose)
+
 
 @dataclass
 class RobotManagerConf:
@@ -36,7 +37,7 @@ class RobotManagerConf:
     max_robots: int = 5
     robots_root: str = "/Robots"
     parameters: List[RobotParameters] = field(default_factory=list)
-    
+
     def __post_init__(self):
         assert len(self.parameters) <= self.max_robots, "number of robots to register should not exeed max_robots"
         self.parameters = [RobotParameters(**param) for param in self.parameters]
