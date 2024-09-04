@@ -1,5 +1,15 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2024, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "GPL"
+__version__ = "1.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 import dataclasses
 import os
+
+from src.terrain_management.large_scale_terrain.pxr_utils import collider_modes
 
 
 @dataclasses.dataclass
@@ -55,6 +65,12 @@ class LargeScaleTerrainConf:
     geo_cm_semantic_label: str = "terrain"
     geo_cm_texture_name: str = "LunarRegolith8k"
     geo_cm_texture_path: str = "assets/Textures/LunarRegolith8k.mdl"
+
+    terrain_collider_enabled: bool = True
+    terrain_collider_resolution: float = 0.05
+    terrain_collider_mode: str = "meshSimplification"
+    terrain_collider_cache_size: int = 10
+    terrain_collider_building_threshold: int = 4
 
     rock_gen_cfgs: list = dataclasses.field(default_factory=list)
 
@@ -280,6 +296,40 @@ class LargeScaleTerrainConf:
             "texture_path": self.geo_cm_texture_path,
         }
 
+        assert type(self.terrain_collider_resolution) == float, "terrain_collider_resolution must be a float."
+        assert self.terrain_collider_resolution > 0, "terrain_collider_resolution must be a positive float."
+        assert type(self.terrain_collider_mode) == str, "terrain_collider_mode must be a string."
+        assert self.terrain_collider_mode in collider_modes, "terrain_collider_mode must be one of the collider modes."
+        assert type(self.terrain_collider_cache_size) == int, "terrain_collider_cache_size must be an integer."
+        assert self.terrain_collider_cache_size >= 4, "terrain_collider_cache_size must be greater or equal to 4."
+        assert (
+            type(self.terrain_collider_building_threshold) == float
+        ), "terrain_colliders_building_threshold must be a float."
+        assert (
+            self.terrain_collider_building_threshold > 0
+        ), "terrain_colliders_building_threshold must be a positive float."
+        assert (
+            self.terrain_collider_building_threshold < self.block_size
+        ), "terrain_colliders_building_threshold must be smaller than block_size."
+
+        CBConf_D = {
+            "resolution": self.terrain_collider_resolution,
+            "block_size": self.block_size,
+            "collider_path": "/World/terrain_colliders",
+            "collider_mode": self.terrain_collider_mode,
+            "profiling": self.profiling,
+        }
+
+        self.CMConf_D = {
+            "collider_resolution": self.terrain_collider_resolution,
+            "block_size": self.block_size,
+            "cache_size": self.terrain_collider_cache_size,
+            "build_colliders_n_meters_ahead": self.terrain_collider_building_threshold,
+            "collider_path": "/World/terrain_colliders",
+            "collider_builder_conf": CBConf_D,
+            "profiling": self.profiling,
+        }
+
         self.RDBConf_D = {
             "block_size": self.block_size,
             "max_blocks": self.dbs_max_elements,
@@ -303,10 +353,3 @@ class LargeScaleTerrainConf:
 
         assert type(self.starting_position) == tuple, "starting_position must be a tuple."
         assert len(self.starting_position) == 2, "starting_position must be a tuple of length 2."
-
-        self.LSTMCfg_D = {
-            "map_name": self.lr_dem_name,
-            "meters_coordinates": self.starting_position,
-            "visual_mesh_update_threshold": self.update_every_n_meters,
-            "profiling": self.profiling,
-        }
