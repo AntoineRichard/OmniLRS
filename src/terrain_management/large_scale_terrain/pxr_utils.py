@@ -8,10 +8,21 @@ __status__ = "development"
 
 import os
 
-from pxr import UsdGeom, Gf, Usd, Vt, UsdShade
+from pxr import UsdGeom, Gf, Usd, Vt, UsdShade, UsdPhysics
 
 from omni.physx.scripts import utils as physx_utils
 import omni
+
+collider_modes = [
+    "none",
+    "convexHull",
+    "convexDecomposition",
+    "meshSimplification",
+    "convexMeshSimplification",
+    "boundingSphere",
+    "boundingCube",
+    "sphereFill",
+]
 
 
 def set_xform_op(prim: Usd.Prim, value, property: UsdGeom.XformOp.Type) -> None:
@@ -147,17 +158,7 @@ def add_collider(
         mode = "none"
 
     # Checks that the mode selected by the user is correct.
-    accepted_modes = [
-        "none",
-        "convexHull",
-        "convexDecomposition",
-        "meshSimplification",
-        "convexMeshSimplification",
-        "boundingSphere",
-        "boundingCube",
-        "sphereFill",
-    ]
-    assert mode in accepted_modes, "Decimation mode: " + mode + " for colliders unknown."
+    assert mode in collider_modes, "Decimation mode: " + mode + " for colliders unknown."
     # Get the prim and add collisions.
     prim = stage.GetPrimAtPath(path)
     physx_utils.setCollider(prim, approximationShape=mode)
@@ -256,3 +257,8 @@ def load_material(material_name: str, material_path: str):
         mtl_path=os.path.join("/Looks", material_name),
     )
     return os.path.join("/Looks", material_name)
+
+
+def make_rigid(stage: Usd.Stage, path: str):
+    prim = stage.GetPrimAtPath(path)
+    rigid = UsdPhysics.RigidBodyAPI.Apply(prim)
