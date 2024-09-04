@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard, Junnosuke Kamohara"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -28,13 +26,15 @@ class TerrainManager:
     """
     TerrainManager is a class that manages the terrain in the simulation.
     It is responsible for generating the terrain, and updating the terrain.
-    It can also use pre-existing terrain data to update the terrain mesh."""
+    It can also use pre-existing terrain data to update the terrain mesh.
+    """
 
     def __init__(self, cfg: TerrainManagerConf, **kwargs) -> None:
         """
         Args:
             cfg (TerrainManagerConf): the configuration of the terrain manager.
-            **kwargs: additional arguments."""
+            **kwargs: additional arguments.
+        """
 
         self._dems_path = os.path.join(get_assets_path(), cfg.dems_path)
         self._G = GenerateProceduralMoonYard(cfg.moon_yard)
@@ -65,12 +65,8 @@ class TerrainManager:
         self._mesh_path = self._root_path + "/Terrain/terrain_mesh"
 
         pxr_utils.createXform(self._stage, self._root_path, add_default_op=True)
-        pxr_utils.createXform(
-            self._stage, self._root_path + "/Terrain", add_default_op=True
-        )
-        pxr_utils.createXform(
-            self._stage, self._root_path + "/Terrain/terrain_mesh", add_default_op=True
-        )
+        pxr_utils.createXform(self._stage, self._root_path + "/Terrain", add_default_op=True)
+        pxr_utils.createXform(self._stage, self._root_path + "/Terrain/terrain_mesh", add_default_op=True)
 
         self.buildGrid()
         self.fetchPreGeneratedDEMs()
@@ -93,14 +89,13 @@ class TerrainManager:
         Raises:
             AssertionError: if dems_path is not a directory.
             AssertionError: if dems_path contains files other than folders.
-            AssertionError: if a folder does not contain DEM.npy."""
+            AssertionError: if a folder does not contain DEM.npy.
+        """
 
         assert os.path.isdir(self._dems_path), "dems_path must be a directory."
 
         for folder in os.listdir(self._dems_path):
-            assert os.path.isdir(
-                os.path.join(self._dems_path, folder)
-            ), "dems_path must contain only folders."
+            assert os.path.isdir(os.path.join(self._dems_path, folder)), "dems_path must contain only folders."
             dem_path = os.path.join(self._dems_path, folder, "dem.npy")
             mask_path = os.path.join(self._dems_path, folder, "mask.npy")
             assert os.path.isfile(dem_path), "dem.npy not found in folder."
@@ -118,7 +113,8 @@ class TerrainManager:
 
         Raises:
             AssertionError: if the name is not found in the dictionary.
-            AssertionError: if the DEM.npy is not found in the folder."""
+            AssertionError: if the DEM.npy is not found in the folder.
+        """
 
         assert name in self._dems, "name not found in dictionary."
         dem_path = self._dems[name][0]
@@ -132,12 +128,8 @@ class TerrainManager:
 
         self._DEM = np.zeros((self._sim_length, self._sim_width), dtype=np.float32)
         self._mask = np.zeros((self._sim_length, self._sim_width), dtype=np.float32)
-        self._DEM[: DEM.shape[0], : DEM.shape[1]] = DEM[
-            : self._sim_length, : self._sim_width
-        ]
-        self._mask[: mask.shape[0], : mask.shape[1]] = mask[
-            : self._sim_length, : self._sim_width
-        ]
+        self._DEM[: DEM.shape[0], : DEM.shape[1]] = DEM[: self._sim_length, : self._sim_width]
+        self._mask[: mask.shape[0], : mask.shape[1]] = mask[: self._sim_length, : self._sim_width]
 
     @staticmethod
     def gridIndex(x: int, y: int, stride: int) -> int:
@@ -150,14 +142,16 @@ class TerrainManager:
             stride (int): width of the grid.
 
         Returns:
-            int: index of the grid point at (x, y)."""
+            int: index of the grid point at (x, y).
+        """
 
         return y * stride + x
 
     def buildGrid(self):
         """
         Builds the grid of vertices and indices for the terrain mesh.
-        Also generates the UVs coordinates for the terrain mesh."""
+        Also generates the UVs coordinates for the terrain mesh.
+        """
 
         vertices = []
         uvs = []
@@ -204,7 +198,7 @@ class TerrainManager:
         uvs: np.ndarray,
         colors=None,
         update_topology: bool = False,
-        update_default_op:bool = False, 
+        update_default_op: bool = False,
     ) -> None:
         """
         Creates or updates a mesh prim with the given points and indices.
@@ -214,7 +208,9 @@ class TerrainManager:
             indices (np.ndarray): array of indices to set as the mesh indices.
             uvs (np.ndarray): array of uvs to set as the mesh uvs.
             colors (np.ndarray): array of colors to set as the mesh colors.
-            update_topology (bool): whether to update the mesh topology."""
+            update_topology (bool): whether to update the mesh topology.
+            update_default_op (bool): whether to update the default ops of the mesh.
+        """
 
         mesh = UsdGeom.Mesh.Get(self._stage, self._mesh_path)
         if update_default_op:
@@ -234,9 +230,7 @@ class TerrainManager:
             mesh.GetFaceVertexIndicesAttr().Set(idxs)
             mesh.GetFaceVertexCountsAttr().Set([3] * len(idxs))
             UsdGeom.Primvar(mesh.GetDisplayColorAttr()).SetInterpolation("vertex")
-            pv = UsdGeom.PrimvarsAPI(mesh.GetPrim()).CreatePrimvar(
-                "st", Sdf.ValueTypeNames.Float2Array
-            )
+            pv = UsdGeom.PrimvarsAPI(mesh.GetPrim()).CreatePrimvar("st", Sdf.ValueTypeNames.Float2Array)
             pv.Set(uvs)
             pv.SetInterpolation("faceVarying")
 
@@ -253,12 +247,13 @@ class TerrainManager:
         """
 
         pxr_utils.removeCollision(self._stage, self._mesh_path)
-        pxr_utils.addCollision(self._stage, self._mesh_path)
+        pxr_utils.addCollision(self._stage, self._mesh_path, mode="meshSimplification")
 
     def update(self, update_collider=False) -> None:
         """
         Updates the terrain mesh. This function should be called after the DEM and mask are updated.
         """
+
         if update_collider:
             pxr_utils.deletePrim(self._stage, self._mesh_path)
             self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
@@ -266,9 +261,7 @@ class TerrainManager:
                 self.renderMesh(self._sim_verts, self._indices, self._sim_uvs, update_default_op=True)
             self.updateTerrainCollider()
             self.autoLabel()
-            pxr_utils.applyMaterialFromPath(
-                self._stage, self._mesh_path, self._texture_path
-            )
+            pxr_utils.applyMaterialFromPath(self._stage, self._mesh_path, self._texture_path)
         else:
             self._sim_verts[:, -1] = np.flip(self._DEM, 0).flatten()
             with wp.ScopedTimer("mesh update"):
@@ -281,13 +274,14 @@ class TerrainManager:
 
         self._DEM, self._mask, self._craters_data = self._G.randomize()
         self.update(update_collider=True)
-    
-    def deformTerrain(self, body_transforms:np.ndarray, contact_forces:np.ndarray) -> None:
+
+    def deformTerrain(self, body_transforms: np.ndarray, contact_forces: np.ndarray) -> None:
         """
         Deforms the terrain based on the given body transforms.
 
         Args:
-            body_transforms (np.ndarray): the body transforms."""
+            body_transforms (np.ndarray): the body transforms.
+        """
 
         self._DEM, self._mask = self._G.deform(body_transforms, contact_forces)
         self.update(update_collider=False)
@@ -297,7 +291,8 @@ class TerrainManager:
         Loads the terrain from the given name.
 
         Args:
-            name (str): the name matching the dictionaty entry."""
+            name (str): the name matching the dictionaty entry.
+        """
 
         self.loadDEMAndMask(name)
         self._G.register_terrain(self._DEM, self._mask)
@@ -311,7 +306,8 @@ class TerrainManager:
             name (str): the name matching the dictionaty entry.
 
         Raises:
-            AssertionError: if idx is out of bounds."""
+            AssertionError: if idx is out of bounds.
+        """
 
         assert idx < len(self._dems), "idx out of bounds."
         name = list(self._dems.keys())[idx]
@@ -326,7 +322,8 @@ class TerrainManager:
         Returns the DEM of the terrain.
 
         Returns:
-            np.ndarray: the DEM of the terrain."""
+            np.ndarray: the DEM of the terrain.
+        """
 
         return self._DEM
 
@@ -335,7 +332,8 @@ class TerrainManager:
         Returns the mask of the terrain.
 
         Returns:
-            np.ndarray: the mask of the terrain."""
+            np.ndarray: the mask of the terrain.
+        """
 
         return self._mask
 
