@@ -6,107 +6,69 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
-from typing import Tuple
+from typing import Tuple, List
 import dataclasses
 import numpy as np
 import cv2
 
-from omni.isaac.core.physics_context.physics_context import PhysicsContext
 import omni
 
 
 from src.terrain_management.large_scale_terrain.collider_builder import ColliderBuilder, ColliderBuilderConf
-from src.terrain_management.large_scale_terrain.pxr_utils import set_xform_ops
+from src.terrain_management.large_scale_terrain.utils import ScopedTimer
 
 
 @dataclasses.dataclass
-class PhysicsSceneManagerCfg:
-    dt: float = dataclasses.field(default_factory=float)
-    gravity: Tuple[float, float, float] = None
-    substeps: int = None
-    use_gpu_pipeline: bool = None
-    worker_thread_count: int = None
-    use_fabric: bool = None
-    enable_scene_query_support: bool = None
-    gpu_max_rigid_contact_count: int = None
-    gpu_max_rigid_patch_contact_count: int = None
-    gpu_found_lost_pairs_capacity: int = None
-    gpu_total_aggregate_pairs_capacity: int = None
-    gpu_max_soft_body_contacts: int = None
-    gpu_max_particle_contacts: int = None
-    gpu_heap_capacity: int = None
-    gpu_temp_buffer_capacity: int = None
-    gpu_max_num_partions: int = None
-    gpu_collision_stack_size: int = None
-    solver_type: str = None
-    enable_stabilization: bool = None
-    bounce_threshold_velocity: float = None
-    friction_offset_threshold: float = None
-    friction_correction_distance: float = None
-    enable_ccd: bool = None
-
-    def __post_init__(self):
-        self.physics_scene_args = {}
-        for attribute in dataclasses.fields(self):
-            if getattr(self, attribute.name) is not None:
-                self.physics_scene_args[attribute.name] = getattr(self, attribute.name)
-
-
-class PhysicsSceneManager:
-    def __init__(self, settings: PhysicsSceneManagerCfg) -> None:
-        self.settings = settings
-        self.physics_context = PhysicsContext(sim_params=self.settings.physics_scene_args)
-        if self.settings.enable_ccd:
-            self.physics_context.enable_ccd(True)
-
-
-@dataclasses.dataclass
-class ColliderManagerCfg:
+class ColliderManagerConf:
     """
     Args:
         collider_resolution (float): resolution of the collider (meter per pixel).
-        source_resolution (float): resolution of the source (meter per pixel).
         block_size (int): size of the block (meters).
         collider_path (str): path to the collider.
+        cache_size (int): size of the collider cache. Must be larger or equal to 4.
+        build_colliders_n_meters_ahead (int): number of meters ahead to build colliders.
         collider_builder_conf (dict): configuration for the collider builder.
     """
 
     collider_resolution: float = dataclasses.field(default_factory=float)
-    source_resolution: float = dataclasses.field(default_factory=float)
     block_size: int = dataclasses.field(default_factory=int)
     collider_path: str = dataclasses.field(default_factory=str)
+    cache_size: int = dataclasses.field(default_factory=int)
+    build_colliders_n_meters_ahead: int = dataclasses.field(default_factory=int)
     collider_builder_conf: ColliderBuilderConf = dataclasses.field(default_factory=dict)
+    profiling: bool = dataclasses.field(default_factory=bool)
 
     def __post_init__(self):
-        self.collider_builder_cfg = ColliderBuilderConf(**self.collider_builder_cfg)
+        assert self.build_colliders_n_meters_ahead > 0, "build_colliders_n_meters_ahead must be greater than 0"
+        assert (
+            self.build_colliders_n_meters_ahead < self.block_size
+        ), "build_colliders_n_meters_ahead must be smaller than block_size"
+        assert self.cache_size >= 4, "collider_cache_size must be greater or equal to 4"
+
+        self.collider_builder_conf = ColliderBuilderConf(**self.collider_builder_conf)
 
 
 class ColliderManager:
     """
     Class to manage the colliders for the terrain.
-    We build 9 colliders that we update as the robot moves around.
-    Both the colliders geometries and their positions are updated.
-    The object of interest is always at the center of the 3x3 grid.
-
-    x --- x --- x --- x
-    |     |     |     |
-    x --- x --- x --- x
-    |     |robot|     |
-    x --- x --- x --- x
-    |     |     |     |
-    x --- x --- x --- x
+    Because building colliders is expensive, we only build them when needed.
+    Also, we only remove them once we are sure we don't need them anymore.
+    This means we have a cache of active colliders.
+    Building colliders is a "locking" action: it will block the main simulation thread,
+    hence we can generate colliders at the very last moment.
     """
 
     def __init__(
         self,
-        settings: ColliderManagerCfg,
+        settings: ColliderManagerConf,
         hr_dem: np.ndarray,
         hr_dem_shape: Tuple[int, int],
         dem_center: Tuple[float, float],
+        source_resolution: float,
     ) -> None:
         """
         Args:
-            settings (ColliderManagerCfg): configuration for the collider manager.
+            settings (ColliderManagerConf): configuration for the collider manager.
             hr_dem (np.ndarray): high resolution DEM.
             hr_dem_shape (Tuple[int, int]): shape of the high resolution DEM.
             dem_center (Tuple[float, float]): center of the DEM.
@@ -117,61 +79,165 @@ class ColliderManager:
         self.hr_dem_shape = hr_dem_shape
         self.dem_center = dem_center
         self.stage = omni.usd.get_context().get_stage()
+        self.cache = {}
+        self.current_coordinates = (0, 0)
+        self.source_resolution = source_resolution
         self.block_hw = int(self.settings.block_size / self.settings.collider_resolution) + 1
+
+    def cast_coordinates_to_block_space(self, coordinates: Tuple[float, float]) -> Tuple[int, int]:
+        """
+        Cast the coordinates to the block space.
+
+        Args:
+            coordinates (Tuple[float, float]): coordinates to cast.
+
+        Returns:
+            Tuple[int, int]: coordinates in the block space.
+        """
+
+        x = int(coordinates[0] // self.settings.block_size) * self.settings.block_size
+        y = int(coordinates[1] // self.settings.block_size) * self.settings.block_size
+        return (x, y)
 
     def build(self) -> None:
         """
-        Builds the collider builder and applies it to generate a collider grid.
+        Builds the collider builder and applies it to generate the colliders for the terrain.
         """
 
-        self.collider_builder = ColliderBuilder(self.settings.collider_builder_cfg, self.stage)
-        self.collider_builder.build_base_grid()
-        self.build_collider_grid()
+        with ScopedTimer("build_collider_manager", active=self.settings.profiling):
+            self.collider_builder = ColliderBuilder(self.settings.collider_builder_conf, self.stage)
+            self.collider_builder.build_base_grid()
 
-    def build_collider_grid(self) -> None:
+    def update(self, global_coordinates: Tuple[float, float]) -> None:
         """
-        Builds the collider grid.
-        """
-
-        self.prim = self.stage.DefinePrim(self.settings.collider_path, "Xform")
-        set_xform_ops(self.prim)
-
-        # Build the collider grid
-        uid = 0
-        for y in range(-self.settings.block_size, self.settings.block_size * 2, self.settings.block_size):
-            for x in range(-self.settings.block_size, self.settings.block_size * 2, self.settings.block_size):
-                data = self.get_terrain_block((x, y))
-                self.collider_builder.create_collider((x, y, 0), data, uid)
-                uid += 1
-
-    def update_collider(self, position: Tuple[float, float]) -> None:
-        """
-        Updates the collider grid with the given position and uses the dem to change their geometry.
+        Updates the collider manager given the coordinates.
+        Adds the colliders that are needed and removes the ones that are not needed anymore.
 
         Args:
-            position (Tuple[float, float]): position of the object of interest.
+            global_coordinates (Tuple[float, float]): coordinates to update the collider in meters.
+            map_coordinates (Tuple[float, float]): coordinates to update the collider in meters.
+
         """
 
-        uid = 0
-        position_update = (position[0], position[1], 0)
-        set_xform_ops(self.prim, position_update)
-        for y in range(-self.settings.block_size, self.settings.block_size * 2, self.settings.block_size):
-            for x in range(-self.settings.block_size, self.settings.block_size * 2, self.settings.block_size):
-                data = self.get_terrain_block((x + position[0], y + position[1]))
-                self.collider_builder.update_collider(data, uid)
-                uid += 1
+        with ScopedTimer("update_collider_manager", active=self.settings.profiling):
+            with ScopedTimer("get_blocks_to_build", active=self.settings.profiling, unit="us"):
+                self.current_coordinates = self.cast_coordinates_to_block_space(global_coordinates)
+                blocks_to_build = self.get_blocks_to_build(global_coordinates)
+            with ScopedTimer("build_colliders", active=self.settings.profiling):
+                for block_coord in blocks_to_build:
+                    if block_coord not in self.cache.keys():
+                        self.cache[block_coord] = self.collider_builder.create_collider(
+                            block_coord, self.get_terrain_block(block_coord), self.get_name(block_coord)
+                        )
+            with ScopedTimer("prune_blocks", active=self.settings.profiling, unit="us"):
+                self.prune_blocks()
+
+    def update_shifting_map(self, global_coordinates: Tuple[float, float]) -> None:
+        """
+        Updates the collider manager given the coordinates in a shifting map. That is a map that moves. The main
+        difference with the other method is that since the map moves all the time, we can't use a fixed indexing to
+        know where the blocks are. Instead we need to get some information regarding our relative position in the
+        map frame.
+
+        Adds the colliders that are needed and removes the ones that are not needed anymore.
+
+        Args:
+            global_coordinates (Tuple[float, float]): coordinates to update the collider in meters.
+
+        """
+
+        with ScopedTimer("update_collider_manager", active=self.settings.profiling):
+            with ScopedTimer("get_blocks_to_build", active=self.settings.profiling, unit="us"):
+                self.current_coordinates = self.cast_coordinates_to_block_space(global_coordinates)
+                blocks_to_build = self.get_blocks_to_build(global_coordinates)
+            with ScopedTimer("build_colliders", active=self.settings.profiling):
+                for block_coord in blocks_to_build:
+                    if block_coord not in self.cache.keys():
+                        map_coord = (
+                            block_coord[1] - self.current_coordinates[1],
+                            block_coord[0] - self.current_coordinates[0],
+                        )
+                        self.cache[block_coord] = self.collider_builder.create_collider(
+                            block_coord, self.get_terrain_block(map_coord).T, self.get_name(block_coord)
+                        )
+            with ScopedTimer("prune_blocks", active=self.settings.profiling, unit="us"):
+                self.prune_blocks()
+
+    def get_blocks_to_build(self, global_coordinates: Tuple[float, float]) -> List[Tuple[int, int]]:
+        """
+        Returns the blocks to build given the coordinates.
+
+        Args:
+            global_coordinates (Tuple[float, float]): coordinates in meters.
+
+        Returns:
+            List[Tuple[int, int]]: blocks to build.
+        """
+
+        blocks_to_build = set()
+        for i in [-1, 0, 1]:
+            x = global_coordinates[0] + i * self.settings.build_colliders_n_meters_ahead
+            for j in [-1, 0, 1]:
+                y = global_coordinates[1] + j * self.settings.build_colliders_n_meters_ahead
+                block_coord = self.cast_coordinates_to_block_space((x, y))
+                blocks_to_build.add(block_coord)
+
+        return list(blocks_to_build)
+
+    def prune_blocks(self):
+        """
+        Prunes the blocks that are not needed anymore. The farthest blocks are removed until the cache is of the right size.
+        """
+
+        dists = {}
+        if len(self.cache) > self.settings.cache_size:
+            num_to_remove = len(self.cache) - self.settings.cache_size
+            dists = {
+                cache_coord: (cache_coord[0] - self.current_coordinates[0])
+                * (cache_coord[0] - self.current_coordinates[0])
+                + (cache_coord[1] - self.current_coordinates[1]) * (cache_coord[1] - self.current_coordinates[1])
+                for cache_coord in self.cache.keys()
+            }
+            sorted_dists = sorted(dists.items(), key=lambda x: x[1])
+            to_remove = [x[0] for x in sorted_dists[-num_to_remove:]]
+            for coord in to_remove:
+                self.collider_builder.remove_collider(self.cache[coord])
+                self.cache.pop(coord)
+
+    @staticmethod
+    def get_name(coord: Tuple[int, int]) -> str:
+        """
+        Returns the name of the collider given the coordinates.
+
+        Args:
+            coord (Tuple[int, int]): coordinates of the collider.
+
+        Returns:
+            str: name of the collider.
+        """
+
+        if coord[0] > 0:
+            x = str(coord[0])
+        else:
+            x = "m" + str(coord[0] * -1)
+        if coord[1] > 0:
+            y = str(coord[1])
+        else:
+            y = "m" + str(coord[1] * -1)
+        return f"collider_{x}_{y}"
 
     def get_terrain_block(self, coords: Tuple[float, float]) -> None:
         """
-        Returns a terrain block given the coordinates.
+        Returns a terrain block given the coordinates. Note the +1 in the slicing to include the last pixel
+        so that the colliders joint correctly.
 
         Args:
             coords (Tuple[float, float]): coordinates of the block.
         """
 
-        x_min = (self.dem_center[0] + coords[0]) / self.settings.source_resolution
-        x_max = (self.dem_center[0] + coords[0] + self.settings.block_size) / self.settings.source_resolution
-        y_min = (self.dem_center[1] + coords[1]) / self.settings.source_resolution
-        y_max = (self.dem_center[1] + coords[1] + self.settings.block_size) / self.settings.source_resolution
+        x_min = (self.dem_center[0] + coords[0]) / self.source_resolution
+        x_max = (self.dem_center[0] + coords[0] + self.settings.block_size) / self.source_resolution
+        y_min = (self.dem_center[1] + coords[1]) / self.source_resolution
+        y_max = (self.dem_center[1] + coords[1] + self.settings.block_size) / self.source_resolution
         source_data_block = self.hr_dem[int(y_min) : int(y_max) + 1, int(x_min) : int(x_max) + 1]
         return cv2.resize(source_data_block, (self.block_hw, self.block_hw), interpolation=cv2.INTER_LINEAR)
