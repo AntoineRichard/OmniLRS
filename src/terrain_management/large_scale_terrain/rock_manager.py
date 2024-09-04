@@ -19,10 +19,10 @@ import omni
 
 from src.terrain_management.large_scale_terrain.pxr_utils import add_collider, load_material, bind_material
 from src.terrain_management.large_scale_terrain.rock_distribution import RockSamplerConf, RockSampler
-from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBlockData
+from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBlockData, ScopedTimer
 from src.terrain_management.large_scale_terrain.rock_database import RockDB, RockDBConf
 
-from pxr import UsdGeom, Gf, Usd, Vt
+from pxr import UsdGeom, Gf, Usd, Vt, Sdf
 
 
 class Instancer:
@@ -136,6 +136,7 @@ class Instancer:
         self.instancer.GetOrientationsAttr().Set(orientations)
         self.instancer.GetScalesAttr().Set(scales)
         self.instancer.GetProtoIndicesAttr().Set(ids)
+        print(ids)
 
         try:
             self.update_extent()
@@ -151,6 +152,156 @@ class Instancer:
         extent = self.instancer.ComputeExtentAtTime(Usd.TimeCode(0), Usd.TimeCode(0))
         # Applies the extent to the instancer.
         self.instancer.CreateExtentAttr(Vt.Vec3fArray([Gf.Vec3f(extent[0]), Gf.Vec3f(extent[1])]))
+
+    def get_num_prototypes(self) -> int:
+        """
+        Get the number of prototypes.
+
+        Returns:
+            int: The number of prototypes.
+        """
+
+        return len(self.file_paths)
+
+
+class ChangeBlock:
+    """
+    Point instancer object with extra capabilities regarding colliders, texturing and semantic labeling.
+    """
+
+    def __init__(
+        self,
+        instancer_path: str,
+        assets_path: str,
+        seed: int,
+        add_colliders: bool = False,
+        collider_mode: str = None,
+        semantic_label: str = None,
+        texture_name: str = None,
+        texture_path: str = None,
+    ):
+        """
+        Args:
+            instancer_path (str): The path to the instancer.
+            assets_path (str): The path to the assets folder.
+            seed (int): The seed for the random number generator.
+            add_colliders (bool): flag to indicate if colliders should be added.
+            collider_mode (str): mode of the collider. (None to use default mode)
+            semantic_label (str): semantic label of the rocks. (None if no label is to be used)
+            texture_name (str): name of the texture. (None if no texture is to be used)
+            texture_path (str): path to the texture. (None if no texture is to be used)
+        """
+
+        self.instancer_path = instancer_path
+        self.stage = omni.usd.get_context().get_stage()
+        self.assets_path = assets_path
+        self.add_colliders = add_colliders
+        self.apply_material = False
+        self.add_semantic_label = True if semantic_label is not None else False
+        self.collider_mode = collider_mode
+        self.semantic_label = semantic_label
+        self.texture_name = texture_name
+        self.texture_path = texture_path
+        self.prototypes = []
+        self.get_asset_list()
+        self.load_material()
+        self.create_instancer()
+        self.rng = np.random.default_rng(seed=seed)
+
+    def get_asset_list(self):
+        """
+        Get the list of assets in the assets folder.
+        """
+
+        self.file_paths = [
+            os.path.join(self.assets_path, file) for file in os.listdir(self.assets_path) if file.endswith(".usd")
+        ]
+
+    def load_material(self):
+        """
+        Load the material.
+
+        Warnings:
+            - If the texture name is not provided, a warning is raised.
+            - If the texture path is not provided, a warning is raised.
+        """
+        self.apply_material = False
+        if (self.texture_name is not None) and (self.texture_path is not None):
+            self.material_path = load_material(self.texture_name, self.texture_path)
+            self.apply_material = True
+        elif (self.texture_name is not None) and (self.texture_path is None):
+            warnings.warn("Texture path not provided. Material will not be loaded.")
+        elif (self.texture_name is None) and (self.texture_path is not None):
+            warnings.warn("Texture name not provided. Material will not be loaded.")
+
+    def apply_semantic_label(self, prim_path: Usd.Prim):
+        prim_sd = PrimSemanticData(self.stage.GetPrimAtPath(prim_path))
+        prim_sd.add_entry("class", self.semantic_label)
+
+    def create_instancer(self):
+        """
+        Create the instancer.
+        """
+
+        self.prim_paths = []
+        for i, file_path in enumerate(self.file_paths):
+            prim = self.stage.DefinePrim(os.path.join(self.instancer_path, "asset_" + str(i)), "Xform")
+            prim.GetReferences().AddReference(file_path)
+            if self.add_colliders:
+                add_collider(self.stage, prim.GetPath(), mode=self.collider_mode)
+            if self.apply_material:
+                bind_material(self.stage, self.material_path, prim.GetPath())
+            if self.add_semantic_label:
+                self.apply_semantic_label(prim.GetPath())
+
+            self.prim_paths.append(prim.GetPath())
+
+        self.set_instancer_parameters(
+            np.array([[0.0, 0.0, 0.0]]), np.array([[0.0, 0.0, 0.0, 1.0]]), np.array([[1.0, 1.0, 1.0]]), np.array([0])
+        )
+
+    def set_instancer_parameters(self, positions, quats, scales, ids):
+        """
+        Set the instancer parameters.
+        """
+
+        with Sdf.ChangeBlock():
+            layer = self.stage.GetRootLayer()
+            for i, id in enumerate(ids):
+                prim_path = self.instancer_path + "/asset_2_" + str(i)
+                prim_spec = Sdf.CreatePrimInLayer(layer, prim_path)
+
+                Sdf.CopySpec(prim_spec.layer, Sdf.Path(self.prim_paths[id]), prim_spec.layer, Sdf.Path(prim_path))
+
+                position_spec = prim_spec.GetAttributeAtPath(prim_path + ".xformOp:translate")
+                if position_spec is None:
+                    position_spec = Sdf.AttributeSpec(prim_spec, "xformOp:translate", Sdf.ValueTypeNames.Float3)
+                position_spec.default = Gf.Vec3f(positions[i, 0], positions[i, 1], positions[i, 2])
+
+                orient_spec = prim_spec.GetAttributeAtPath(prim_path + ".xformOp:orient")
+                if orient_spec is None:
+                    orient_spec = Sdf.AttributeSpec(prim_spec, "xformOp:orient", Sdf.ValueTypeNames.Quatf)
+                orient_spec.default = Gf.Quatf(quats[i, 0], quats[i, 1], quats[i, 2], quats[i, 3])
+
+                scale_spec = prim_spec.GetAttributeAtPath(prim_path + ".xformOp:scale")
+                if scale_spec is None:
+                    scale_spec = Sdf.AttributeSpec(prim_spec, "xformOp:scale", Sdf.ValueTypeNames.Float3)
+                scale_spec.default = Gf.Vec3f(scales[i, 0], scales[i, 1], scales[i, 2])
+
+                xform_order_spec = prim_spec.GetAttributeAtPath(prim_path + ".xformOpOrder")
+                if xform_order_spec is None:
+                    xform_order_spec = Sdf.AttributeSpec(prim_spec, "xformOpOrder", Sdf.ValueTypeNames.TokenArray)
+                xform_order_spec.default = Vt.TokenArray(["xformOp:translate", "xformOp:orient", "xformOp:scale"])
+
+    def get_num_prototypes(self) -> int:
+        """
+        Get the number of prototypes.
+
+        Returns:
+            int: The number of prototypes.
+        """
+
+        return len(self.file_paths)
 
 
 @dataclasses.dataclass
@@ -234,9 +385,6 @@ class RockGenerator:
         if self.settings.rock_sampler_cfg.seed is None:
             self.settings.rock_sampler_cfg.seed = self.settings.seed + 1
 
-        self.rock_sampler = RockSampler(
-            self.settings.rock_sampler_cfg, self.rock_db, map_sampling_func=self.sampling_func
-        )
         self.rock_instancer = Instancer(
             os.path.join(self.instancer_path, self.settings.instancer_name),
             self.settings.rock_assets_folder,
@@ -246,6 +394,12 @@ class RockGenerator:
             self.settings.semantic_label,
             self.settings.texture_name,
             self.settings.texture_path,
+        )
+        self.rock_sampler = RockSampler(
+            self.settings.rock_sampler_cfg,
+            self.rock_db,
+            map_sampling_func=self.sampling_func,
+            num_objects=self.rock_instancer.get_num_prototypes(),
         )
 
     def cast_coordinates_to_block_space(self, coordinates: Tuple[float, float]) -> Tuple[int, int]:
@@ -496,7 +650,8 @@ class RockManager:
         if self.check_if_update_needed(position):
             self.last_update = position
             for rock_generator in self.rock_generators:
-                rock_generator.sample(position)
+                with ScopedTimer("RockManager sample", active=self.settings.profiling):
+                    rock_generator.sample(position)
 
     def sample_threaded(self, global_position: Tuple[float, float]) -> None:
         """
