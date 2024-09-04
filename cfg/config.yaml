@@ -2,6 +2,7 @@ defaults:
   - environment: lunalab
   - rendering: path_tracing
   - mode: ROS2
+  - physics: default_physics
 
 hydra:
   output_subdir: null

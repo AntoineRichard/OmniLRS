@@ -33,6 +33,7 @@ from src.configurations.rendering_confs import FlaresConf, RendererConf
 from src.configurations.environments import LunalabConf, LunaryardConf
 from src.configurations.stellar_engine_confs import StellarEngineConf
 from src.configurations.large_scale_terrain_confs import LargeScaleTerrainConf
+from src.configurations.physics_confs import PhysicsSceneConf
 
 
 class ConfigFactory:
@@ -70,3 +71,5 @@ configFactory.registerConfig("generation_settings", AutoLabelingConf)
 configFactory.registerConfig("stellar_engine_settings", StellarEngineConf)
 # Large Scale Terrain Configs
 configFactory.registerConfig("large_scale_terrain", LargeScaleTerrainConf)
+# Physics Configs
+configFactory.registerConfig("physics_scene", PhysicsSceneConf)
