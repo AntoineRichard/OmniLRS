@@ -127,9 +127,17 @@ class Instancer:
             np.array([[0, 0, 0]]), np.array([[0, 0, 0, 1]]), np.array([[1, 1, 1]]), np.array([0])
         )
 
-    def set_instancer_parameters(self, positions, orientations, scales, ids):
+    def set_instancer_parameters(
+        self, positions: np.ndarray, orientations: np.ndarray, scales: np.ndarray, ids: np.ndarray
+    ) -> None:
         """
         Set the instancer parameters.
+
+        Args:
+            positions (np.ndarray): The positions of the instances.
+            orientations (np.ndarray): The orientations of the instances.
+            scales (np.ndarray): The scales of the instances.
+            ids (np.ndarray): The ids of the instances.
         """
 
         self.instancer.GetPositionsAttr().Set(positions)
@@ -259,9 +267,17 @@ class ChangeBlock:
             np.array([[0.0, 0.0, 0.0]]), np.array([[0.0, 0.0, 0.0, 1.0]]), np.array([[1.0, 1.0, 1.0]]), np.array([0])
         )
 
-    def set_instancer_parameters(self, positions, quats, scales, ids):
+    def set_instancer_parameters(
+        self, positions: np.ndarray, quats: np.ndarray, scales: np.ndarray, ids: np.ndarray
+    ) -> None:
         """
         Set the instancer parameters.
+
+        Args:
+            positions (np.ndarray): The positions of the instances.
+            quats (np.ndarray): The quaternions of the instances.
+            scales (np.ndarray): The scales of the instances.
+            ids (np.ndarray): The ids of the instances.
         """
 
         with Sdf.ChangeBlock():
