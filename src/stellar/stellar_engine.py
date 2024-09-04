@@ -3,7 +3,8 @@ from skyfield.api import PlanetaryConstants, load
 from typing import Tuple
 import datetime
 import math
-    
+
+
 class StellarEngine:
     """
     StellarEngine class to compute the positions of celestial bodies.
@@ -12,7 +13,7 @@ class StellarEngine:
     Finally, use the get_altaz, get_radec, get_position, or get_local_position methods to get the position of a given body.
     """
 
-    def __init__(self, cfg: StellarEngineConf)-> None:
+    def __init__(self, cfg: StellarEngineConf) -> None:
         """
         Initialize the StellarEngine.
 
@@ -33,13 +34,13 @@ class StellarEngine:
         """
 
         self.eph = load(self.cfg.ephemeris)
-        self.earth, self.moon, self.sun, self.venus = self.eph['earth'], self.eph['moon'], self.eph['sun'], self.eph['venus']
-        self.bodies = {
-            "earth": self.earth,
-            "moon": self.moon,
-            "sun": self.sun,
-            "venus": self.venus
-        }
+        self.earth, self.moon, self.sun, self.venus = (
+            self.eph["earth"],
+            self.eph["moon"],
+            self.eph["sun"],
+            self.eph["venus"],
+        )
+        self.bodies = {"earth": self.earth, "moon": self.moon, "sun": self.sun, "venus": self.venus}
         self.pc = PlanetaryConstants()
         self.pc.read_text(load(self.cfg.moon_tf))
         self.pc.read_text(load(self.cfg.pck))
@@ -78,22 +79,21 @@ class StellarEngine:
 
         self.cfg.time_scale = time_scale
 
-
     def getAltAz(self, body: str) -> Tuple[float, float, float]:
         """
         Get the altitude, azimuth, and distance of the body in the observer's frame.
 
         Args:
             body (VectorSum): the body to get the altitude, azimuth, and distance of.
-        
+
         Returns:
             Tuple[float, float, float]: the altitude, azimuth, and distance of the body in the observer's frame.
         """
 
         apparent = self.observer.at(self.t).observe(self.bodies[body]).apparent()
         alt, az, distance = apparent.altaz()
-        return alt.degrees, az.degrees, distance.m*self.cfg.distance_scale
-    
+        return alt.degrees, az.degrees, distance.m * self.cfg.distance_scale
+
     def getRadec(self, body: str) -> Tuple[float, float, float]:
         """
         Get the ra, dec, and distance of the body in the observer's frame.
@@ -106,23 +106,23 @@ class StellarEngine:
         """
 
         apparent = self.observer.at(self.t).observe(self.bodies[body]).apparent()
-        ra, dec, distance = apparent.radec(epoch='date')
-        return ra, dec, distance.m*self.cfg.distance_scale
-    
+        ra, dec, distance = apparent.radec(epoch="date")
+        return ra, dec, distance.m * self.cfg.distance_scale
+
     def getPosition(self, body: str) -> Tuple[float, float, float]:
         """
         Get the position of the body in the observer's frame.
 
         Args:
             body (VectorSum): the body to get the position of.
-        
+
         Returns:
             Tuple[float, float, float]: the x, y, z position of the body in the observer's frame.
         """
 
         apparent = self.observer.at(self.t).observe(self.bodies[body]).apparent()
-        return apparent.position.to('m').value * self.cfg.distance_scale
-    
+        return apparent.position.to("m").value * self.cfg.distance_scale
+
     def getLocalPosition(self, body: str) -> Tuple[float, float, float]:
         """
         Get the local position of the body in the observer's frame.
@@ -135,17 +135,19 @@ class StellarEngine:
         """
 
         alt, az, dist = self.getAltAz(body)
-        xyz = (dist * math.cos(math.radians(alt)) * math.cos(math.radians(az)),
-                dist * math.cos(math.radians(alt)) * math.sin(math.radians(az)),
-                dist * math.sin(math.radians(alt)))
+        xyz = (
+            dist * math.cos(math.radians(alt)) * math.cos(math.radians(az)),
+            dist * math.cos(math.radians(alt)) * math.sin(math.radians(az)),
+            dist * math.sin(math.radians(alt)),
+        )
         return xyz
-    
-    def update(self, dt: float)  -> bool:
+
+    def update(self, dt: float) -> bool:
         """
         Update the current time by dt seconds.
         If the time since the last update is greater than the update interval, update stellar time.
         Note that the delta of time is scaled by the time scale.
-        
+
         Args:
             dt (float): time in seconds to update the current time.
 
@@ -174,27 +176,28 @@ class StellarEngine:
             az (float): the azimuth in degrees.
 
         Returns:
-            Tuple[float, float, float, float]: the quaternion representing the altitude and azimuth.
+            Tuple[float, float, float, float]: the quaternion representing the altitude and azimuth. (qw, qx, qy, qz)
         """
         alt = math.radians(alt)
         az = math.radians(az)
-        alt = alt - math.pi/2 # Compensate for the default direction of the light
+        alt = alt - math.pi / 2  # Compensate for the default direction of the light
 
         # Orientation
-        cr = math.cos(az * 0.5)
-        sr = math.sin(az * 0.5)
+        cr = math.cos(alt * 0.5)
+        sr = math.sin(alt * 0.5)
         cp = 0
         sp = 1
-        cy = math.cos(alt * 0.5)
-        sy = math.sin(alt * 0.5)
+        cy = math.cos(az * 0.5)
+        sy = math.sin(az * 0.5)
 
         qw = sr * sp * sy
-        qx = - cr * sp * sy
+        qx = -cr * sp * sy
         qy = cr * sp * cy
-        qz = - sr * sp * cy
+        qz = -sr * sp * cy
 
-        quat = (qw,qx,qy,qz)
+        quat = (qw, qx, qy, qz)
         return quat
+
 
 if __name__ == "__main__":
     from src.configurations.stellar_engine_confs import Date
@@ -226,7 +229,7 @@ if __name__ == "__main__":
     sun_pos = np.array(sun_pos)
     venus_pos = np.array(venus_pos)
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    ax = fig.add_subplot(111, projection="3d")
     ax.plot(earth_pos[:, 0], earth_pos[:, 1], earth_pos[:, 2], label="Earth")
     ax.plot(sun_pos[:, 0], sun_pos[:, 1], sun_pos[:, 2], label="Sun")
     ax.plot(venus_pos[:, 0], venus_pos[:, 1], venus_pos[:, 2], label="Venus")
@@ -257,15 +260,15 @@ if __name__ == "__main__":
     sun_altaz = np.array(sun_altaz)
     venus_altaz = np.array(venus_altaz)
     fig = plt.figure()
-    plt.plot(earth_altaz[:,0], label="Earth")
-    plt.plot(sun_altaz[:,0], label="Sun")
-    plt.plot(venus_altaz[:,0], label="Venus")
+    plt.plot(earth_altaz[:, 0], label="Earth")
+    plt.plot(sun_altaz[:, 0], label="Sun")
+    plt.plot(venus_altaz[:, 0], label="Venus")
     plt.title("Altitude (degrees)")
     plt.legend()
     fig = plt.figure()
-    plt.plot(earth_altaz[:,1], label="Earth")
-    plt.plot(sun_altaz[:,1], label="Sun")
-    plt.plot(venus_altaz[:,1], label="Venus")
+    plt.plot(earth_altaz[:, 1], label="Earth")
+    plt.plot(sun_altaz[:, 1], label="Sun")
+    plt.plot(venus_altaz[:, 1], label="Venus")
     plt.title("Azimuth (degrees)")
     plt.legend()
 
@@ -294,11 +297,9 @@ if __name__ == "__main__":
     sun_pos = np.array(sun_pos)
     venus_pos = np.array(venus_pos)
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    ax = fig.add_subplot(111, projection="3d")
     ax.plot(earth_pos[:, 0], earth_pos[:, 1], earth_pos[:, 2], label="Earth")
     ax.plot(sun_pos[:, 0], sun_pos[:, 1], sun_pos[:, 2], label="Sun")
     ax.plot(venus_pos[:, 0], venus_pos[:, 1], venus_pos[:, 2], label="Venus")
     plt.legend()
     plt.show()
-
-

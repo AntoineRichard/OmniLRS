@@ -74,6 +74,10 @@ class MapManager:
 
         self.fetch_pregenerated_lr_dems()
 
+    def load(self, path: str) -> np.ndarray:
+        map = np.load(path)
+        return np.flip(map.T, axis=1)
+
     def fetch_pregenerated_lr_dems(self) -> None:
         """
         Fetches the pregenerated DEMs in the folder path.
@@ -129,7 +133,7 @@ class MapManager:
         """
 
         if name in self.dem_paths:
-            self.lr_dem = np.load(self.dem_paths[name])
+            self.lr_dem = self.load(self.dem_paths[name])
             if name in self.dem_infos:
                 self.lr_dem_info = self.dem_infos[name]
             else:
@@ -156,7 +160,7 @@ class MapManager:
             dem_path = os.path.join(path, "dem.npy")
             dem_info_path = os.path.join(path, "dem.yaml")
             if os.path.exists(dem_path) and os.path.exists(dem_info_path):
-                self.lr_dem = np.load(dem_path)
+                self.lr_dem = self.load(dem_path)
                 self.lr_dem_info = DemInfo(**yaml.load(open(dem_info_path, "r")))
             else:
                 raise ValueError(f"DEM {dem_path} or DEM info {dem_info_path} does not exist in the folder path {path}")
@@ -177,8 +181,8 @@ class MapManager:
         warnings.warn("load_lr_dem_by_id is a legacy method and should not be used. Use load_lr_dem_by_name instead.")
         if id in list(range(len(self.dem_paths.keys()))):
             key = list(self.dem_paths.keys())[id]
-            self.hr_dem = np.load(self.dem_paths[key])
-            self.hr_dem_info = self.dem_infos[key]
+            self.lr_dem = self.load(self.dem_paths[key])
+            self.lr_dem_info = self.dem_infos[key]
         elif id == -1:
             self.generate_procedural_lr_dem()
         else:
@@ -363,6 +367,9 @@ class MapManager:
 
     def get_hr_map_current_block_coordinates(self):
         return self.hr_dem_gen.get_current_block_coordinates()
+
+    def get_lat_lon(self) -> Tuple[float, float]:
+        return (self.lr_dem_info.center_coordinates[1], self.lr_dem_info.center_coordinates[0])
 
 
 if __name__ == "__main__":

@@ -1,7 +1,5 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
+__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
 __license__ = "GPL"
 __version__ = "1.0.0"
 __maintainer__ = "Antoine Richard"
@@ -25,12 +23,11 @@ from src.terrain_management.terrain_manager import TerrainManager
 from src.configurations.environments import LunaryardConf
 from src.configurations.rendering_confs import FlaresConf
 from src.environments.rock_manager import RockManager
-from src.stellar.stelar_engine import StellarEngine
+from src.stellar.stellar_engine import StellarEngine
 from src.physics.terramechanics_parameters import RobotParameter, TerrainMechanicalParameter
 from src.physics.terramechanics_solver import TerramechanicsSolver
 from WorldBuilders.pxr_utils import setDefaultOps
 from assets import get_assets_path
-
 
 
 class LunaryardController:
@@ -45,7 +42,7 @@ class LunaryardController:
         flares_settings: FlaresConf = None,
         terrain_manager: TerrainManagerConf = None,
         stellar_engine_settings: StellarEngineConf = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Initializes the lab controller. This class is used to control the lab interactive elements.
@@ -100,7 +97,7 @@ class LunaryardController:
         self.enableLensFlare(self.flare_settings.enable)
         if self.enable_stellar_engine:
             self.SE.setLatLon(self.stage_settings.coordinates.latitude, self.stage_settings.coordinates.longitude)
-    
+
     def addRobotManager(self, robotManager):
         self.robotManager = robotManager
 
@@ -127,9 +124,7 @@ class LunaryardController:
                 lights.append(prim)
         return lights
 
-    def setAttributeBatch(
-        self, prims: List["Usd.Prim"], attr: str, val: Union[float, int]
-    ) -> None:
+    def setAttributeBatch(self, prims: List["Usd.Prim"], attr: str, val: Union[float, int]) -> None:
         """
         Sets the value of an attribute for a list of prims.
 
@@ -156,9 +151,7 @@ class LunaryardController:
         """
 
         # Projector
-        self._projector_prim = self.stage.GetPrimAtPath(
-            self.stage_settings.projector_path
-        )
+        self._projector_prim = self.stage.GetPrimAtPath(self.stage_settings.projector_path)
         self._projector_xform = UsdGeom.Xformable(self._projector_prim)
         self._projector_lux = self.getLuxAssets(self._projector_prim)
 
@@ -203,7 +196,7 @@ class LunaryardController:
         if self.enable_stellar_engine:
             self.SE.setTimeScale(scale)
 
-    def updateStellarEngine(self, dt:float) -> None:
+    def updateStellarEngine(self, dt: float) -> None:
         """
         Updates the sun and earth pose.
 
@@ -218,7 +211,7 @@ class LunaryardController:
                 alt, az, dist = self.SE.getAltAz("sun")
                 quat = self.SE.convertAltAzToQuat(alt, az)
 
-                self.setSunPose(((0,0,0), quat))
+                self.setSunPose(((0, 0, 0), quat))
                 self.setEarthPose((earth_pos, (0, 0, 0, 1)))
 
     # ==============================================================================
@@ -334,9 +327,7 @@ class LunaryardController:
         """
 
         action_registry = omni.kit.actions.core.get_action_registry()
-        action = action_registry.get_action(
-            "omni.kit.viewport.actions", "set_renderer_rtx_realtime"
-        )
+        action = action_registry.get_action("omni.kit.viewport.actions", "set_renderer_rtx_realtime")
         action.execute()
 
     def enableRTXInteractive(self, data: int = 0) -> None:
@@ -348,9 +339,7 @@ class LunaryardController:
         """
 
         action_registry = omni.kit.actions.core.get_action_registry()
-        action = action_registry.get_action(
-            "omni.kit.viewport.actions", "set_renderer_rtx_pathtracing"
-        )
+        action = action_registry.get_action("omni.kit.viewport.actions", "set_renderer_rtx_pathtracing")
         action.execute()
 
     def enableLensFlare(self, data: bool) -> None:
@@ -451,7 +440,7 @@ class LunaryardController:
 
         settings = carb.settings.get_settings()
         settings.set("/rtx/post/lensFlares/focalLength", value)
-    
+
     def deformTerrain(self) -> None:
         """
         Deforms the terrain.
@@ -466,19 +455,18 @@ class LunaryardController:
             contact_forces.append(rrg.get_net_contact_forces())
         world_poses = np.concatenate(world_poses, axis=0)
         contact_forces = np.concatenate(contact_forces, axis=0)
-        
+
         self.T.deformTerrain(body_transforms=world_poses, contact_forces=contact_forces)
         self.loadDEM()
         self.RM.updateImageData(self.dem, self.mask)
-        
+
     def applyTerramechanics(self) -> None:
         for rrg in self.robotManager.robots_RG.values():
             linear_velocities, angular_velocities = rrg.get_velocities()
             sinkages = np.zeros((linear_velocities.shape[0],))
             force, torque = self.TS.compute_force_and_torque(linear_velocities, angular_velocities, sinkages)
             rrg.apply_force_torque(force, torque)
-        
-    
+
     # @staticmethod
     # def transform_to_local(vec:np.ndarray, world_poses:np.ndarray)->np.ndarray:
     #     """
