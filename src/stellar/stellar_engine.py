@@ -1,4 +1,5 @@
 from src.configurations.stellar_engine_confs import StellarEngineConf
+from scipy.spatial.transform import Rotation as SSTR
 from skyfield.api import PlanetaryConstants, load
 from typing import Tuple
 import datetime
@@ -178,25 +179,8 @@ class StellarEngine:
         Returns:
             Tuple[float, float, float, float]: the quaternion representing the altitude and azimuth. (qw, qx, qy, qz)
         """
-        alt = math.radians(alt)
-        az = math.radians(az)
-        alt = alt - math.pi / 2  # Compensate for the default direction of the light
-
-        # Orientation
-        cr = math.cos(alt * 0.5)
-        sr = math.sin(alt * 0.5)
-        cp = 0
-        sp = 1
-        cy = math.cos(az * 0.5)
-        sy = math.sin(az * 0.5)
-
-        qw = sr * sp * sy
-        qx = -cr * sp * sy
-        qy = cr * sp * cy
-        qz = -sr * sp * cy
-
-        quat = (qw, qx, qy, qz)
-        return quat
+        x, y, z, w = SSTR.from_euler("xyz", [0, alt, az - 90], degrees=True).as_quat()
+        return (w, x, y, z)
 
 
 if __name__ == "__main__":
