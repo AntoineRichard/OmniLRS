@@ -49,7 +49,7 @@ def enable_RTX_interactive(*kwargs) -> None:
 # ==============================================================================
 
 
-def apply_lens_flare(flare_settings: FlaresConf, enable: bool) -> None:
+def apply_lens_flare(flare_settings: FlaresConf = None, enable: bool = False) -> None:
     """
     Enables the lens flare effect.
 
@@ -57,8 +57,8 @@ def apply_lens_flare(flare_settings: FlaresConf, enable: bool) -> None:
         enable (bool): True to enable the lens flare, False to disable it.
     """
 
-    if flare_settings.enable:
-        enable_lens_flare(flare_settings.enable)
+    if enable:
+        enable_lens_flare(True)
         set_flare_scale(flare_settings.scale)
         set_flare_num_blades(flare_settings.blades)
         set_flare_aperture_rotation(flare_settings.aperture_rotation)
@@ -67,10 +67,10 @@ def apply_lens_flare(flare_settings: FlaresConf, enable: bool) -> None:
         set_flare_fstop(flare_settings.fstop)
         set_flare_focal_length(flare_settings.focal_length)
     else:
-        enable_lens_flare(flare_settings.enable)
+        enable_lens_flare(False)
 
 
-def enable_lens_flare(enable: bool) -> None:
+def enable_lens_flare(enable: bool = True) -> None:
     """
     Enables the lens flare effect.
 
@@ -94,7 +94,7 @@ def set_flare_scale(value: float = 0.0) -> None:
     settings.set("/rtx/post/lensFlares/flareScale", value)
 
 
-def set_flare_num_blades(value: int) -> None:
+def set_flare_num_blades(value: int = 9) -> None:
     """
     Sets the number of blades of the lens flare.
     A small number will create sharp spikes, a large number will create a smooth circle.
@@ -107,7 +107,7 @@ def set_flare_num_blades(value: int) -> None:
     settings.set("/rtx/post/lensFlares/blades", int(value))
 
 
-def set_flare_aperture_rotation(value: float) -> None:
+def set_flare_aperture_rotation(value: float = 0.0) -> None:
     """
     Sets the rotation of the lens flare.
 
@@ -119,7 +119,7 @@ def set_flare_aperture_rotation(value: float) -> None:
     settings.set("/rtx/post/lensFlares/apertureRotation", value)
 
 
-def set_flare_sensor_diagonal(value: float) -> None:
+def set_flare_sensor_diagonal(value: float = 28.0) -> None:
     """
     Sets the sensor diagonal of the lens flare.
 
@@ -131,7 +131,7 @@ def set_flare_sensor_diagonal(value: float) -> None:
     settings.set("/rtx/post/lensFlares/sensorDiagonal", value)
 
 
-def set_flare_sensor_aspect_ratio(value: float) -> None:
+def set_flare_sensor_aspect_ratio(value: float = 1.5) -> None:
     """
     Sets the sensor aspect ratio of the lens flare.
 
@@ -143,7 +143,7 @@ def set_flare_sensor_aspect_ratio(value: float) -> None:
     settings.set("/rtx/post/lensFlares/sensorAspectRatio", value)
 
 
-def set_flare_fstop(value: float) -> None:
+def set_flare_fstop(value: float = 2.8) -> None:
     """
     Sets the f-stop of the lens flare.
 
@@ -155,7 +155,7 @@ def set_flare_fstop(value: float) -> None:
     settings.set("/rtx/post/lensFlares/fNumber", value)
 
 
-def set_flare_focal_length(value: float):
+def set_flare_focal_length(value: float = 12.0):
     """
     Sets the focal length of the lens flare.
 
@@ -172,23 +172,23 @@ def set_flare_focal_length(value: float):
 # ==============================================================================
 
 
-def apply_chromatic_aberrations(settings: ChromaticAberrationsConf) -> None:
+def apply_chromatic_aberrations(settings: ChromaticAberrationsConf = None, enable: bool = False) -> None:
     """
     Applies the chromatic aberration effect.
 
     Args:
         settings (ChromaticAberrationsConf): The settings of the chromatic aberration.
     """
-    if settings.enable:
-        enable_chromatic_aberrations(settings.enable)
+    if enable:
+        enable_chromatic_aberrations(True)
         set_chromatic_aberration_strength(settings.strength)
         set_chromatic_aberration_model(settings.model)
         set_chromatic_aberration_lanczos(settings.enableLanczos)
     else:
-        enable_chromatic_aberrations(settings.enable)
+        enable_chromatic_aberrations(False)
 
 
-def enable_chromatic_aberrations(enable: bool) -> None:
+def enable_chromatic_aberrations(enable: bool = True) -> None:
     """
     Enables the chromatic aberration effect.
 
@@ -200,7 +200,7 @@ def enable_chromatic_aberrations(enable: bool) -> None:
     settings.set("/rtx/post/chromaticAberration/enabled", enable)
 
 
-def set_chromatic_aberration_strength(value: Tuple[float, float, float]) -> None:
+def set_chromatic_aberration_strength(value: Tuple[float, float, float] = (0.0, 0.0, 0.0)) -> None:
     """
     Sets the strength of the chromatic aberration.
 
@@ -214,7 +214,7 @@ def set_chromatic_aberration_strength(value: Tuple[float, float, float]) -> None
     settings.set("/rtx/post/chromaticAberration/strengthB", value[2])
 
 
-def set_chromatic_aberration_model(value: Tuple[str, str, str]) -> None:
+def set_chromatic_aberration_model(value: Tuple[str, str, str] = ("Radial", "Radial", "Radial")) -> None:
     """
     Sets the model of the chromatic aberration.
 
@@ -232,7 +232,7 @@ def set_chromatic_aberration_model(value: Tuple[str, str, str]) -> None:
     settings.set("/rtx/post/chromaticAberration/modelB", value[2])
 
 
-def set_chromatic_aberration_lanczos(value: bool) -> None:
+def set_chromatic_aberration_lanczos(value: bool = False) -> None:
     """
     Sets the lanczos of the chromatic aberration.
 
@@ -249,7 +249,7 @@ def set_chromatic_aberration_lanczos(value: bool) -> None:
 # ==============================================================================
 
 
-def apply_motion_blur(settings: MotionBlurConf) -> None:
+def apply_motion_blur(settings: MotionBlurConf = None, enable: bool = False) -> None:
     """
     Applies the motion blur effect.
 
@@ -257,16 +257,16 @@ def apply_motion_blur(settings: MotionBlurConf) -> None:
         settings (MotionBlurConf): The settings of the motion blur.
     """
 
-    if settings.enable:
-        enable_motion_blur(settings.enable)
+    if enable:
+        enable_motion_blur(True)
         set_motion_blur_diameter_fraction(settings.max_blur_diameter_fraction)
         set_motion_blur_exposure_fraction(settings.exposure_fraction)
         set_motion_blur_num_samples(settings.num_samples)
     else:
-        enable_motion_blur(settings.enable)
+        enable_motion_blur(False)
 
 
-def enable_motion_blur(settings: bool) -> None:
+def enable_motion_blur(settings: bool = True) -> None:
     """
     Enables the motion blur effect.
 
@@ -278,7 +278,7 @@ def enable_motion_blur(settings: bool) -> None:
     settings.set("/rtx/post/motionblur/enabled", settings)
 
 
-def set_motion_blur_diameter_fraction(value: float) -> None:
+def set_motion_blur_diameter_fraction(value: float = 0.0) -> None:
     """
     Sets the diameter fraction of the motion blur.
 
@@ -290,7 +290,7 @@ def set_motion_blur_diameter_fraction(value: float) -> None:
     settings.set("/rtx/post/motionblur/maxBlurDiameterFraction", value)
 
 
-def set_motion_blur_exposure_fraction(value: float) -> None:
+def set_motion_blur_exposure_fraction(value: float = 0.0) -> None:
     """
     Sets the exposure fraction of the motion blur.
 
@@ -302,7 +302,7 @@ def set_motion_blur_exposure_fraction(value: float) -> None:
     settings.set("/rtx/post/motionblur/exposureFraction", value)
 
 
-def set_motion_blur_num_samples(value: int) -> None:
+def set_motion_blur_num_samples(value: int = 8) -> None:
     """
     Sets the number of samples of the motion blur.
 
