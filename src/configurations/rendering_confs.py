@@ -1,7 +1,7 @@
 __author__ = "Antoine Richard"
-__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-__license__ = "GPL"
-__version__ = "1.0.0"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
@@ -19,7 +19,6 @@ class FlaresConf:
     sensor_aspect_ratio: float = dataclasses.field(default_factory=float)
     fstop: float = dataclasses.field(default_factory=float)
     focal_length: float = dataclasses.field(default_factory=float)
-    decoupled_flare_intensity_ratio: float = dataclasses.field(default_factory=float)
 
     def __post_init__(self):
         assert type(self.enable) is bool, "enalbe must be a boolean"
@@ -30,7 +29,6 @@ class FlaresConf:
         assert type(self.sensor_aspect_ratio) is float, "sensor_aspect_ratio must be a float"
         assert type(self.fstop) is float, "fstop must be a float"
         assert type(self.focal_length) is float, "focal_length must be a float"
-        assert type(self.decoupled_flare_intensity_ratio) is float, "decoupled flare intensity ratio must be a float"
 
         assert self.scale > 0, "scale must be greater than 0"
         assert self.blades > 0, "blades must be greater than 0"
@@ -40,9 +38,43 @@ class FlaresConf:
         assert self.sensor_aspect_ratio > 0, "sensor_aspect_ratio must be greater than 0"
         assert self.fstop > 0, "fstop must be greater than 0"
         assert self.focal_length > 0, "focal_length must be greater than 0"
-        assert (
-            self.decoupled_flare_intensity_ratio >= 1
-        ), "decoupled flare intensity ratio must be greater or equal to 1"
+
+
+@dataclasses.dataclass
+class MotionBlurConf:
+    enable: bool = dataclasses.field(default_factory=bool)
+    max_blur_diameter_fraction: float = dataclasses.field(default_factory=float)
+    exposure_fraction: float = dataclasses.field(default_factory=float)
+    num_samples: int = dataclasses.field(default_factory=int)
+
+    def __post_init__(self):
+        assert type(self.enable) is bool, "enable must be a boolean"
+        assert type(self.max_blur_diameter_fraction) is float, "max_blur_diameter_fraction must be a float"
+        assert type(self.exposure_fraction) is float, "exposure_fraction must be a float"
+        assert type(self.num_samples) is int, "num_samples must be an integer"
+
+        assert self.max_blur_diameter_fraction > 0, "max_blur_diameter_fraction must be greater than 0"
+        assert self.exposure_fraction > 0, "exposure_fraction must be greater than 0"
+        assert self.num_samples > 0, "num_samples must be greater than 0"
+
+
+@dataclasses.dataclass
+class ChromaticAberrationsConf:
+    enable: bool = dataclasses.field(default_factory=bool)
+    strength: tuple = (0, 0, 0)
+    model: tuple = ("Radial", "Radial", "Radial")
+
+    def __post_init__(self):
+        assert type(self.enable) is bool, "enable must be a boolean"
+        assert type(self.strength) is tuple, "strength must be a tuple"
+        assert all([type(i) is float for i in self.strength]), "strength must be a tuple of floats"
+        assert len(self.strength) == 3, "strength must be a tuple of 3 floats"
+        assert type(self.model) is tuple, "model must be a tuple"
+        assert all([type(i) is str for i in self.model]), "model must be a tuple of strings"
+        assert len(self.model) == 3, "model must be a tuple of 3 strings"
+
+        assert all([i in ["Radial", "Barrel"] for i in self.model]), "model must be a tuple of 'Radial' or 'Barrel'"
+        assert all([i <= 1 and i >= -1 for i in self.strength]), "strength must be between -1 and 1"
 
 
 @dataclasses.dataclass
