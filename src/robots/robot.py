@@ -1,9 +1,7 @@
 __author__ = "Antoine Richard, Junnosuke Kamohara"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
-__license__ = "GPL"
-__version__ = "1.0.0"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
@@ -14,6 +12,7 @@ import warnings
 import os
 
 import omni
+from omni.isaac.core.world import World
 import omni.graph.core as og
 from omni.isaac.core.utils.stage import add_reference_to_stage
 from omni.isaac.core.utils.transformations import (
@@ -37,7 +36,8 @@ class RobotManager:
     and tfs to enable multi-robot operation."""
 
     def __init__(
-        self, RM_conf:RobotManagerConf,
+        self,
+        RM_conf: RobotManagerConf,
     ) -> None:
         """
         Args:
@@ -52,13 +52,13 @@ class RobotManager:
         self.max_robots = self.RM_conf.max_robots
         self.robots_root = self.RM_conf.robots_root
         createXform(self.stage, self.robots_root)
-        self.robots = {}
-        self.robots_RG = {}
+        self.robots: Dict[str, Robot] = {}
+        self.robots_RG: Dict[str, RobotRigidGroup] = {}
         self.num_robots = 0
-    
-    def preloadRobot(
-        self, 
-        world: Usd.Stage,
+
+    def preload_robot(
+        self,
+        world: World,
     ) -> None:
         """
         Preload the robots in the scene.
@@ -67,20 +67,20 @@ class RobotManager:
         """
         if len(self.robot_parameters) > 0:
             for robot_parameter in self.robot_parameters:
-                self.addRobot(
-                    robot_parameter.usd_path, 
-                    robot_parameter.robot_name, 
-                    robot_parameter.pose.position, 
-                    robot_parameter.pose.orientation, 
-                    robot_parameter.domain_id, 
+                self.add_robot(
+                    robot_parameter.usd_path,
+                    robot_parameter.robot_name,
+                    robot_parameter.pose.position,
+                    robot_parameter.pose.orientation,
+                    robot_parameter.domain_id,
                 )
-                self.addRRG(
-                    robot_parameter.robot_name, 
-                    robot_parameter.target_links, 
+                self.add_RRG(
+                    robot_parameter.robot_name,
+                    robot_parameter.target_links,
                     world,
                 )
 
-    def addRobot(
+    def add_robot(
         self,
         usd_path: str = None,
         robot_name: str = None,
@@ -94,9 +94,9 @@ class RobotManager:
         Args:
             usd_path (str): The path of the robot's usd file.
             robot_name (str): The name of the robot.
-            p (Tuple[float, float, float]): The position of the robot.
-            q (Tuple[float, float, float, float]): The orientation of the robot.
-            domain_id (int): The domain id of the robot.
+            p (Tuple[float, float, float]): The position of the robot. (x, y, z)
+            q (Tuple[float, float, float, float]): The orientation of the robot. (w, x, y, z)
+            domain_id (int): The domain id of the robot. Not required if the robot is not ROS2 enabled.
         """
 
         if robot_name[0] != "/":
@@ -117,30 +117,30 @@ class RobotManager:
                 )
                 self.robots[robot_name].load(p, q)
                 self.num_robots += 1
-    
-    def addRRG(
-        self, 
-        robot_name: str = None, 
+
+    def add_RRG(
+        self,
+        robot_name: str = None,
         target_links: List[str] = None,
         world=None,
-    )-> None:
+    ) -> None:
         """
         Add a robot rigid group to the scene.
 
         Args:
             robot_name (str): The name of the robot.
-            target_links (List[str]): List of link names. 
-            scene (Usd.Stage): usd stage scene.
+            target_links (List[str]): List of link names.
+            world (Usd.Stage): usd stage scene.
         """
         rrg = RobotRigidGroup(
-            self.robots_root, 
-            robot_name, 
-            target_links, 
+            self.robots_root,
+            robot_name,
+            target_links,
         )
         rrg.initialize(world)
         self.robots_RG[robot_name] = rrg
 
-    def resetRobots(self) -> None:
+    def reset_robots(self) -> None:
         """
         Reset all the robots to their original position.
         """
@@ -148,7 +148,7 @@ class RobotManager:
         for robot in self.robots.keys():
             self.robots[robot].reset()
 
-    def resetRobot(self, robot_name: str) -> None:
+    def reset_robot(self, robot_name: str = None) -> None:
         """
         Reset a specific robot to its original position.
 
@@ -161,8 +161,8 @@ class RobotManager:
         else:
             warnings.warn("Robot does not exist. Ignoring request.")
 
-    def teleportRobot(
-        self, robot_name: str, position: np.ndarray, orienation: np.ndarray
+    def teleport_robot(
+        self, robot_name: str = None, position: np.ndarray = None, orienation: np.ndarray = None
     ) -> None:
         """
         Teleport a specific robot to a specific position and orientation.
@@ -201,7 +201,7 @@ class Robot:
             is_ROS2 (bool, optional): Whether the robots are ROS2 enabled or not. Defaults to False.
             domain_id (int, optional): The domain id of the robot. Defaults to 0."""
 
-        self.stage = omni.usd.get_context().get_stage()
+        self.stage: Usd.Stage = omni.usd.get_context().get_stage()
         self.usd_path = str(usd_path)
         self.robots_root = robots_root
         self.robot_name = robot_name
@@ -212,7 +212,7 @@ class Robot:
         self.dc = _dynamic_control.acquire_dynamic_control_interface()
         self.root_body_id = None
 
-    def getRootRigidBodyPath(self) -> None:
+    def get_root_rigid_body_path(self) -> None:
         """
         Get the root rigid body path of the robot.
         """
@@ -220,18 +220,14 @@ class Robot:
         art = self.dc.get_articulation(self.robot_path)
         self.root_body_id = self.dc.get_articulation_root_body(art)
 
-    def editGraphs(self) -> None:
+    def edit_graphs(self) -> None:
         """
         Edit the graphs of the robot to add namespaces to topics and tfs.
         """
 
         selected_paths = []
         for prim in Usd.PrimRange(self.stage.GetPrimAtPath(self.robot_path)):
-            l = [
-                attr
-                for attr in prim.GetAttributes()
-                if attr.GetName().split(":")[0] == "graph"
-            ]
+            l = [attr for attr in prim.GetAttributes() if attr.GetName().split(":")[0] == "graph"]
             if l:
                 selected_paths.append(prim.GetPath())
 
@@ -251,7 +247,7 @@ class Robot:
         """
 
         self.stage = omni.usd.get_context().get_stage()
-        self.setResetPose(position, orientation)
+        self.set_reset_pose(position, orientation)
         if self.is_on_nucleus:
             nucleus = get_assets_root_path()
             self.usd_path = os.path.join(nucleus, self.usd_path)
@@ -263,19 +259,17 @@ class Robot:
             position=Gf.Vec3d(*position),
             rotation=Gf.Quatd(*orientation),
         )
-        self.editGraphs()
+        self.edit_graphs()
 
-    def getPose(self) -> List[float]:
+    def get_pose(self) -> List[float]:
         """
         Get the pose of the robot.
         Returns:
-            List[float]: The pose of the robot. (x, y, z, w, qx, qy, qz)
+            List[float]: The pose of the robot. (x, y, z, qx, qy, qz, qw)
         """
 
-        source_prim = UsdGeom.Xformable(
-            self.stage.GetPrimAtPath(self._robot_base_link_path)
-        )
-        target_prim = UsdGeom.Xformable(self.stage.GetPrimAtPath(self._root_path))
+        source_prim = UsdGeom.Xformable(self.stage.GetPrimAtPath(self.robot_path))
+        target_prim = UsdGeom.Xformable(self.stage.GetPrimAtPath(self.robots_root))
         relative_transform = get_relative_transform(source_prim, target_prim)
         translation, rotation = pose_from_tf_matrix(relative_transform)
         return [
@@ -288,7 +282,7 @@ class Robot:
             rotation[0],
         ]
 
-    def setResetPose(self, position: np.ndarray, orientation: np.ndarray) -> None:
+    def set_reset_pose(self, position: np.ndarray, orientation: np.ndarray) -> None:
         """
         Set the reset pose of the robot.
 
@@ -306,10 +300,10 @@ class Robot:
 
         Args:
             p (list): The position of the robot.
-            q (list): The orientation of the robot.
+            q (list): The orientation of the robot. (x, y, z, w)
         """
 
-        self.getRootRigidBodyPath()
+        self.get_root_rigid_body_path()
         transform = _dynamic_control.Transform(p, q)
         self.dc.set_rigid_body_pose(self.root_body_id, transform)
         self.dc.set_rigid_body_linear_velocity(self.root_body_id, [0, 0, 0])
@@ -332,56 +326,60 @@ class Robot:
             ],
         )
 
+
 class RobotRigidGroup:
     """
     Class which deals with rigidprims and rigidprimview of a single robot.
-    It is used to retrieve world pose, and contact forces, or apply force/torque. 
+    It is used to retrieve world pose, and contact forces, or apply force/torque.
     """
-    def __init__(self, 
-                 root_path:str="/Robots", 
-                 robot_name:str=None, 
-                 target_links:List[str]=None):
+
+    def __init__(self, root_path: str = "/Robots", robot_name: str = None, target_links: List[str] = None):
         """
         Args:
             root_path (str): The root path of the robots.
             robot_name (str): The name of the robot.
             target_links (List[str]): List of link names.
         """
+
         self.root_path = root_path
         self.robot_name = robot_name
         self.target_links = target_links
         self.prims = []
         self.prim_views = []
 
-    def initialize(self, world)->None:
+    def initialize(self, world: World) -> None:
         """
         Initialize the rigidprims and rigidprimviews of the robot.
 
         Args:
-            world (Usd.Stage): The usd stage scene.
+            world (World): A Omni.isaac.core.world.World object.
         """
+
         world.reset()
         if len(self.target_links) > 0:
             for target_link in self.target_links:
                 rigid_prim = RigidPrim(
-                    prim_path=os.path.join(self.root_path, self.robot_name, target_link), 
-                    name=f"{self.robot_name}/{target_link}")
-                rigid_prim_view = RigidPrimView(prim_paths_expr=os.path.join(self.root_path, self.robot_name, target_link),
-                                                name=f"{self.robot_name}/{target_link}_view",
-                                                track_contact_forces=True,
-                                                    )
+                    prim_path=os.path.join(self.root_path, self.robot_name, target_link),
+                    name=f"{self.robot_name}/{target_link}",
+                )
+                rigid_prim_view = RigidPrimView(
+                    prim_paths_expr=os.path.join(self.root_path, self.robot_name, target_link),
+                    name=f"{self.robot_name}/{target_link}_view",
+                    track_contact_forces=True,
+                )
                 rigid_prim_view.initialize()
                 self.prims.append(rigid_prim)
                 self.prim_views.append(rigid_prim_view)
         world.reset()
-    
-    def get_world_poses(self)->np.ndarray:
+
+    def get_world_poses(self) -> np.ndarray:
         """
         Returns the world pose matrix of target links.
 
         Returns:
             pose (np.ndarray): The world pose matrix of target links.
         """
+
         n_links = len(self.target_links)
         pose = np.zeros((n_links, 4, 4))
         for i, prim in enumerate(self.prims):
@@ -391,22 +389,23 @@ class RobotRigidGroup:
             pose[i, :3, :3] = orientation
             pose[i, :3, 3] = position
         return pose
-    
-    def get_orientations(self)->np.ndarray:
+
+    def get_orientations(self) -> np.ndarray:
         """
         Returns the orientation of target links.
 
         Returns:
             orientations (np.ndarray): The orientation of target links. (w, x, y, z)
         """
+
         n_links = len(self.target_links)
         orientations = np.zeros((n_links, 4))
         for i, prim in enumerate(self.prims):
             _, orientation = prim.get_world_pose()
             orientations[i, :] = orientation
         return orientations
-    
-    def get_velocities(self)->Tuple[np.ndarray, np.ndarray]:
+
+    def get_velocities(self) -> Tuple[np.ndarray, np.ndarray]:
         """
         Returns the linear/angular velocity of target links.
 
@@ -414,6 +413,7 @@ class RobotRigidGroup:
             linear_velocities (np.ndarray): The linear velocity of target links.
             angular_velocities (np.ndarray): The angular velocity of target links.
         """
+
         n_links = len(self.target_links)
         linear_velocities = np.zeros((n_links, 3))
         angular_velocities = np.zeros((n_links, 3))
@@ -422,31 +422,33 @@ class RobotRigidGroup:
             linear_velocities[i, :] = linear_velocity
             angular_velocities[i, :] = angular_velocity
         return linear_velocities, angular_velocities
-    
-    def get_net_contact_forces(self)->np.ndarray:
+
+    def get_net_contact_forces(self) -> np.ndarray:
         """
         Returns net contact forces on each target link.
 
         Returns:
             contact_forces (np.ndarray): The net contact forces on each target link.
         """
+
         n_links = len(self.target_links)
         contact_forces = np.zeros((n_links, 3))
         for i, prim_view in enumerate(self.prim_views):
             contact_force = prim_view.get_net_contact_forces().squeeze()
             contact_forces[i, :] = contact_force
         return contact_forces
-    
-    def apply_force_torque(self, forces:np.ndarray, torques:np.ndarray)->None:
+
+    def apply_force_torque(self, forces: np.ndarray, torques: np.ndarray) -> None:
         """
         Apply force and torque (defined in local body frame) to body frame of the four wheels.
-        
+
         Args:
             forces (np.ndarray): The forces to apply to the body origin of the four wheels.
                                  (Fx, Fy, Fz) = (F_DP, F_S, F_N)
             torques (np.ndarray): The torques to apply to the body origin of the four wheels.
                                  (Mx, My, Mz0 = (M_O,-M_R, M_S)
         """
+
         n_links = len(self.target_links)
         assert forces.shape[0] == n_links, "given force does not have matching shape."
         assert torques.shape[0] == n_links, "given torque does not have matching shape."
