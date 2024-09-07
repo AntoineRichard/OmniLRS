@@ -1,16 +1,27 @@
+__author__ = "Junnosuke Kamohara"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 from dataclasses import dataclass
 import math
 import numpy as np
+
 
 @dataclass
 class RobotParameter:
     """
     Robot mechanical dimension parameters."""
+
     mass: float = 20.0
     num_wheels: int = 4
     wheel_radius: float = 0.09
     wheel_base: float = 0.1
     wheel_lug_height: float = 0.02
+
 
 @dataclass
 class TerrainMechanicalParameter:
@@ -18,6 +29,7 @@ class TerrainMechanicalParameter:
     Terrain mechanical parameters.
     - bearing_parameter: (k_c, k_phi, n_0, n_1) bearing parameters.
     - shearing_parameter: (c, phi, K) shearing parameters."""
+
     k_c: float = 0.0
     k_phi: float = 100.0
     a_0: float = 0.4
