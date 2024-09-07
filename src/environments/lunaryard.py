@@ -1,36 +1,35 @@
-__author__ = "Antoine Richard"
-__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-__license__ = "GPL"
-__version__ = "1.0.0"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
+from scipy.spatial.transform import Rotation as SSTR
 from typing import List, Tuple, Union, Dict
-import omni.kit.actions.core
 import numpy as np
 import math
-import omni
-import carb
 
 from omni.isaac.core.utils.stage import add_reference_to_stage
+import omni
 
 from pxr import UsdGeom, UsdLux, Gf, Usd
 
+from src.terrain_management.large_scale_terrain.pxr_utils import set_xform_ops, load_material
+from src.physics.terramechanics_parameters import RobotParameter, TerrainMechanicalParameter
+from src.configurations.stellar_engine_confs import StellarEngineConf, SunConf
 from src.configurations.procedural_terrain_confs import TerrainManagerConf
-from src.configurations.stellar_engine_confs import StellarEngineConf
+from src.physics.terramechanics_solver import TerramechanicsSolver
 from src.terrain_management.terrain_manager import TerrainManager
 from src.configurations.environments import LunaryardConf
-from src.configurations.rendering_confs import FlaresConf
 from src.environments.rock_manager import RockManager
 from src.stellar.stellar_engine import StellarEngine
-from src.physics.terramechanics_parameters import RobotParameter, TerrainMechanicalParameter
-from src.physics.terramechanics_solver import TerramechanicsSolver
-from WorldBuilders.pxr_utils import setDefaultOps
-from assets import get_assets_path
+from src.environments.base_env import BaseEnv
+from src.robots.robot import RobotManager
 
 
-class LunaryardController:
+class LunaryardController(BaseEnv):
     """
     This class is used to control the lab interactive elements.
     """
@@ -39,9 +38,9 @@ class LunaryardController:
         self,
         lunaryard_settings: LunaryardConf = None,
         rocks_settings: Dict = None,
-        flares_settings: FlaresConf = None,
         terrain_manager: TerrainManagerConf = None,
         stellar_engine_settings: StellarEngineConf = None,
+        sun_settings: SunConf = None,
         **kwargs,
     ) -> None:
         """
@@ -54,20 +53,21 @@ class LunaryardController:
         Args:
             lunaryard_settings (LunaryardConf): The settings of the lab.
             rocks_settings (Dict): The settings of the rocks.
-            flares_settings (FlaresConf): The settings of the flares.
             terrain_manager (TerrainManagerConf): The settings of the terrain manager.
             stellar_engine_settings (StellarEngineConf): The settings of the stellar engine.
             **kwargs: Arbitrary keyword arguments.
         """
 
-        self.stage = omni.usd.get_context().get_stage()
+        super().__init__(**kwargs)
         self.stage_settings = lunaryard_settings
-        self.flare_settings = flares_settings
+        self.sun_settings = sun_settings
+
         if stellar_engine_settings is not None:
             self.SE = StellarEngine(stellar_engine_settings)
             self.enable_stellar_engine = True
         else:
             self.enable_stellar_engine = False
+
         self.T = TerrainManager(terrain_manager)
         self.RM = RockManager(**rocks_settings)
         self.TS = TerramechanicsSolver(
@@ -79,65 +79,87 @@ class LunaryardController:
         self.scene_name = "/Lunaryard"
         self.deformation_conf = terrain_manager.moon_yard.deformation_engine
 
+    def build_scene(self) -> None:
+        """
+        Builds the scene.
+        """
+
+        # Creates an empty xform with the name lunaryard
+        lunaryard = self.stage.DefinePrim(self.scene_name, "Xform")
+
+        # Creates the sun
+        sun = self.stage.DefinePrim(self.stage_settings.sun_path, "Xform")
+        self._sun_prim = sun.GetPrim()
+        light = UsdLux.DistantLight.Define(self.stage, self.stage_settings.sun_path + "/sun")
+        self._sun_lux = light.GetPrim()
+        light.CreateIntensityAttr(self.sun_settings.intensity)
+        light.CreateAngleAttr(self.sun_settings.angle)
+        light.CreateDiffuseAttr(self.sun_settings.diffuse_multiplier)
+        light.CreateSpecularAttr(self.sun_settings.specular_multiplier)
+        light.CreateColorAttr(
+            Gf.Vec3f(self.sun_settings.color[0], self.sun_settings.color[1], self.sun_settings.color[2])
+        )
+        light.CreateTemperatureAttr(self.sun_settings.temperature)
+        x, y, z, w = SSTR.from_euler(
+            "xyz", [0, self.sun_settings.altitude, self.sun_settings.azimuth - 90], degrees=True
+        ).as_quat()
+        set_xform_ops(light.GetPrim(), Gf.Vec3d(0, 0, 0), Gf.Quatd(w, Gf.Vec3d(x, y, z)), Gf.Vec3d(1, 1, 1))
+
+        # Creates the earth
+        earth = self.stage.DefinePrim(self.stage_settings.earth_path, "Xform")
+        self._earth_prim = earth.GetPrim().GetReferences().AddReference(self.stage_settings.earth_usd_path)
+        dist = self.stage_settings.earth_distance * self.stage_settings.earth_scale
+        px = math.cos(math.radians(self.stage_settings.earth_azimuth)) * dist
+        py = math.sin(math.radians(self.stage_settings.earth_azimuth)) * dist
+        pz = math.sin(math.radians(self.stage_settings.earth_altitude)) * dist
+        set_xform_ops(self._earth_prim, Gf.Vec3d(px, py, pz), Gf.Quatd(0, 0, 0, 1))
+
+        # Load default textures
+        load_material("Basalt", "assets/Textures/Basalt.mdl")
+        load_material("Sand", "assets/Textures/Sand.mdl")
+        load_material("Regolith", "assets/Textures/LunarRegolith8k.mdl")
+
+    def instantiate_scene(self) -> None:
+        """
+        Instantiates the scene. Applies any operations that need to be done after the scene is built and
+        the renderer has been stepped.
+        """
+
+        pass
+
+    def reset(self) -> None:
+        """
+        Resets the environment. Implement the logic to reset the environment.
+        """
+
+        pass
+
+    def update(self) -> None:
+        """
+        Updates the environment.
+        """
+
+        pass
+
     def load(self) -> None:
         """
         Loads the lab interactive elements in the stage.
         Creates the instancer for the rocks, and generates the terrain.
         """
 
-        scene_path = get_assets_path() + "/USD_Assets/environments/Lunaryard.usd"
-        # Loads the Lunalab
-        add_reference_to_stage(scene_path, self.scene_name)
-        # Fetches the interactive elements
-        self.collectInteractiveAssets()
+        # Builds the scene
+        self.build_scene()
         # Generates the instancer for the rocks
         self.RM.build(self.dem, self.mask)
         # Loads the DEM and the mask
-        self.switchTerrain(self.stage_settings.terrain_id)
-        self.enableLensFlare(self.flare_settings.enable)
+        self.switch_terrain(self.stage_settings.terrain_id)
         if self.enable_stellar_engine:
-            self.SE.setLatLon(self.stage_settings.coordinates.latitude, self.stage_settings.coordinates.longitude)
+            self.SE.set_lat_lon(self.stage_settings.coordinates.latitude, self.stage_settings.coordinates.longitude)
 
-    def addRobotManager(self, robotManager):
+    def add_robot_manager(self, robotManager: RobotManager) -> None:
         self.robotManager = robotManager
 
-    def getLuxAssets(self, prim: "Usd.Prim") -> None:
-        """
-        Returns the UsdLux prims under a given prim.
-
-        Args:
-            prim (Usd.Prim): The prim to be searched.
-
-        Returns:
-            list: A list of UsdLux prims.
-        """
-
-        lights = []
-        for prim in Usd.PrimRange(prim):
-            if prim.IsA(UsdLux.DistantLight):
-                lights.append(prim)
-            if prim.IsA(UsdLux.SphereLight):
-                lights.append(prim)
-            if prim.IsA(UsdLux.CylinderLight):
-                lights.append(prim)
-            if prim.IsA(UsdLux.DiskLight):
-                lights.append(prim)
-        return lights
-
-    def setAttributeBatch(self, prims: List["Usd.Prim"], attr: str, val: Union[float, int]) -> None:
-        """
-        Sets the value of an attribute for a list of prims.
-
-        Args:
-            prims (list): A list of prims.
-            attr (str): The name of the attribute.
-            val (Union[float,int]): The value to be set.
-        """
-
-        for prim in prims:
-            prim.GetAttribute(attr).Set(val)
-
-    def loadDEM(self) -> None:
+    def load_DEM(self) -> None:
         """
         Loads the DEM and the mask from the TerrainManager.
         """
@@ -145,25 +167,11 @@ class LunaryardController:
         self.dem = self.T.getDEM()
         self.mask = self.T.getMask()
 
-    def collectInteractiveAssets(self) -> None:
-        """
-        Collects the interactive assets from the stage and assigns them to class variables.
-        """
-
-        # Projector
-        self._projector_prim = self.stage.GetPrimAtPath(self.stage_settings.projector_path)
-        self._projector_xform = UsdGeom.Xformable(self._projector_prim)
-        self._projector_lux = self.getLuxAssets(self._projector_prim)
-
-        # Earth
-        self._earth_prim = self.stage.GetPrimAtPath(self.stage_settings.earth_path)
-        self._earth_xform = UsdGeom.Xformable(self._earth_prim)
-
     # ==============================================================================
     # Stellar engine control
     # ==============================================================================
 
-    def setCoordinates(self, latlong: Tuple[float, float]) -> None:
+    def set_coordinates(self, latlong: Tuple[float, float] = (0.0, 0.0)) -> None:
         """
         Sets the coordinates of the lab.
 
@@ -172,9 +180,9 @@ class LunaryardController:
         """
 
         if self.enable_stellar_engine:
-            self.SE.setLatLon(latlong[1], latlong[0])
+            self.SE.set_lat_lon(latlong[1], latlong[0])
 
-    def setTime(self, time: float) -> None:
+    def set_time(self, time: float = 0.0) -> None:
         """
         Sets the time of the stellar engine.
 
@@ -183,9 +191,9 @@ class LunaryardController:
         """
 
         if self.enable_stellar_engine:
-            self.SE.setTime(time)
+            self.SE.set_time(time)
 
-    def setTimeScale(self, scale: float) -> None:
+    def set_time_scale(self, scale: float = 1.0) -> None:
         """
         Sets the time scale of the stellar engine.
 
@@ -194,9 +202,9 @@ class LunaryardController:
         """
 
         if self.enable_stellar_engine:
-            self.SE.setTimeScale(scale)
+            self.SE.set_time_scale(scale)
 
-    def updateStellarEngine(self, dt: float) -> None:
+    def update_stellar_engine(self, dt: float = 0.0) -> None:
         """
         Updates the sun and earth pose.
 
@@ -207,52 +215,54 @@ class LunaryardController:
         if self.enable_stellar_engine:
             update = self.SE.update(dt)
             if update:
-                earth_pos = self.SE.getLocalPosition("earth")
-                alt, az, dist = self.SE.getAltAz("sun")
-                quat = self.SE.convertAltAzToQuat(alt, az)
+                earth_pos = self.SE.get_local_position("earth")
+                alt, az, _ = self.SE.get_alt_az("sun")
+                quat = self.SE.convert_alt_az_to_quat(alt, az)
 
-                self.setSunPose(((0, 0, 0), quat))
-                self.setEarthPose((earth_pos, (0, 0, 0, 1)))
+                self.set_sun_pose(((0, 0, 0), quat))
+                self.set_earth_pose((earth_pos, (0, 0, 0, 1)))
 
     # ==============================================================================
     # Earth control
     # ==============================================================================
 
-    def setEarthPose(self, pose: Tuple[List[float], List[float]]) -> None:
+    def set_earth_pose(
+        self,
+        position: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+        orientation: Tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0),
+    ) -> None:
         """
         Sets the pose of the earth.
 
         Args:
-            pose (Tuple[List[float],List[float]]): The pose of the earth. The first element is the position, the second is the quaternion.
-                                                   The position is in meters, the quaternion is in (x,y,z,w) format.
+            position (Tuple[float,float,float]): The position of the earth. In meters. (x,y,z)
+            orientation (Tuple[float,float,float,float]): The orientation of the earth. (w,x,y,z)
         """
 
-        position = pose[0]
-        quat = pose[1]
-        rotation = [quat[0], quat[1], quat[2], quat[3]]
-        position = [position[0], position[1], position[2]]
-        setDefaultOps(self._earth_xform, position, rotation, scale=(1, 1, 1))
+        w, x, y, z = (orientation[0], orientation[1], orientation[2], orientation[3])
+        x, y, z = (position[0], position[1], position[2])
+        set_xform_ops(self._earth_prim, position=Gf.Vec3d(x, y, z), orientation=Gf.Quatd(w, Gf.Vec3d(x, y, z)))
 
     # ==============================================================================
     # Sun control
     # ==============================================================================
-    def setSunPose(self, pose: Tuple[List[float], List[float]]) -> None:
+    def set_sun_pose(
+        self,
+        position: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+        orientation: Tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0),
+    ) -> None:
         """
         Sets the pose of the sun.
 
         Args:
-            pose (Tuple[List[float],List[float]]): The pose of the projector. The first element is the position, the second is the quaternion.
-                                                   The position is in meters, the quaternion is in (x,y,z,w) format.
+            position (Tuple[float,float,float]): The position of the sun. In meters. (x,y,z)
+            orientation (Tuple[float,float,float,float]): The orientation of the sun. (w,x,y,z)
         """
 
-        position = pose[0]
-        quat = pose[1]
-        rotation = [quat[0], quat[1], quat[2], quat[3]]
-        position = [position[0], position[1], position[2]]
+        w, x, y, z = (orientation[0], orientation[1], orientation[2], orientation[3])
+        set_xform_ops(self._sun_prim, orientation=Gf.Quatd(w, Gf.Vec3d(x, y, z)))
 
-        setDefaultOps(self._projector_xform, position, rotation, scale=(1, 1, 1))
-
-    def setSunIntensity(self, intensity: float) -> None:
+    def set_sun_intensity(self, intensity: float = 0.0) -> None:
         """
         Sets the intensity of the sun.
 
@@ -260,23 +270,23 @@ class LunaryardController:
             intensity (float): The intensity of the projector (arbitrary unit).
         """
 
-        self.setAttributeBatch(self._projector_lux, "intensity", intensity)
+        self._sun_lux.GetAttribute("intensity").Set(intensity)
 
-    def setSunColor(self, color: List[float]) -> None:
+    def set_sun_color(self, color: Tuple[float, float, float] = (1.0, 1.0, 1.0)) -> None:
         """
         Sets the color of the projector.
 
         Args:
-            color (List[float]): The color of the projector (RGB).
+            color (Tuple[float,float,float]): The color of the projector. (r,g,b)
         """
 
         color = Gf.Vec3d(color[0], color[1], color[2])
-        self.setAttributeBatch(self._projector_lux, "color", color)
+        self._sun_lux.GetAttribute("color").Set(color)
 
     # ==============================================================================
     # Terrain control
     # ==============================================================================
-    def switchTerrain(self, flag: int) -> None:
+    def switch_terrain(self, flag: int = -1) -> None:
         """
         Switches the terrain to a new DEM.
 
@@ -288,11 +298,11 @@ class LunaryardController:
             self.T.randomizeTerrain()
         else:
             self.T.loadTerrainId(flag)
-        self.loadDEM()
+        self.load_DEM()
         self.RM.updateImageData(self.dem, self.mask)
         self.RM.randomizeInstancers(10)
 
-    def enableRocks(self, flag: bool) -> None:
+    def enable_rocks(self, flag: bool = True) -> None:
         """
         Turns the rocks on or off.
 
@@ -302,7 +312,7 @@ class LunaryardController:
 
         self.RM.setVisible(flag)
 
-    def randomizeRocks(self, num: int = 8) -> None:
+    def randomize_rocks(self, num: int = 8) -> None:
         """
         Randomizes the placement of the rocks.
 
@@ -315,139 +325,14 @@ class LunaryardController:
             num += 1
         self.RM.randomizeInstancers(num)
 
-    # ==============================================================================
-    # Render control
-    # ==============================================================================
-    def enableRTXRealTime(self, data: int = 0) -> None:
-        """
-        Enables the RTX real time renderer. The ray-traced render.
-
-        Args:
-            data (int, optional): Not used. Defaults to 0.
-        """
-
-        action_registry = omni.kit.actions.core.get_action_registry()
-        action = action_registry.get_action("omni.kit.viewport.actions", "set_renderer_rtx_realtime")
-        action.execute()
-
-    def enableRTXInteractive(self, data: int = 0) -> None:
-        """
-        Enables the RTX interactive renderer. The path-traced render.
-
-        Args:
-            data (int, optional): Not used. Defaults to 0.
-        """
-
-        action_registry = omni.kit.actions.core.get_action_registry()
-        action = action_registry.get_action("omni.kit.viewport.actions", "set_renderer_rtx_pathtracing")
-        action.execute()
-
-    def enableLensFlare(self, data: bool) -> None:
-        """
-        Enables the lens flare effect.
-
-        Args:
-            data (bool): True to enable the lens flare, False to disable it.
-        """
-
-        settings = carb.settings.get_settings()
-        if data:
-            settings.set("/rtx/post/lensFlares/enabled", True)
-            self.setFlareScale(self.flare_settings.scale)
-            self.setFlareNumBlades(self.flare_settings.blades)
-            self.setFlareApertureRotation(self.flare_settings.aperture_rotation)
-            self.setFlareSensorAspectRatio(self.flare_settings.sensor_aspect_ratio)
-            self.setFlareSensorDiagonal(self.flare_settings.sensor_diagonal)
-            self.setFlareFstop(self.flare_settings.fstop)
-            self.setFlareFocalLength(self.flare_settings.focal_length)
-        else:
-            settings.set("/rtx/post/lensFlares/enabled", False)
-
-    def setFlareScale(self, value: float) -> None:
-        """
-        Sets the scale of the lens flare.
-
-        Args:
-            value (float): The scale of the lens flare.
-        """
-
-        settings = carb.settings.get_settings()
-        settings.set("/rtx/post/lensFlares/flareScale", value)
-
-    def setFlareNumBlades(self, value: int) -> None:
-        """
-        Sets the number of blades of the lens flare.
-        A small number will create sharp spikes, a large number will create a smooth circle.
-
-        Args:
-            value (int): The number of blades of the lens flare.
-        """
-
-        settings = carb.settings.get_settings()
-        settings.set("/rtx/post/lensFlares/blades", int(value))
-
-    def setFlareApertureRotation(self, value: float) -> None:
-        """
-        Sets the rotation of the lens flare.
-
-        Args:
-            value (float): The rotation of the lens flare.
-        """
-
-        settings = carb.settings.get_settings()
-        settings.set("/rtx/post/lensFlares/apertureRotation", value)
-
-    def setFlareSensorDiagonal(self, value: float) -> None:
-        """
-        Sets the sensor diagonal of the lens flare.
-
-        Args:
-            value (float): The sensor diagonal of the lens flare.
-        """
-
-        settings = carb.settings.get_settings()
-        settings.set("/rtx/post/lensFlares/sensorDiagonal", value)
-
-    def setFlareSensorAspectRatio(self, value: float) -> None:
-        """
-        Sets the sensor aspect ratio of the lens flare.
-
-        Args:
-            value (float): The sensor aspect ratio of the lens flare.
-        """
-
-        settings = carb.settings.get_settings()
-        settings.set("/rtx/post/lensFlares/sensorAspectRatio", value)
-
-    def setFlareFstop(self, value: float) -> None:
-        """
-        Sets the f-stop of the lens flare.
-
-        Args:
-            value (float): The f-stop of the lens flare.
-        """
-
-        settings = carb.settings.get_settings()
-        settings.set("/rtx/post/lensFlares/fNumber", value)
-
-    def setFlareFocalLength(self, value: float):
-        """
-        Sets the focal length of the lens flare.
-
-        Args:
-            value (float): The focal length of the lens flare.
-        """
-
-        settings = carb.settings.get_settings()
-        settings.set("/rtx/post/lensFlares/focalLength", value)
-
-    def deformTerrain(self) -> None:
+    def deform_terrain(self) -> None:
         """
         Deforms the terrain.
         Args:
             world_poses (np.ndarray): The world poses of the contact points.
             contact_forces (np.ndarray): The contact forces in local frame reported by rigidprimview.
         """
+
         world_poses = []
         contact_forces = []
         for rrg in self.robotManager.robots_RG.values():
@@ -457,27 +342,12 @@ class LunaryardController:
         contact_forces = np.concatenate(contact_forces, axis=0)
 
         self.T.deformTerrain(body_transforms=world_poses, contact_forces=contact_forces)
-        self.loadDEM()
+        self.load_DEM()
         self.RM.updateImageData(self.dem, self.mask)
 
-    def applyTerramechanics(self) -> None:
+    def apply_terramechanics(self) -> None:
         for rrg in self.robotManager.robots_RG.values():
             linear_velocities, angular_velocities = rrg.get_velocities()
             sinkages = np.zeros((linear_velocities.shape[0],))
             force, torque = self.TS.compute_force_and_torque(linear_velocities, angular_velocities, sinkages)
             rrg.apply_force_torque(force, torque)
-
-    # @staticmethod
-    # def transform_to_local(vec:np.ndarray, world_poses:np.ndarray)->np.ndarray:
-    #     """
-    #     Returns the contact forces in world frame.
-
-    #     Args:
-    #         vec (np.ndarray): vector in world coordinate.
-    #         world_poses (np.ndarray): The world poses of the contact points.
-
-    #     Returns:
-    #         np.ndarray: vector in local coordinate.
-    #     """
-    #     transform = world_poses.transpose(0, 2, 1)
-    #     return np.matmul(transform[:, :3, :3], vec[:, :, None]).squeeze()

@@ -1,0 +1,95 @@
+__author__ = "Antoine Richard, Junnosuke Kamohara"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
+import omni
+
+from pxr import Usd
+
+from src.robots.robot import RobotManager
+
+
+class BaseEnv:
+    """
+    This class is used to control the environment's interactive elements.
+    """
+
+    def __init__(
+        self,
+        **kwargs,
+    ) -> None:
+        """
+        Initializes the lab controller. This class is used to control the lab interactive elements.
+
+        Args:
+            **kwargs: Arbitrary keyword arguments.
+        """
+
+        self.stage: Usd.Stage = omni.usd.get_context().get_stage()
+
+    def build_scene(self) -> None:
+        """
+        Builds the scene. It either loads the scene from a file or creates it from scratch.
+        """
+
+        raiseNotImplementedError()
+
+    def instantiate_scene(self) -> None:
+        """
+        Instantiates the scene. Applies any operations that need to be done after the scene is built and
+        the renderer has been stepped.
+        """
+
+        raiseNotImplementedError()
+
+    def reset(self) -> None:
+        """
+        Resets the environment. Implement the logic to reset the environment.
+        """
+
+        raiseNotImplementedError()
+
+    def update(self) -> None:
+        """
+        Updates the environment.
+        """
+
+        raiseNotImplementedError()
+
+    def load(self) -> None:
+        """
+        Loads the lab interactive elements in the stage.
+        Creates the instancer for the rocks, and generates the terrain.
+        """
+
+        raiseNotImplementedError()
+
+    def add_robot_manager(self, robotManager: RobotManager) -> None:
+        """
+        Adds the robot manager to the environment.
+
+        Args:
+            robotManager (RobotManager): The robot manager.
+        """
+        self.robotManager = robotManager
+
+    def deform_terrain(self) -> None:
+        """
+        Deforms the terrain.
+        Args:
+            world_poses (np.ndarray): The world poses of the contact points.
+            contact_forces (np.ndarray): The contact forces in local frame reported by rigidprimview.
+        """
+
+        raiseNotImplementedError()
+
+    def apply_terramechanics(self) -> None:
+        """
+        Applies the terramechanics.
+        """
+
+        raiseNotImplementedError()
