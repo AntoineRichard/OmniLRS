@@ -1,9 +1,7 @@
 __author__ = "Antoine Richard, Junnosuke Kamohara"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
-__license__ = "GPL"
-__version__ = "1.0.0"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
@@ -85,8 +83,10 @@ class ROS1_SimulationManager:
         # Setups the physics and acquires the different interfaces to talk with Isaac
         self.timeline = omni.timeline.get_timeline_interface()
         self.world = World(stage_units_in_meters=1.0)
-        self.physics_ctx = self.world.get_physics_context()
-        self.physics_ctx.set_solver_type("PGS")
+
+        # PHYSICS TODO
+        # RENDERING TODO
+
         # Lab manager thread (ROS1 does not allow to run multiple threads from the same file)
         # So unlike ROS2, we cannot run the lab manager and the robot manager in parallel.
         # This also means the Lab manager is a mess in ROS1.
@@ -95,10 +95,10 @@ class ROS1_SimulationManager:
         self.ROSLabManager = ROS1_LMF(cfg)
         self.render_deform_inv = cfg["environment"]["terrain_manager"].moon_yard.deformation_engine.render_deform_inv
         self.world.reset()
-        
+
         # Preload the assets
-        self.ROSLabManager.RM.preloadRobot(self.world)
-        self.ROSLabManager.LC.addRobotManager(self.ROSLabManager.RM)
+        self.ROSLabManager.RM.preload_robot(self.world)
+        self.ROSLabManager.LC.add_robot_manager(self.ROSLabManager.RM)
 
     def run_simulation(self) -> None:
         """

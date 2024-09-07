@@ -1,9 +1,7 @@
 __author__ = "Antoine Richard, Junnosuke Kamohara"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
-__license__ = "GPL"
-__version__ = "1.0.0"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
@@ -38,9 +36,7 @@ class ROS_LunaryardManager:
             **kwargs: Additional keyword arguments."""
 
         self.LC = LunaryardController(**environment_cfg, flares_settings=flares_cfg)
-        self.RM = RobotManager(
-            environment_cfg["robots_settings"]
-        )
+        self.RM = RobotManager(environment_cfg["robots_settings"])
         self.LC.load()
 
         self.projector_subs = []
@@ -52,22 +48,12 @@ class ROS_LunaryardManager:
                 queue_size=1,
             )
         )
-        self.projector_subs.append(
-            rospy.Subscriber(
-                "/LunarYard/Sun/Pose", Pose, self.setSunPose, queue_size=1
-            )
-        )
+        self.projector_subs.append(rospy.Subscriber("/LunarYard/Sun/Pose", Pose, self.setSunPose, queue_size=1))
         # self.projector_subs.append(rospy.Subscriber("/Lunalab/Projector/Color", ColorRGBA, self.setProjectorColor, queue_size=1))
         self.terrains_subs = []
+        self.terrains_subs.append(rospy.Subscriber("/LunarYard/Terrain/Switch", Int8, self.switchTerrain, queue_size=1))
         self.terrains_subs.append(
-            rospy.Subscriber(
-                "/LunarYard/Terrain/Switch", Int8, self.switchTerrain, queue_size=1
-            )
-        )
-        self.terrains_subs.append(
-            rospy.Subscriber(
-                "/LunarYard/Terrain/EnableRocks", Bool, self.enableRocks, queue_size=1
-            )
+            rospy.Subscriber("/LunarYard/Terrain/EnableRocks", Bool, self.enableRocks, queue_size=1)
         )
         self.terrains_subs.append(
             rospy.Subscriber(
@@ -159,11 +145,7 @@ class ROS_LunaryardManager:
             )
         )
         self.robot_subs = []
-        self.robot_subs.append(
-            rospy.Subscriber(
-                "/LunarYard/Robots/Spawn", PoseStamped, self.spawnRobot, queue_size=1
-            )
-        )
+        self.robot_subs.append(rospy.Subscriber("/LunarYard/Robots/Spawn", PoseStamped, self.spawnRobot, queue_size=1))
         self.robot_subs.append(
             rospy.Subscriber(
                 "/LunarYard/Robots/Teleport",
@@ -172,16 +154,8 @@ class ROS_LunaryardManager:
                 queue_size=1,
             )
         )
-        self.robot_subs.append(
-            rospy.Subscriber(
-                "/LunarYard/Robots/Reset", String, self.resetRobot, queue_size=1
-            )
-        )
-        self.robot_subs.append(
-            rospy.Subscriber(
-                "/LunarYard/Robots/ResetAll", Empty, self.resetRobots, queue_size=1
-            )
-        )
+        self.robot_subs.append(rospy.Subscriber("/LunarYard/Robots/Reset", String, self.resetRobot, queue_size=1))
+        self.robot_subs.append(rospy.Subscriber("/LunarYard/Robots/ResetAll", Empty, self.resetRobots, queue_size=1))
         self.domain_id = 0
         self.modifications = []
 
@@ -383,9 +357,7 @@ class ROS_LunaryardManager:
             data (String): Name and path of the robot to spawn.
                            Must be in the format: robot_name:usd_path"""
 
-        assert (
-            len(data.header.frame_id.split(":")) == 2
-        ), "The data should be in the format: robot_name:usd_path"
+        assert len(data.header.frame_id.split(":")) == 2, "The data should be in the format: robot_name:usd_path"
         robot_name, usd_path = data.header.frame_id.split(":")
         p = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
         q = [
