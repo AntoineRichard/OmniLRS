@@ -36,7 +36,7 @@ class BaseEnv:
         Builds the scene. It either loads the scene from a file or creates it from scratch.
         """
 
-        raiseNotImplementedError()
+        raise NotImplementedError()
 
     def instantiate_scene(self) -> None:
         """
@@ -44,21 +44,21 @@ class BaseEnv:
         the renderer has been stepped.
         """
 
-        raiseNotImplementedError()
+        raise NotImplementedError()
 
     def reset(self) -> None:
         """
         Resets the environment. Implement the logic to reset the environment.
         """
 
-        raiseNotImplementedError()
+        raise NotImplementedError()
 
     def update(self) -> None:
         """
         Updates the environment.
         """
 
-        raiseNotImplementedError()
+        raise NotImplementedError()
 
     def load(self) -> None:
         """
@@ -66,7 +66,7 @@ class BaseEnv:
         Creates the instancer for the rocks, and generates the terrain.
         """
 
-        raiseNotImplementedError()
+        raise NotImplementedError()
 
     def add_robot_manager(self, robotManager: RobotManager) -> None:
         """
@@ -85,11 +85,11 @@ class BaseEnv:
             contact_forces (np.ndarray): The contact forces in local frame reported by rigidprimview.
         """
 
-        raiseNotImplementedError()
+        raise NotImplementedError()
 
     def apply_terramechanics(self) -> None:
         """
         Applies the terramechanics.
         """
 
-        raiseNotImplementedError()
+        raise NotImplementedError()
