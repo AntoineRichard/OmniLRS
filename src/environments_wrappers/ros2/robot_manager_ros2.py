@@ -89,7 +89,7 @@ class ROS_RobotManager(Node):
         robot_name = data.header.frame_id
         p = [data.pose.position.x, data.pose.position.y, data.pose.position.z]
         q = [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w]
-        self.modifications.append([self.RM.teleport_robot, {"robot_name": robot_name, "p": p, "q": q}])
+        self.modifications.append([self.RM.teleport_robot, {"robot_name": robot_name, "position": p, "orientation": q}])
 
     def reset_robot(self, data: String) -> None:
         """
@@ -100,7 +100,7 @@ class ROS_RobotManager(Node):
         """
 
         robot_name = data.data
-        self.modifications.append([self.RM.resetRobot, {"robot_name": robot_name}])
+        self.modifications.append([self.RM.reset_robot, {"robot_name": robot_name}])
 
     def reset_robots(self, data: Empty) -> None:
         """

@@ -162,7 +162,7 @@ class RobotManager:
             warnings.warn("Robot does not exist. Ignoring request.")
 
     def teleport_robot(
-        self, robot_name: str = None, position: np.ndarray = None, orienation: np.ndarray = None
+        self, robot_name: str = None, position: np.ndarray = None, orientation: np.ndarray = None
     ) -> None:
         """
         Teleport a specific robot to a specific position and orientation.
@@ -171,9 +171,10 @@ class RobotManager:
             robot_name (str): The name of the robot.
         """
         if robot_name in self.robots.keys():
-            self.robots[robot_name].teleport(position, orienation)
+            self.robots[robot_name].teleport(position, orientation)
         else:
             warnings.warn("Robot does not exist. Ignoring request.")
+            print("available robots: ", self.robots.keys())
 
 
 class Robot:
