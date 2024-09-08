@@ -1,9 +1,7 @@
 __author__ = "Antoine Richard, Junnosuke Kamohara"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
-__license__ = "GPL"
-__version__ = "1.0.0"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
@@ -80,9 +78,7 @@ class CraterGenerator:
         with open(self._profiles_path, "rb") as handle:
             self._profiles = pickle.load(handle)
 
-    def sat_gaussian(
-        self, x: np.ndarray, mu1: float, mu2: float, std: float
-    ) -> np.ndarray:
+    def sat_gaussian(self, x: np.ndarray, mu1: float, mu2: float, std: float) -> np.ndarray:
         """
         Saturates a gaussian function to its maximum between mu1 and mu2 with a standard deviation of std.
 
@@ -116,35 +112,18 @@ class CraterGenerator:
 
         # Generates the deformation matrix
         m = np.zeros([crater_data.size, crater_data.size])
-        x, y = np.meshgrid(
-            np.linspace(-1, 1, crater_data.size), np.linspace(-1, 1, crater_data.size)
-        )
+        x, y = np.meshgrid(np.linspace(-1, 1, crater_data.size), np.linspace(-1, 1, crater_data.size))
         theta = np.arctan2(y, x)
         fac = crater_data.deformation_spline(theta / (2 * np.pi) + 0.5)
 
         # Generates the marks matrix
-        marks = (
-            crater_data.marks_spline(theta / (2 * np.pi) + 0.5)
-            * crater_data.size
-            / 2
-            * crater_data.marks_intensity
-        )
+        marks = crater_data.marks_spline(theta / (2 * np.pi) + 0.5) * crater_data.size / 2 * crater_data.marks_intensity
 
         # Generates the distance matrix
         x, y = np.meshgrid(range(crater_data.size), range(crater_data.size))
         m = np.sqrt(
-            (
-                (x - (crater_data.size / 2) + 1)
-                * 1
-                / crater_data.xy_deformation_factor[0]
-            )
-            ** 2
-            + (
-                (y - (crater_data.size / 2) + 1)
-                * 1
-                / crater_data.xy_deformation_factor[1]
-            )
-            ** 2
+            ((x - (crater_data.size / 2) + 1) * 1 / crater_data.xy_deformation_factor[0]) ** 2
+            + ((y - (crater_data.size / 2) + 1) * 1 / crater_data.xy_deformation_factor[1]) ** 2
         )
 
         # Deforms the distance matrix
@@ -182,9 +161,7 @@ class CraterGenerator:
         Returns:
             np.ndarray: crater DEM."""
 
-        crater = self._profiles[crater_data.crater_profile_id](
-            2 * distance / crater_data.size
-        )
+        crater = self._profiles[crater_data.crater_profile_id](2 * distance / crater_data.size)
         return crater
 
     def randomizeCraterParameters(self, index: int, size: int) -> CraterData:
@@ -207,21 +184,15 @@ class CraterGenerator:
 
         # Generates a profile to deform the crater
         deformation_profile = self._rng.uniform(0.95, 1, 9)
-        deformation_profile = np.concatenate(
-            [deformation_profile, [deformation_profile[0]]], axis=0
-        )
+        deformation_profile = np.concatenate([deformation_profile, [deformation_profile[0]]], axis=0)
         tmp_x = np.linspace(0, 1, deformation_profile.shape[0])
-        crater_data.deformation_spline = CubicSpline(
-            tmp_x, deformation_profile, bc_type=((1, 0.0), (1, 0.0))
-        )
+        crater_data.deformation_spline = CubicSpline(tmp_x, deformation_profile, bc_type=((1, 0.0), (1, 0.0)))
 
         # Generates a profile to add marks that converges toward the center of the crater
         marks_profile = self._rng.uniform(0.0, 0.01, 45)
         marks_profile = np.concatenate([marks_profile, [marks_profile[0]]], axis=0)
         tmp_x = np.linspace(0, 1, marks_profile.shape[0])
-        crater_data.marks_spline = CubicSpline(
-            tmp_x, marks_profile, bc_type=((1, 0.0), (1, 0.0))
-        )
+        crater_data.marks_spline = CubicSpline(tmp_x, marks_profile, bc_type=((1, 0.0), (1, 0.0)))
         crater_data.marks_intensity = self._rng.uniform(0, 1)
 
         # XY deformation factor
@@ -262,13 +233,7 @@ class CraterGenerator:
 
         distance = self.centeredDistanceMatrix(crater_data)
 
-        crater = (
-            self.applyProfile(distance, crater_data)
-            * crater_data.size
-            / 2.0
-            * self._z_scale
-            * self._resolution
-        )
+        crater = self.applyProfile(distance, crater_data) * crater_data.size / 2.0 * self._z_scale * self._resolution
         return crater, crater_data
 
     def generateCraters(
@@ -289,13 +254,9 @@ class CraterGenerator:
             np.ndarray: unpadded DEM with craters, and matching mask."""
 
         # Creates a padded DEM and mask
-        DEM_padded = np.zeros(
-            (self._pad_size * 2 + DEM.shape[0], self._pad_size * 2 + DEM.shape[1])
-        )
+        DEM_padded = np.zeros((self._pad_size * 2 + DEM.shape[0], self._pad_size * 2 + DEM.shape[1]))
         mask_padded = np.ones_like(DEM_padded)
-        DEM_padded[
-            self._pad_size : -self._pad_size, self._pad_size : -self._pad_size
-        ] = DEM
+        DEM_padded[self._pad_size : -self._pad_size, self._pad_size : -self._pad_size] = DEM
 
         # Creates a cache to store craters data
         if craters_data is None:
@@ -309,9 +270,7 @@ class CraterGenerator:
                 c, crater_data = self.generateCrater(int(rad))
                 crater_data.coord = (coord[0], coord[1])
                 coord2 = (coord_s + self._pad_size).astype(np.int64)
-                coord = (coord_s - crater_data.size / 2 + self._pad_size).astype(
-                    np.int64
-                )
+                coord = (coord_s - crater_data.size / 2 + self._pad_size).astype(np.int64)
                 DEM_padded[
                     coord[0] : coord[0] + crater_data.size,
                     coord[1] : coord[1] + crater_data.size,
@@ -348,12 +307,8 @@ class CraterGenerator:
         mask_padded[-self._pad_size - 1 :, :] = 0
         mask_padded[:, -self._pad_size - 1 :] = 0
         return (
-            DEM_padded[
-                self._pad_size : -self._pad_size, self._pad_size : -self._pad_size
-            ],
-            mask_padded[
-                self._pad_size : -self._pad_size, self._pad_size : -self._pad_size
-            ],
+            DEM_padded[self._pad_size : -self._pad_size, self._pad_size : -self._pad_size],
+            mask_padded[self._pad_size : -self._pad_size, self._pad_size : -self._pad_size],
             craters_data,
         )
 
@@ -383,9 +338,7 @@ class Distribute:
         self._num_repeat = cfg.num_repeat
         self._rng = np.random.default_rng(cfg.seed)
 
-    def sampleFromPoisson(
-        self, l: float, r_minmax: Tuple[float]
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def sampleFromPoisson(self, l: float, r_minmax: Tuple[float]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Samples from a Poisson process.
 
@@ -402,9 +355,7 @@ class Distribute:
         y_coords = self._rng.uniform(0, self._y_max, num_points)
         return np.stack([x_coords, y_coords]).T, radius
 
-    def hardcoreRejection(
-        self, coords: np.ndarray, radius: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def hardcoreRejection(self, coords: np.ndarray, radius: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Performs hardcore rejection on the craters.
 
@@ -484,9 +435,7 @@ class Distribute:
 
         prev_coords = None
         for d, r_minmax in zip(self._densities, self._radius):
-            new_coords, new_radius = self.simulateHCPoissonProcess(
-                d, r_minmax, prev_coords
-            )
+            new_coords, new_radius = self.simulateHCPoissonProcess(d, r_minmax, prev_coords)
             if prev_coords is not None:
                 prev_coords = (
                     np.concatenate([prev_coords[0], new_coords], axis=0),
@@ -523,9 +472,7 @@ class BaseTerrainGenerator:
         self._rng = np.random.default_rng(cfg.seed)
         self._z_scale = cfg.z_scale
 
-    def generateRandomTerrain(
-        self, is_lab: bool = False, is_yard: bool = False
-    ) -> np.ndarray:
+    def generateRandomTerrain(self, is_lab: bool = False, is_yard: bool = False) -> np.ndarray:
         """
         Generates a random terrain DEM. With some of its borders at 0 height
         to align with the catawalks in the lab.
@@ -540,29 +487,17 @@ class BaseTerrainGenerator:
         # Generate low frequency noise to simulate large scale terrain features.
         if is_lab:
             lr_noise = np.zeros((4, 4))
-            lr_noise[:-1, 1:] = self._rng.uniform(
-                self._min_elevation, self._max_elevation, [3, 3]
-            )
+            lr_noise[:-1, 1:] = self._rng.uniform(self._min_elevation, self._max_elevation, [3, 3])
         elif is_yard:
             lr_noise = np.zeros((7, 7))
-            lr_noise[1:-1, 1:-1] = self._rng.uniform(
-                self._min_elevation, self._max_elevation, [5, 5]
-            )
+            lr_noise[1:-1, 1:-1] = self._rng.uniform(self._min_elevation, self._max_elevation, [5, 5])
         else:
-            lr_noise = self._rng.uniform(
-                self._min_elevation, self._max_elevation, [4, 4]
-            )
-        hr_noise = cv2.resize(
-            lr_noise, (self._y_size, self._x_size), interpolation=cv2.INTER_CUBIC
-        )
+            lr_noise = self._rng.uniform(self._min_elevation, self._max_elevation, [4, 4])
+        hr_noise = cv2.resize(lr_noise, (self._y_size, self._x_size), interpolation=cv2.INTER_CUBIC)
         self._DEM += hr_noise
         # Generate high frequency noise to simulate small scale terrain features.
-        lr_noise = self._rng.uniform(
-            self._min_elevation * 0.01, self._max_elevation * 0.01, [100, 100]
-        )
-        hr_noise = cv2.resize(
-            lr_noise, (self._y_size, self._x_size), interpolation=cv2.INTER_CUBIC
-        )
+        lr_noise = self._rng.uniform(self._min_elevation * 0.01, self._max_elevation * 0.01, [100, 100])
+        hr_noise = cv2.resize(lr_noise, (self._y_size, self._x_size), interpolation=cv2.INTER_CUBIC)
         self._DEM += hr_noise
         # Normalize the DEM between 0 and 1 and scale it to the desired elevation range.
         # self._DEM = (self._DEM - self._DEM.min()) / (self._DEM.max() - self._DEM.min())
@@ -634,9 +569,7 @@ class GenerateProceduralMoonYard:
         self._mask = mask
         self._num_pass = np.zeros_like(mask)
 
-    def deform(
-        self, body_transforms: np.ndarray, contact_forces: np.ndarray
-    ) -> np.ndarray:
+    def deform(self, body_transforms: np.ndarray, contact_forces: np.ndarray) -> np.ndarray:
         """
         Add vertical deformation to terrain DEM.
         Args:
@@ -656,7 +589,6 @@ if __name__ == "__main__":
     DEMs, mask, craters_data = [G.randomize() for i in range(4)]
     end = datetime.datetime.now()
 
-    print((end - start).total_seconds())
     for DEM, mask in DEMs:
         plt.figure()
         plt.imshow(DEM, cmap="jet")
