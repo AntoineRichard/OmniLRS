@@ -1,7 +1,7 @@
-__author__ = "Antoine Richard"
-__copyright__ = "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-__license__ = "GPL"
-__version__ = "1.0.0"
+__author__ = "Antoine Richard, Junnosuke Kamohara"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
@@ -13,10 +13,13 @@ from typing import Union
 import omni
 import time
 
+from src.environments_wrappers.ros2.largescale_ros2 import ROS_LargeScaleManager
+from src.environments_wrappers.ros2.lunaryard_ros2 import ROS_LunaryardManager
 from src.environments_wrappers.ros2.robot_manager_ros2 import ROS_RobotManager
 from src.environments_wrappers.ros2.lunalab_ros2 import ROS_LunalabManager
-from src.environments_wrappers.ros2.lunaryard_ros2 import ROS_LunaryardManager
+from src.configurations.procedural_terrain_confs import TerrainManagerConf
 from rclpy.executors import SingleThreadedExecutor as Executor
+from src.physics.physics_scene import PhysicsSceneManager
 
 
 class Rate:
@@ -50,6 +53,7 @@ class Rate:
         """
         Wait for a minimum amount of time between two iterations of a loop.
         """
+
         if not self.is_disabled:
             now = time.time()
             delta = now - self.last_check
@@ -103,16 +107,18 @@ class ROS2_LabManagerFactory:
 ROS2_LMF = ROS2_LabManagerFactory()
 ROS2_LMF.register("Lunalab", ROS_LunalabManager)
 ROS2_LMF.register("Lunaryard", ROS_LunaryardManager)
+ROS2_LMF.register("large_scale", ROS_LargeScaleManager)
 
 
 class ROS2_SimulationManager:
-    """ "
+    """
     Manages the simulation. This class is responsible for:
     - Initializing the simulation
     - Running the lab manager thread
     - Running the robot manager thread
     - Running the simulation
-    - Cleaning the simulation"""
+    - Cleaning the simulation
+    """
 
     def __init__(
         self,
@@ -124,7 +130,9 @@ class ROS2_SimulationManager:
 
         Args:
             cfg (dict): Configuration dictionary.
-            simulation_app (SimulationApp): SimulationApp instance."""
+            simulation_app (SimulationApp): SimulationApp instance.
+        """
+
         self.cfg = cfg
         self.simulation_app = simulation_app
         # Setups the physics and acquires the different interfaces to talk with Isaac
@@ -134,8 +142,11 @@ class ROS2_SimulationManager:
             physics_dt=cfg["environment"]["physics_dt"],
             rendering_dt=cfg["environment"]["rendering_dt"],
         )
-        self.physics_ctx = self.world.get_physics_context()
-        self.physics_ctx.set_solver_type("PGS")
+        PSM = PhysicsSceneManager(cfg["physics"]["physics_scene"])
+        for i in range(100):
+            self.world.step(render=True)
+        self.world.reset()
+
         if cfg["environment"]["enforce_realtime"]:
             self.rate = Rate(dt=cfg["environment"]["physics_dt"])
         else:
@@ -158,17 +169,13 @@ class ROS2_SimulationManager:
         # Yes "Josh" there is.
         # 24 topics. More than that and you won't reveive any messages.
         # Keep it in mind if you want to go crazy with the ROS2 calls to modify the sim...
-        self.world.reset()
-        for i in range(100):
-            self.world.step(render=True)
-
-        self.terrain_manager_conf = cfg["environment"]["terrain_manager"]
+        self.terrain_manager_conf: TerrainManagerConf = cfg["environment"]["terrain_manager"]
         self.render_deform_inv = self.terrain_manager_conf.moon_yard.deformation_engine.render_deform_inv
         self.enable_deformation = self.terrain_manager_conf.moon_yard.deformation_engine.enable
 
         # Preload the assets
-        self.ROSRobotManager.RM.preloadRobot(self.world)
-        self.ROSLabManager.LC.addRobotManager(self.ROSRobotManager.RM)
+        self.ROSRobotManager.RM.preload_robot(self.world)
+        self.ROSLabManager.LC.add_robot_manager(self.ROSRobotManager.RM)
 
         for i in range(100):
             self.world.step(render=True)
@@ -176,7 +183,8 @@ class ROS2_SimulationManager:
 
     def run_simulation(self) -> None:
         """
-        Runs the simulation."""
+        Runs the simulation.
+        """
 
         self.timeline.play()
         while self.simulation_app.is_running():
@@ -185,19 +193,19 @@ class ROS2_SimulationManager:
                 # Apply modifications to the lab only once the simulation step is finished
                 # This is extremely important as modifying the stage during a simulation step
                 # will lead to a crash.
-                self.ROSLabManager.periodicUpdate(dt=self.world.get_physics_dt())
+                self.ROSLabManager.periodic_update(dt=self.world.get_physics_dt())
                 if self.world.current_time_step_index == 0:
                     self.world.reset()
                     self.ROSLabManager.reset()
                     self.ROSRobotManager.reset()
-                self.ROSLabManager.applyModifications()
+                self.ROSLabManager.apply_modifications()
                 if self.ROSLabManager.trigger_reset:
                     self.ROSRobotManager.reset()
                     self.ROSLabManager.trigger_reset = False
-                self.ROSRobotManager.applyModifications()
+                self.ROSRobotManager.apply_modifications()
                 if self.enable_deformation:
                     if self.world.current_time_step_index % self.render_deform_inv == 0:
-                        self.ROSLabManager.LC.deformTerrain()
+                        self.ROSLabManager.LC.deform_terrain()
                     # self.ROSLabManager.LC.applyTerramechanics()
             self.rate.sleep()
 
