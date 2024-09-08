@@ -145,6 +145,16 @@ class LargeScaleTerrainManager:
 
         return self.map_manager.get_normal(coordinates)
 
+    def get_lat_lon(self) -> Tuple[float, float]:
+        """
+        Get the latitude and longitude of the center of the map.
+
+        Returns:
+            Tuple[float, float]: The latitude and longitude of the center of the map.
+        """
+
+        return self.map_manager.get_lat_lon()
+
     def build(self):
         self.build_configs()
         self.build_managers()

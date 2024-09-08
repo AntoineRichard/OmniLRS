@@ -80,6 +80,34 @@ class RobotManager:
                     world,
                 )
 
+    def preload_robot_at_pose(
+        self,
+        world: World,
+        position: Tuple[float, float, float],
+        orientation: Tuple[float, float, float, float],
+    ) -> None:
+        """
+        Preload the robots in the scene.
+        Args:
+            world (Usd.Stage): The usd stage scene.
+            position (Tuple[float, float, float]): The position of the robot. (x, y, z)
+            orientation (Tuple[float, float, float, float]): The orientation of the robot. (w, x, y, z)
+        """
+        if len(self.robot_parameters) > 0:
+            for robot_parameter in self.robot_parameters:
+                self.add_robot(
+                    robot_parameter.usd_path,
+                    robot_parameter.robot_name,
+                    position,
+                    orientation,
+                    robot_parameter.domain_id,
+                )
+                self.add_RRG(
+                    robot_parameter.robot_name,
+                    robot_parameter.target_links,
+                    world,
+                )
+
     def add_robot(
         self,
         usd_path: str = None,
@@ -266,22 +294,12 @@ class Robot:
         """
         Get the pose of the robot.
         Returns:
-            List[float]: The pose of the robot. (x, y, z, qx, qy, qz, qw)
+            List[float]: The pose of the robot. (x, y, z), (qx, qy, qz, qw)
         """
-
-        source_prim = UsdGeom.Xformable(self.stage.GetPrimAtPath(self.robot_path))
-        target_prim = UsdGeom.Xformable(self.stage.GetPrimAtPath(self.robots_root))
-        relative_transform = get_relative_transform(source_prim, target_prim)
-        translation, rotation = pose_from_tf_matrix(relative_transform)
-        return [
-            translation[0],
-            translation[1],
-            translation[2],
-            rotation[1],
-            rotation[2],
-            rotation[3],
-            rotation[0],
-        ]
+        if self.root_body_id is None:
+            self.get_root_rigid_body_path()
+        pose = self.dc.get_rigid_body_pose(self.root_body_id)
+        return pose.p, pose.r
 
     def set_reset_pose(self, position: np.ndarray, orientation: np.ndarray) -> None:
         """
@@ -317,6 +335,7 @@ class Robot:
 
         # w = self.reset_orientation.GetReal()
         # xyz = self.reset_orientation.GetImaginary()
+        self.root_body_id = None
         self.teleport(
             [self.reset_position[0], self.reset_position[1], self.reset_position[2]],
             [

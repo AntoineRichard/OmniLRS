@@ -52,7 +52,8 @@ class ROS_LargeScaleManager(ROS_BaseManager):
             dt (float): Time step.
         """
 
-        self.modifications.append([self.LC.update_stellar_engine, dt])
+        self.modifications.append([self.LC.update_stellar_engine, {"dt": dt}])
+        self.LC.update()
 
     def reset(self) -> None:
         """

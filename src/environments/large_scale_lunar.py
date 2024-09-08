@@ -34,7 +34,7 @@ class LargeScaleController(BaseEnv):
 
     def __init__(
         self,
-        large_scale_settings: LargeScaleTerrainConf = None,
+        large_scale_terrain: LargeScaleTerrainConf = None,
         stellar_engine_settings: StellarEngineConf = None,
         sun_settings: SunConf = None,
         **kwargs,
@@ -52,7 +52,7 @@ class LargeScaleController(BaseEnv):
         """
 
         super().__init__(**kwargs)
-        self.stage_settings = large_scale_settings
+        self.stage_settings = large_scale_terrain
         self.sun_settings = sun_settings
         if stellar_engine_settings is not None:
             self.SE = StellarEngine(stellar_engine_settings)
@@ -93,12 +93,12 @@ class LargeScaleController(BaseEnv):
         set_xform_ops(self._sun_prim.GetPrim(), Gf.Vec3d(0, 0, 0), Gf.Quatd(w, Gf.Vec3d(x, y, z)), Gf.Vec3d(1, 1, 1))
 
         # Creates the earth
-        earth = self.stage.DefinePrim(os.path.join(self.scene_name, "Earth"), "Xform")
-        self._earth_prim = earth.GetPrim().GetReferences().AddReference(self.stage_settings.earth_usd_path)
+        self._earth_prim = self.stage.DefinePrim(os.path.join(self.scene_name, "Earth"), "Xform")
+        self._earth_prim.GetReferences().AddReference(self.stage_settings.earth_usd_path)
         dist = self.stage_settings.earth_distance * self.stage_settings.earth_scale
         px = math.cos(math.radians(self.stage_settings.earth_azimuth)) * dist
         py = math.sin(math.radians(self.stage_settings.earth_azimuth)) * dist
-        pz = math.sin(math.radians(self.stage_settings.earth_altitude)) * dist
+        pz = math.sin(math.radians(self.stage_settings.earth_elevation)) * dist
         set_xform_ops(self._earth_prim, Gf.Vec3d(px, py, pz), Gf.Quatd(0, 0, 0, 1))
 
     def instantiate_scene(self) -> None:
@@ -121,7 +121,9 @@ class LargeScaleController(BaseEnv):
         Updates the environment.
         """
 
-        pass
+        # print position of prim to track
+        p, _ = self.pose_tracker()
+        self.LSTM.update_visual_mesh((p[0], p[1]))
 
     def load(self) -> None:
         """
@@ -136,8 +138,6 @@ class LargeScaleController(BaseEnv):
         # Sets the sun using the stellar engine if enabled
         if self.enable_stellar_engine:
             self.SE.set_lat_lon(*self.LSTM.get_lat_lon())
-        # Fetches the interactive elements
-        self.collect_interactive_assets()
 
     def add_robot_manager(self, robotManager: RobotManager) -> None:
         """
@@ -148,29 +148,7 @@ class LargeScaleController(BaseEnv):
         """
 
         self.robotManager = robotManager
-
-    def get_lux_assets(self, prim: "Usd.Prim") -> None:
-        """
-        Returns the UsdLux prims under a given prim.
-
-        Args:
-            prim (Usd.Prim): The prim to be searched.
-
-        Returns:
-            list: A list of UsdLux prims.
-        """
-
-        lights = []
-        for prim in Usd.PrimRange(prim):
-            if prim.IsA(UsdLux.DistantLight):
-                lights.append(prim)
-            if prim.IsA(UsdLux.SphereLight):
-                lights.append(prim)
-            if prim.IsA(UsdLux.CylinderLight):
-                lights.append(prim)
-            if prim.IsA(UsdLux.DiskLight):
-                lights.append(prim)
-        return lights
+        self.pose_tracker = list(self.robotManager.robots.values())[0].get_pose
 
     # ==============================================================================
     # Stellar engine control
@@ -224,8 +202,8 @@ class LargeScaleController(BaseEnv):
                 alt, az, _ = self.SE.get_alt_az("sun")
                 quat = self.SE.convert_alt_az_to_quat(alt, az)
 
-                self.set_sun_pose(((0, 0, 0), quat))
-                self.set_earth_pose((earth_pos, (0, 0, 0, 1)))
+                self.set_sun_pose((0, 0, 0), quat)
+                self.set_earth_pose(earth_pos, (0, 0, 0, 1))
 
     # ==============================================================================
     # Earth control
@@ -245,8 +223,12 @@ class LargeScaleController(BaseEnv):
         """
 
         w, x, y, z = (orientation[0], orientation[1], orientation[2], orientation[3])
-        px, py, pz = (position[0], position[1], position[2])
-        set_xform_ops(self._earth_prim, position=Gf.Vec3d(px, py, pz), orientation=Gf.Quatd(w, Gf.Vec3d(x, y, z)))
+        px, py, pz = (
+            position[0] * self.stage_settings.earth_scale,
+            position[1] * self.stage_settings.earth_scale,
+            position[2] * self.stage_settings.earth_scale,
+        )
+        set_xform_ops(self._earth_prim, translate=Gf.Vec3d(px, py, pz), orient=Gf.Quatd(w, Gf.Vec3d(x, y, z)))
 
     # ==============================================================================
     # Sun control
@@ -266,7 +248,7 @@ class LargeScaleController(BaseEnv):
         """
 
         w, x, y, z = (orientation[0], orientation[1], orientation[2], orientation[3])
-        set_xform_ops(self._sun_prim, orientation=Gf.Quatd(w, Gf.Vec3d(x, y, z)))
+        set_xform_ops(self._sun_prim, orient=Gf.Quatd(w, Gf.Vec3d(x, y, z)))
 
     def set_sun_intensity(self, intensity: float) -> None:
         """
@@ -276,7 +258,7 @@ class LargeScaleController(BaseEnv):
             intensity (float): The intensity of the projector (arbitrary unit).
         """
 
-        self._sun_lux.GetAttribute("intensity").Set(intensity)
+        self._sun_lux.GetIntensityAttr().Set(intensity)
 
     def set_sun_color(self, color: List[float]) -> None:
         """
@@ -287,7 +269,7 @@ class LargeScaleController(BaseEnv):
         """
 
         color = Gf.Vec3d(color[0], color[1], color[2])
-        self.set_attribute_batch(self._projector_lux, "color", color)
+        self._sun_lux.GetColorAttr().Set(color)
 
     def set_sun_color_temperature(self, temperature: float = 6500.0) -> None:
         """
@@ -297,7 +279,7 @@ class LargeScaleController(BaseEnv):
             temperature (float): The color temperature of the projector in Kelvin.
         """
 
-        self._sun_lux.GetAttribute("colorTemperature").Set(temperature)
+        self._sun_lux.GetColorTemperatureAttr().Set(temperature)
 
     def set_sun_angle(self, angle: float = 0.53) -> None:
         """
@@ -307,7 +289,7 @@ class LargeScaleController(BaseEnv):
             angle (float): The angle of the projector.
         """
 
-        self.set_attribute_batch(self._projector_lux, "angle", angle)
+        self._sun_lux.GetAngleAttr().Set(angle)
 
     # ==============================================================================
     # Terrain info

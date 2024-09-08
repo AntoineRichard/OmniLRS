@@ -142,7 +142,7 @@ class LargeScaleTerrainConf:
     crater_gen_densities: list = dataclasses.field(default_factory=list)
     crater_gen_radius: list = dataclasses.field(default_factory=list)
     crater_gen_profiles_path: str = "assets/Terrains/crater_spline_profiles.pkl"
-    crater_gen_padding: float = 10
+    crater_gen_padding: float = 10.0
     crater_gen_min_xy_ratio: float = 0.85
     crater_gen_max_xy_ratio: float = 1.0
     crater_gen_random_rotation: bool = True
@@ -176,7 +176,7 @@ class LargeScaleTerrainConf:
     terrain_collider_resolution: float = 0.05
     terrain_collider_mode: str = "meshSimplification"
     terrain_collider_cache_size: int = 10
-    terrain_collider_building_threshold: int = 4
+    terrain_collider_building_threshold: int = 4.0
 
     rock_gen_cfgs: list = dataclasses.field(default_factory=list)
 
@@ -456,5 +456,10 @@ class LargeScaleTerrainConf:
             "block_size": self.block_size,
         }
 
-        assert type(self.starting_position) == tuple, "starting_position must be a tuple."
         assert len(self.starting_position) == 2, "starting_position must be a tuple of length 2."
+
+        self.earth_usd_path: str = "assets/USD_Assets/common/Earth.usd"
+        self.earth_azimuth: float = 90.0
+        self.earth_elevation: float = 45.0
+        self.earth_scale: float = 0.001
+        self.earth_distance: float = 384400000.0

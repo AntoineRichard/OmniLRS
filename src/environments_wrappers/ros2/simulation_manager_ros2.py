@@ -107,7 +107,7 @@ class ROS2_LabManagerFactory:
 ROS2_LMF = ROS2_LabManagerFactory()
 ROS2_LMF.register("Lunalab", ROS_LunalabManager)
 ROS2_LMF.register("Lunaryard", ROS_LunaryardManager)
-ROS2_LMF.register("large_scale", ROS_LargeScaleManager)
+ROS2_LMF.register("LargeScale", ROS_LargeScaleManager)
 
 
 class ROS2_SimulationManager:
@@ -169,12 +169,19 @@ class ROS2_SimulationManager:
         # Yes "Josh" there is.
         # 24 topics. More than that and you won't reveive any messages.
         # Keep it in mind if you want to go crazy with the ROS2 calls to modify the sim...
-        self.terrain_manager_conf: TerrainManagerConf = cfg["environment"]["terrain_manager"]
-        self.render_deform_inv = self.terrain_manager_conf.moon_yard.deformation_engine.render_deform_inv
-        self.enable_deformation = self.terrain_manager_conf.moon_yard.deformation_engine.enable
+        if "terrain_manager" in cfg["environment"].keys():
+            self.terrain_manager_conf: TerrainManagerConf = cfg["environment"]["terrain_manager"]
+            self.render_deform_inv = self.terrain_manager_conf.moon_yard.deformation_engine.render_deform_inv
+            self.enable_deformation = self.terrain_manager_conf.moon_yard.deformation_engine.enable
+        else:
+            self.enable_deformation = False
 
         # Preload the assets
-        self.ROSRobotManager.RM.preload_robot(self.world)
+        if cfg["environment"]["name"] == "LargeScale":
+            height, quat = self.ROSLabManager.LC.get_height_and_normal((0.0, 0.0, 0.0))
+            self.ROSRobotManager.RM.preload_robot_at_pose(self.world, (0, 0, height + 0.5), (1, 0, 0, 0))
+        else:
+            self.ROSRobotManager.RM.preload_robot(self.world)
         self.ROSLabManager.LC.add_robot_manager(self.ROSRobotManager.RM)
 
         for i in range(100):
