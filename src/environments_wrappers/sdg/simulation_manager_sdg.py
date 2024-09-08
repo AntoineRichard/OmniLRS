@@ -1,9 +1,7 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
-__license__ = "GPL"
-__version__ = "1.0.0"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
@@ -29,7 +27,7 @@ class SyntheticDataGeneration_LabManagerFactory:
         return self._lab_managers[cfg["environment"]["name"]](
             **cfg["environment"],
             flares_settings=cfg["rendering"]["lens_flares"],
-            camera_settings=cfg["mode"]["camera_settings"]
+            camera_settings=cfg["mode"]["camera_settings"],
         )
 
 
@@ -60,9 +58,7 @@ class SDG_SimulationManager:
         for i in range(100):
             self.world.step(render=True)
         print("After world reset")
-        self.generation_settings.prim_path = (
-            self.LC.scene_name + "/" + self.generation_settings.prim_path
-        )
+        self.generation_settings.prim_path = self.LC.scene_name + "/" + self.generation_settings.prim_path
         self.AL = AutonomousLabeling(self.generation_settings)
         self.AL.load()
         self.count = 0
@@ -72,9 +68,7 @@ class SDG_SimulationManager:
         Runs the simulation."""
 
         self.timeline.play()
-        while self.simulation_app.is_running() and (
-            self.count < self.generation_settings.num_images
-        ):
+        while self.simulation_app.is_running() and (self.count < self.generation_settings.num_images):
             self.world.step(render=True)
             if self.world.is_playing():
                 try:

@@ -1,9 +1,7 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
-__license__ = "GPL"
-__version__ = "1.0.0"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
@@ -56,9 +54,7 @@ class SDG_Lunaryard(LunaryardController):
         self.camera_settings = camera_settings
         self.terrain_settings = terrain_manager
         self.counter = 0
-        self.rng = np.random.default_rng(
-            seed=terrain_manager.moon_yard.crater_distribution.seed
-        )
+        self.rng = np.random.default_rng(seed=terrain_manager.moon_yard.crater_distribution.seed)
 
     def load(self) -> None:
         self.createCamera()
@@ -72,16 +68,12 @@ class SDG_Lunaryard(LunaryardController):
         # The camera path to the camera prim
         self._camera_path = self.scene_name + "/Camera/camera_annotations"
         # Creates a camera
-        self._camera = UsdGeom.Camera.Define(self.stage, self._camera_path)
+        self._camera: UsdGeom.Camera = UsdGeom.Camera.Define(self.stage, self._camera_path)
         # Rigs the camera using the settings provided by the user
         self._camera.CreateFocalLengthAttr().Set(self.camera_settings.focal_length)
         self._camera.CreateFocusDistanceAttr().Set(self.camera_settings.focus_distance)
-        self._camera.CreateHorizontalApertureAttr().Set(
-            self.camera_settings.horizontal_aperture
-        )
-        self._camera.CreateVerticalApertureAttr().Set(
-            self.camera_settings.vertical_aperture
-        )
+        self._camera.CreateHorizontalApertureAttr().Set(self.camera_settings.horizontal_aperture)
+        self._camera.CreateVerticalApertureAttr().Set(self.camera_settings.vertical_aperture)
         self._camera.CreateFStopAttr().Set(self.camera_settings.fstop)
         self._camera.CreateClippingRangeAttr().Set(
             Gf.Vec2f(
@@ -125,13 +117,9 @@ class SDG_Lunaryard(LunaryardController):
             randomization_space=2,
             seed=42,
         )
-        req_pos_xy = UserRequest_T(
-            p_type=Position_T(), sampler=xy_sampler, layer=xy_mask, axes=["x", "y"]
-        )
+        req_pos_xy = UserRequest_T(p_type=Position_T(), sampler=xy_sampler, layer=xy_mask, axes=["x", "y"])
         # Random yaw
-        rpy_layer = RollPitchYaw_T(
-            rmax=0, rmin=0, pmax=0, pmin=0, ymax=np.pi * 2, ymin=0
-        )
+        rpy_layer = RollPitchYaw_T(rmax=0, rmin=0, pmax=0, pmin=0, ymax=np.pi * 2, ymin=0)
         rpy_sampler = UniformSampler_T(randomization_space=3, seed=42)
         req_ori = UserRequest_T(
             p_type=Orientation_T(),
@@ -147,9 +135,7 @@ class SDG_Lunaryard(LunaryardController):
             mpp_resolution=self.terrain_settings.resolution,
             data=self.dem,
         )
-        req_pos_z = UserRequest_T(
-            p_type=Position_T(), sampler=image_clipper, layer=image_layer, axes=["z"]
-        )
+        req_pos_z = UserRequest_T(p_type=Position_T(), sampler=image_clipper, layer=image_layer, axes=["z"])
         requests = [req_pos_xy, req_pos_z, req_ori]
         self.mixer_camera = RequestMixer(requests)
 
@@ -159,10 +145,10 @@ class SDG_Lunaryard(LunaryardController):
 
         R = SSTR.from_euler("xyz", (phi, 0, theta), degrees=True)
         quat = R.as_quat()
-        setDefaultOps(self._projector_xform, [0, 0, 0], quat, [1, 1, 1])
+        setDefaultOps(self._sun_prim, [0, 0, 0], quat, [1, 1, 1])
 
     def randomizeEarth(self):
-        r = 34800
+        r = 348000
         theta = self.rng.uniform(0, 360)
         phi = self.rng.uniform(15, 55)
         x = np.cos(theta) * r
@@ -174,7 +160,7 @@ class SDG_Lunaryard(LunaryardController):
         R = SSTR.from_euler("xyz", (0, 0, theta), degrees=True)
         quat = R.as_quat()
 
-        setDefaultOps(self._earth_xform, [x, y, z], quat, [1, 1, 1])
+        setDefaultOps(self._earth_prim, [x, y, z], quat, [1, 1, 1])
 
     def randomizeCamera(self):
         """
@@ -183,12 +169,10 @@ class SDG_Lunaryard(LunaryardController):
         attributes = self.mixer_camera.executeGraph(1)
         position = attributes["xformOp:translation"]
         orientation = attributes["xformOp:orientation"]
-        setDefaultOps(
-            UsdGeom.Xformable(self._camera_prim), position[0], orientation[0], (1, 1, 1)
-        )
+        setDefaultOps(UsdGeom.Xformable(self._camera_prim), position[0], orientation[0], (1, 1, 1))
 
     def switchTerrain(self, flag: int) -> None:
-        super().switchTerrain(flag)
+        super().switch_terrain(flag)
         self.createCameraSampler()
         self.randomizeCamera()
 
@@ -197,7 +181,7 @@ class SDG_Lunaryard(LunaryardController):
         self.randomizeEarth()
         self.randomizeCamera()
         if self.counter % 100 == 0:
-            self.randomizeRocks()
+            self.randomize_rocks()
         if self.counter % 1000 == 0:
             self.switchTerrain(-1)
         self.counter += 1
