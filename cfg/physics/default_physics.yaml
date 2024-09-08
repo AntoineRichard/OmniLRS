@@ -1,6 +1,7 @@
-dt: 0.16666
-gravity: [0.0, 0.0, 1.62]
-use_ccd: true
-enable_stabilization: false
-solver_type: PGS
-use_gpu_pipeline: false
+physics_scene:
+  dt: 0.16666
+  gravity: [0.0, 0.0, -1.62]
+  enable_ccd: true
+  enable_stabilization: false
+  solver_type: PGS
+  use_gpu_pipeline: false
