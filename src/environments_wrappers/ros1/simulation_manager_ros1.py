@@ -11,8 +11,11 @@ from typing import Union
 from omni.isaac.core import World
 import omni
 
-from src.environments_wrappers.ros1.lunalab_ros1 import ROS_LunalabManager
+from src.environments_wrappers.ros1.largescale_ros1 import ROS_LargeScaleManager
 from src.environments_wrappers.ros1.lunaryard_ros1 import ROS_LunaryardManager
+from src.environments_wrappers.ros1.lunalab_ros1 import ROS_LunalabManager
+from src.configurations.procedural_terrain_confs import TerrainManagerConf
+from src.physics.physics_scene import PhysicsSceneManager
 
 
 class ROS1_LabManagerFactory:
@@ -22,7 +25,7 @@ class ROS1_LabManagerFactory:
     def register(
         self,
         name: str,
-        lab_manager: Union[ROS_LunalabManager, ROS_LunaryardManager],
+        lab_manager: Union[ROS_LunalabManager, ROS_LunaryardManager, ROS_LargeScaleManager],
     ) -> None:
         """
         Registers a lab manager.
@@ -37,7 +40,7 @@ class ROS1_LabManagerFactory:
     def __call__(
         self,
         cfg: dict,
-    ) -> Union[ROS_LunalabManager, ROS_LunaryardManager]:
+    ) -> Union[ROS_LunalabManager, ROS_LunaryardManager, ROS_LargeScaleManager]:
         """
         Returns an instance of the lab manager corresponding to the environment name.
 
@@ -57,6 +60,7 @@ class ROS1_LabManagerFactory:
 ROS1_LMF = ROS1_LabManagerFactory()
 ROS1_LMF.register("Lunalab", ROS_LunalabManager)
 ROS1_LMF.register("Lunaryard", ROS_LunaryardManager)
+ROS1_LMF.register("LargeScale", ROS_LargeScaleManager)
 
 
 class ROS1_SimulationManager:
@@ -83,9 +87,10 @@ class ROS1_SimulationManager:
         # Setups the physics and acquires the different interfaces to talk with Isaac
         self.timeline = omni.timeline.get_timeline_interface()
         self.world = World(stage_units_in_meters=1.0)
-
-        # PHYSICS TODO
-        # RENDERING TODO
+        PSM = PhysicsSceneManager(cfg["physics"]["physics_scene"])
+        for _ in range(100):
+            self.world.step(render=False)
+        self.world.reset()
 
         # Lab manager thread (ROS1 does not allow to run multiple threads from the same file)
         # So unlike ROS2, we cannot run the lab manager and the robot manager in parallel.
@@ -93,12 +98,18 @@ class ROS1_SimulationManager:
         # However, unlike ROS2, I have yet to find the limit of topics you can subscribe to.
         # Penny for your thoughts "Josh".
         self.ROSLabManager = ROS1_LMF(cfg)
-        self.render_deform_inv = cfg["environment"]["terrain_manager"].moon_yard.deformation_engine.render_deform_inv
+        self.terrain_manager_conf: TerrainManagerConf = cfg["environment"]["terrain_manager"]
+        self.render_deform_inv = self.terrain_manager_conf.moon_yard.deformation_engine.render_deform_inv
+        self.enable_deformation = self.terrain_manager_conf.moon_yard.deformation_engine.enable
         self.world.reset()
 
         # Preload the assets
         self.ROSLabManager.RM.preload_robot(self.world)
         self.ROSLabManager.LC.add_robot_manager(self.ROSLabManager.RM)
+
+        for _ in range(100):
+            self.world.step(render=False)
+        self.world.reset()
 
     def run_simulation(self) -> None:
         """
@@ -110,14 +121,14 @@ class ROS1_SimulationManager:
                 # Apply modifications to the lab only once the simulation step is finished
                 # This is extremely important as modifying the stage during a simulation step
                 # will lead to a crash.
-                self.ROSLabManager.periodicUpdate(dt=self.world.get_physics_dt())
+                self.ROSLabManager.periodic_update(dt=self.world.get_physics_dt())
                 if self.world.current_time_step_index == 0:
                     self.world.reset()
                     self.ROSLabManager.reset()
-                self.ROSLabManager.applyModifications()
-                if self.cfg["environment"]["terrain_manager"].moon_yard.deformation_engine.enable:
+                self.ROSLabManager.apply_modifications()
+                if self.enable_deformation:
                     if self.world.current_time_step_index % self.render_deform_inv == 0:
-                        self.ROSLabManager.LC.deformTerrain()
+                        self.ROSLabManager.LC.deform_terrain()
                     # self.ROSLabManager.LC.applyTerramechanics()
 
         self.timeline.stop()
