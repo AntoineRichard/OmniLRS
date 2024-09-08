@@ -4,7 +4,7 @@ import numpy as np
 import math
 import copy
 
-from src.configurations.large_scale_terrain_confs import LargeScaleTerrainConf
+from src.configurations.environments import LargeScaleTerrainConf
 
 from src.terrain_management.large_scale_terrain.nested_geometry_clipmaps_manager import (
     NestedGeometryClipmapManagerConf,
