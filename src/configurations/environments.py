@@ -7,8 +7,7 @@ __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
 import dataclasses
-
-from src.terrain_management.large_scale_terrain.pxr_utils import collider_modes
+import os
 
 
 @dataclasses.dataclass
@@ -52,6 +51,8 @@ class LunalabConf:
         projector_orientation (tuple): The orientation of the projector. (x, y, z, w)
     """
 
+    lab_length: float = 10.0
+    lab_width: float = 6.5
     resolution: float = 0.01
     projector_position: tuple = (3.0, 0.0, 1.0)
     projector_orientation: tuple = (0.0, 0.0, 0.0, 1.0)
@@ -64,12 +65,13 @@ class LunalabConf:
         assert type(self.projector_orientation) == tuple, "The projector orientation must be a tuple."
         assert len(self.projector_orientation) == 4, "The projector orientation must have 4 elements."
 
+        assert self.lab_length == 10.0, "The lab length cannot be changed, and must be 10.0 meters"
+        assert self.lab_width == 6.5, "The lab width cannot be changed, and must be 6.5meters"
+
         self.curtains_path = {
-            "left": "/Lunalab/CurtainLeft",
-            "right": "/Lunalab/CurtainRight",
+            "extended": "/Lunalab/Lab/CurtainExtended",
+            "folded": "/Lunalab/Lab/CurtainFolded",
         }
-        self.lab_length = 10.0
-        self.lab_width = 6.5
         self.projector_path = "/Lunalab/Projector"
         self.projector_shader_path = "/Lunalab/Looks/Light_12000K/Shader"
         self.room_lights_path = "/Lunalab/CeilingLights"
@@ -112,7 +114,7 @@ class LunaryardConf:
         self.sun_path: str = "/Lunaryard/Sun"
         self.earth_path: str = "/Lunaryard/Earth"
         self.earth_usd_path: str = "assets/USD_Assets/common/Earth.usd"
-        self.earth_scale: float = 0.0001
+        self.earth_scale: float = 0.001
         self.coordinates = Coordinates(**self.coordinates)
 
 
@@ -403,7 +405,6 @@ class LargeScaleTerrainConf:
         assert type(self.terrain_collider_resolution) == float, "terrain_collider_resolution must be a float."
         assert self.terrain_collider_resolution > 0, "terrain_collider_resolution must be a positive float."
         assert type(self.terrain_collider_mode) == str, "terrain_collider_mode must be a string."
-        assert self.terrain_collider_mode in collider_modes, "terrain_collider_mode must be one of the collider modes."
         assert type(self.terrain_collider_cache_size) == int, "terrain_collider_cache_size must be an integer."
         assert self.terrain_collider_cache_size >= 4, "terrain_collider_cache_size must be greater or equal to 4."
         assert (

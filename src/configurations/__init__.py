@@ -28,10 +28,10 @@ from src.configurations.procedural_terrain_confs import (
     BaseTerrainGeneratorConf,
     DeformationEngineConf,
 )
+from src.configurations.rendering_confs import FlaresConf, RendererConf, MotionBlurConf, ChromaticAberrationsConf
 from src.configurations.environments import LunalabConf, LunaryardConf, LargeScaleTerrainConf
 from src.configurations.auto_labeling_confs import AutoLabelingConf, CameraConf
-from src.configurations.rendering_confs import FlaresConf, RendererConf
-from src.configurations.stellar_engine_confs import StellarEngineConf
+from src.configurations.stellar_engine_confs import StellarEngineConf, SunConf
 from src.configurations.physics_confs import PhysicsSceneConf
 
 
@@ -58,6 +58,8 @@ configFactory.registerConfig("crater_distribution", CraterDistributionConf)
 configFactory.registerConfig("base_terrain_generator", BaseTerrainGeneratorConf)
 configFactory.registerConfig("deformation_engine", DeformationEngineConf)
 # Rendering Configs
+configFactory.registerConfig("chromatic_aberrations", ChromaticAberrationsConf)
+configFactory.registerConfig("motion_blur", MotionBlurConf)
 configFactory.registerConfig("lens_flares", FlaresConf)
 configFactory.registerConfig("renderer", RendererConf)
 # Environment Configs
@@ -68,6 +70,7 @@ configFactory.registerConfig("camera_settings", CameraConf)
 configFactory.registerConfig("generation_settings", AutoLabelingConf)
 # Stellar Engine Configs
 configFactory.registerConfig("stellar_engine_settings", StellarEngineConf)
+configFactory.registerConfig("sun_settings", SunConf)
 # Large Scale Terrain Configs
 configFactory.registerConfig("large_scale_terrain", LargeScaleTerrainConf)
 # Physics Configs

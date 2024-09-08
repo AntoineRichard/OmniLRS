@@ -63,6 +63,7 @@ class ChromaticAberrationsConf:
     enable: bool = dataclasses.field(default_factory=bool)
     strength: tuple = (0, 0, 0)
     model: tuple = ("Radial", "Radial", "Radial")
+    enable_lanczos: bool = dataclasses.field(default_factory=bool)
 
     def __post_init__(self):
         assert type(self.enable) is bool, "enable must be a boolean"
@@ -72,6 +73,7 @@ class ChromaticAberrationsConf:
         assert type(self.model) is tuple, "model must be a tuple"
         assert all([type(i) is str for i in self.model]), "model must be a tuple of strings"
         assert len(self.model) == 3, "model must be a tuple of 3 strings"
+        assert type(self.enable_lanczos) is bool, "enable_lanzcos must be a boolean"
 
         assert all([i in ["Radial", "Barrel"] for i in self.model]), "model must be a tuple of 'Radial' or 'Barrel'"
         assert all([i <= 1 and i >= -1 for i in self.strength]), "strength must be between -1 and 1"

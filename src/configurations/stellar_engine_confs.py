@@ -38,7 +38,6 @@ class StellarEngineConf:
     start_date: datetime.datetime = dataclasses.field(default_factory=dict)
     time_scale: float = 36000.0
     update_interval: float = 600.0
-    distance_scale: float = 1e-3
     ephemeris_path: str = "assets/Ephemeris"
     ephemeris: str = "de421.bsp"
     moon_pa: str = "moon_pa_de421_1900-2050.bpc"
@@ -55,7 +54,6 @@ class StellarEngineConf:
 
         assert 0 < self.time_scale, "Time scale must be greater than 0."
         assert 0 < self.update_interval, "Update interval must be greater than 0."
-        assert 0 < self.distance_scale, "Distance scale must be greater than 0."
 
         assert self.ephemeris in ["de421.bsp"], "Ephemeris must be one of 'de421.bsp'."
         assert self.moon_pa in ["moon_pa_de421_1900-2050.bpc"], "Moon PA must be one of 'moon_pa_de421_1900-2050.bpc'."
@@ -103,7 +101,6 @@ class SunConf:
         assert type(self.angle) == float, "The angle must be a float."
         assert type(self.diffuse_multiplier) == float, "The diffuse multiplier must be a float."
         assert type(self.specular_multiplier) == float, "The specular multiplier must be a float."
-        assert type(self.color) == tuple, "The color must be a tuple."
         assert type(self.temperature) == float, "The temperature must be a float."
         assert all([type(i) == float for i in self.color]), "The color must be a tuple of 3 floats."
         assert type(self.azimuth) == float, "The azimuth must be a float."
