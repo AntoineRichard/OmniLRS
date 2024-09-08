@@ -1,9 +1,7 @@
 __author__ = "Antoine Richard, Junnosuke Kamohara"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
-__license__ = "GPL"
-__version__ = "1.0.0"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
@@ -36,7 +34,8 @@ class TypeFactory:
 
         Args:
             type_name (str): The name of the type.
-            worldbuilder_type (WorldBuilder): The type of the worldbuilder."""
+            worldbuilder_type (WorldBuilder): The type of the worldbuilder.
+        """
 
         self.types[type_name] = worldbuilder_type
 
@@ -50,14 +49,11 @@ class TypeFactory:
 
         Args:
             name (str, optional): The name of the type. Defaults to None.
-            **kwargs: The arguments of the type."""
+            **kwargs: The arguments of the type.
+        """
 
         if name is None:
-            raise ValueError(
-                "Incorrect type name passed. Available types are: {}".format(
-                    self.types.keys()
-                )
-            )
+            raise ValueError("Incorrect type name passed. Available types are: {}".format(self.types.keys()))
         else:
             return self.types[name](**kwargs)
 
@@ -67,18 +63,12 @@ samplerTypeFactory.register_type("Uniform", UniformSampler_T)
 samplerTypeFactory.register_type("HardCoreUniform", HardCoreUniformSampler_T)
 samplerTypeFactory.register_type("Normal", NormalSampler_T)
 samplerTypeFactory.register_type("MaternCluster", MaternClusterPointSampler_T)
-samplerTypeFactory.register_type(
-    "HardCoreMaternCluster", HardCoreMaternClusterPointSampler_T
-)
+samplerTypeFactory.register_type("HardCoreMaternCluster", HardCoreMaternClusterPointSampler_T)
 samplerTypeFactory.register_type("Poisson", PoissonPointSampler_T)
 samplerTypeFactory.register_type("LinearInterpolation", LinearInterpolationSampler_T)
 samplerTypeFactory.register_type("ThomasCluster", ThomasClusterSampler_T)
-samplerTypeFactory.register_type(
-    "HardCoreThomasCluster", HardCoreThomasClusterSampler_T
-)
-samplerTypeFactory.register_type(
-    "DeterministicSampler", DeterministicSampler_T
-)
+samplerTypeFactory.register_type("HardCoreThomasCluster", HardCoreThomasClusterSampler_T)
+samplerTypeFactory.register_type("DeterministicSampler", DeterministicSampler_T)
 samplerTypeFactory.register_type("Image", ImageClipper_T)
 samplerTypeFactory.register_type("NormalMap", NormalMapClipper_T)
 
@@ -103,19 +93,49 @@ layerFactory.register_type("RollPitchYaw", RollPitchYaw_T)
 
 
 def requestGenerator(request: dict) -> Any:
+    """
+    Generates a request.
+
+    Args:
+        request (dict): The request.
+
+    Returns:
+        Any: The request.
+    """
+
     attr = attributeFactory(request["attribute"])
     layer = layerFactory(**request["layer"])
     sampler = samplerTypeFactory(**request["sampler"])
-    return UserRequest_T(
-        p_type=attr, layer=layer, sampler=sampler, axes=request["axes"]
-    )
+    return UserRequest_T(p_type=attr, layer=layer, sampler=sampler, axes=request["axes"])
 
 
 def getMixer(requests: dict) -> RequestMixer:
+    """
+    Get a mixer.
+
+    Args:
+        requests (dict): The requests.
+
+    Returns:
+        RequestMixer: The mixer.
+    """
+
     return RequestMixer([requestGenerator(request) for request in requests.values()])
 
 
-def addImageData(requests: dict, image: np.ndarray, mask: np.ndarray = None):
+def addImageData(requests: dict, image: np.ndarray, mask: np.ndarray = None) -> dict:
+    """
+    Adds image data to the requests.
+
+    Args:
+        requests (dict): The requests.
+        image (np.ndarray): The image.
+        mask (np.ndarray): The mask.
+
+    Returns:
+        dict: The requests.
+    """
+
     for name in requests.keys():
         if requests[name]["layer"]["name"] == "Image":
             requests[name]["layer"]["data"] = mask
@@ -125,14 +145,26 @@ def addImageData(requests: dict, image: np.ndarray, mask: np.ndarray = None):
     return requests
 
 
-def generateMixer(requests, image, mask):
+def generateMixer(requests: dict, image: np.ndarray, mask: np.ndarray) -> RequestMixer:
+    """
+    Generates a mixer.
+
+    Args:
+        requests (dict): The requests.
+        image (np.ndarray): The image.
+        mask (np.ndarray): The mask.
+
+    Returns:
+        RequestMixer: The mixer.
+    """
     requests = addImageData(requests, image, mask)
     return getMixer(requests)
 
 
 class OGInstancer:
     """
-    The Original Gangster: the point instancer."""
+    The Original Gangster: the point instancer.
+    """
 
     def __init__(self, instancer_path, asset_list, seed):
         self.instancer_path = instancer_path
@@ -141,9 +173,7 @@ class OGInstancer:
         createInstancerAndCache(self.stage, self.instancer_path, self.prototypes)
         self.rng = np.random.default_rng(seed=seed)
 
-    def setInstanceParameter(
-        self, position: np.ndarray, orientation: np.ndarray, scale: np.ndarray, **kwargs
-    ) -> None:
+    def setInstanceParameter(self, position: np.ndarray, orientation: np.ndarray, scale: np.ndarray, **kwargs) -> None:
         """
         Set the instancer's parameters. It sets the position, orientation, and scale of the instances.
 
@@ -151,7 +181,8 @@ class OGInstancer:
             position (np.ndarray): The position of the instances.
             orientation (np.ndarray): The orientation of the instances.
             scale (np.ndarray): The scale of the instances.
-            **kwargs: Extra arguments."""
+            **kwargs: Extra arguments.
+        """
 
         ids = self.rng.integers(0, len(self.prototypes), position.shape[0])
         setInstancerParameters(
@@ -166,9 +197,16 @@ class OGInstancer:
 
 
 class RockManager:
-    def __init__(
-        self, rocks_settings: dict = None, instancers_path: str = None, **kwargs
-    ):
+    """
+    The RockManager class. It manages the rocks in the environment.
+    """
+
+    def __init__(self, rocks_settings: dict = None, instancers_path: str = None, **kwargs) -> None:
+        """
+        Args:
+            rocks_settings (dict, optional): The settings of the rocks. Defaults to None.
+            instancers_path (str, optional): The instancers path. Defaults to None.
+        """
         self.stage = omni.usd.get_context().get_stage()
 
         self.instancers = {}
@@ -202,7 +240,8 @@ class RockManager:
         """
         Reads the configuration files and figures out which node (a node is a single bundle of requests) depends on which.
         It collects the root nodes, the ones that do not depend on any others.
-        As well as builds a list of all the existing nodes."""
+        As well as builds a list of all the existing nodes.
+        """
 
         for name, settings in self.settings.items():
             self.nodes.append(name)
@@ -221,9 +260,7 @@ class RockManager:
                 if not name in self.dependency_graph.keys():
                     self.dependency_graph[name] = []
 
-    def findPath(
-        self, start: str, end: str, path: List[str] = []
-    ) -> Union[None, List[str]]:
+    def findPath(self, start: str, end: str, path: List[str] = []) -> Union[None, List[str]]:
         """
         Finds if the starting node, and ending nodes are connected.
         If so, returns the path between them, if not returns None.
@@ -234,7 +271,8 @@ class RockManager:
             path (List[str]): The list of nodes.
 
         Returns:
-            Union[None, List[str]]"""
+            Union[None, List[str]]
+        """
 
         path = path + [start]
         if start == end:
@@ -248,7 +286,7 @@ class RockManager:
                     return newpath
         return None
 
-    def buildExecutionOrder(self):
+    def buildExecutionOrder(self) -> None:
         """
         Figures out in which order the nodes should be ran such that the depencies are satisfied.
         """
@@ -274,7 +312,8 @@ class RockManager:
 
         Args:
             image (np.ndarray): The image data.
-            mask (np.ndarray): The mask data."""
+            mask (np.ndarray): The mask data.
+        """
 
         self.createInstancers()
 
@@ -285,13 +324,14 @@ class RockManager:
 
         Args:
             image (np.ndarray): The image data.
-            mask (np.ndarray): The mask data."""
+            mask (np.ndarray): The mask data.
+        """
 
         self.image = image
         for name, settings in self.settings.items():
             self.mixers[name] = generateMixer(settings["requests"], image, mask)
 
-    def createInstancers(self):
+    def createInstancers(self) -> None:
         """
         Creates as many instancers as there are types of rocks.
         There are two types of instancers, point instancers and custom instancers.
@@ -319,14 +359,12 @@ class RockManager:
 
             self.stage.DefinePrim(os.path.join(self.instancers_path, name), "Xform")
             if settings["use_point_instancer"]:
-                print("OG")
                 self.instancers[name] = OGInstancer(
                     os.path.join(self.instancers_path, name, "instancer"),
                     rock_assets,
                     seed=settings["seed"],
                 )
             else:
-                print("Custom")
                 self.instancers[name] = CustomInstancer(
                     os.path.join(self.instancers_path, name, "instancer"),
                     rock_assets,
@@ -334,38 +372,35 @@ class RockManager:
                     seed=settings["seed"],
                 )
 
-    def randomizeInstancers(self, num):
+    def randomizeInstancers(self, num: int) -> None:
         """
         Runs the mixers, collects the randomized parameters, and sets them to the instancers.
+
+        Args:
+            num (int): The number of instances to generate.
         """
 
         parents = {}
         for name in self.execution_order:
             if name in self.children_nodes:
-                output = self.mixers[name].executeGraph(
-                    parents=parents[self.settings[name]["parent"]]
-                )
+                output = self.mixers[name].executeGraph(parents=parents[self.settings[name]["parent"]])
             else:
                 output = self.mixers[name].executeGraph(num)
             # Check if it the node is the parent of any other node.
-            if (name in self.dependency_graph.keys()) and (
-                len(self.dependency_graph[name]) > 0
-            ):
+            if (name in self.dependency_graph.keys()) and (len(self.dependency_graph[name]) > 0):
                 # If so collects parent data from the mixer.
                 parents[name] = self.mixers[name].getParents()
             # Updates the instancer.
             output = {self.mappings[key]: value for key, value in output.items()}
             self.instancers[name].setInstanceParameter(**output)
 
-    def setVisible(
-        self,
-        flag: bool,
-    ) -> None:
+    def setVisible(self, flag: bool) -> None:
         """
         Set the visibility of the instancer.
 
         Args:
-            flag (bool): The visibility flag."""
+            flag (bool): The visibility flag.
+        """
 
         instancers_prim = self.stage.GetPrimAtPath(self.instancers_path)
         if flag:
