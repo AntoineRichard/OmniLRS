@@ -1,9 +1,7 @@
 __author__ = "Antoine Richard, Junnosuke Kahamora"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
-__license__ = "GPL"
-__version__ = "1.0.0"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
@@ -56,9 +54,7 @@ class CustomInstancer:
         self.semantic_class = semantic_class
         self.rng = np.random.default_rng(seed=seed)
 
-    def setInstanceParameter(
-        self, position: np.ndarray, orientation: np.ndarray, scale: np.ndarray
-    ) -> None:
+    def setInstanceParameter(self, position: np.ndarray, orientation: np.ndarray, scale: np.ndarray) -> None:
         """
         Set the instancer's parameters. It sets the position, orientation, scale, and semantic class of the instances.
 
