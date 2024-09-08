@@ -1,9 +1,7 @@
 __author__ = "Antoine Richard"
-__copyright__ = (
-    "Copyright 2023, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
-)
-__license__ = "GPL"
-__version__ = "1.0.0"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
 __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
@@ -11,9 +9,14 @@ __status__ = "development"
 
 def startSim(cfg: dict):
     from omni.isaac.kit import SimulationApp
+    from src.environments.rendering import set_lens_flares, set_chromatic_aberrations, set_motion_blur
 
     # Starts the simulation and allows to import things related to Isaac and PXR
-    simulation_app = SimulationApp(cfg["rendering"]["renderer"].__dict__)
+    renderer_cfg = cfg["rendering"]["renderer"]
+    simulation_app = SimulationApp(renderer_cfg.__dict__)
+    set_lens_flares(cfg)
+    set_motion_blur(cfg)
+    set_chromatic_aberrations(cfg)
 
     # Starts the ROS2 extension. Allows to import ROS2 related things.
     if cfg["mode"]["name"] == "ROS2":
