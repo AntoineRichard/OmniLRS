@@ -1,3 +1,11 @@
+__author__ = "Antoine Richard"
+__copyright__ = "Copyright 2023-24, Space Robotics Lab, SnT, University of Luxembourg, SpaceR"
+__license__ = "BSD 3-Clause"
+__version__ = "2.0.0"
+__maintainer__ = "Antoine Richard"
+__email__ = "antoine.richard@uni.lu"
+__status__ = "development"
+
 from src.configurations.stellar_engine_confs import StellarEngineConf
 from scipy.spatial.transform import Rotation as SSTR
 from skyfield.api import PlanetaryConstants, load
@@ -93,7 +101,7 @@ class StellarEngine:
 
         apparent = self.observer.at(self.t).observe(self.bodies[body]).apparent()
         alt, az, distance = apparent.altaz()
-        return alt.degrees, az.degrees, distance.m * self.cfg.distance_scale
+        return alt.degrees, az.degrees, distance.m
 
     def get_radec(self, body: str) -> Tuple[float, float, float]:
         """
@@ -108,7 +116,7 @@ class StellarEngine:
 
         apparent = self.observer.at(self.t).observe(self.bodies[body]).apparent()
         ra, dec, distance = apparent.radec(epoch="date")
-        return ra, dec, distance.m * self.cfg.distance_scale
+        return ra, dec, distance.m
 
     def get_position(self, body: str) -> Tuple[float, float, float]:
         """
@@ -122,7 +130,7 @@ class StellarEngine:
         """
 
         apparent = self.observer.at(self.t).observe(self.bodies[body]).apparent()
-        return apparent.position.to("m").value * self.cfg.distance_scale
+        return apparent.position.to("m").value
 
     def get_local_position(self, body: str) -> Tuple[float, float, float]:
         """
