@@ -49,25 +49,35 @@ def enable_RTX_interactive(*kwargs) -> None:
 # ==============================================================================
 
 
-def apply_lens_flare(flare_settings: FlaresConf = None, enable: bool = False) -> None:
+def set_lens_flares(cfg) -> None:
+    """
+    Sets the lens flare settings.
+    """
+
+    if "lens_flares" in cfg["rendering"].keys():
+        flare_cfg = cfg["rendering"]["lens_flares"]
+        apply_lens_flare(flare_cfg)
+    else:
+        flare_cfg = None
+
+
+def apply_lens_flare(settings: FlaresConf = None) -> None:
     """
     Enables the lens flare effect.
 
     Args:
-        enable (bool): True to enable the lens flare, False to disable it.
+        flare_settings (FlaresConf): The settings of the
     """
 
-    if enable:
-        enable_lens_flare(True)
-        set_flare_scale(flare_settings.scale)
-        set_flare_num_blades(flare_settings.blades)
-        set_flare_aperture_rotation(flare_settings.aperture_rotation)
-        set_flare_sensor_aspect_ratio(flare_settings.sensor_aspect_ratio)
-        set_flare_sensor_diagonal(flare_settings.sensor_diagonal)
-        set_flare_fstop(flare_settings.fstop)
-        set_flare_focal_length(flare_settings.focal_length)
-    else:
-        enable_lens_flare(False)
+    if settings is not None:
+        enable_lens_flare(settings.enable)
+        set_flare_scale(settings.scale)
+        set_flare_num_blades(settings.blades)
+        set_flare_aperture_rotation(settings.aperture_rotation)
+        set_flare_sensor_aspect_ratio(settings.sensor_aspect_ratio)
+        set_flare_sensor_diagonal(settings.sensor_diagonal)
+        set_flare_fstop(settings.fstop)
+        set_flare_focal_length(settings.focal_length)
 
 
 def enable_lens_flare(enable: bool = True) -> None:
@@ -172,20 +182,28 @@ def set_flare_focal_length(value: float = 12.0):
 # ==============================================================================
 
 
-def apply_chromatic_aberrations(settings: ChromaticAberrationsConf = None, enable: bool = False) -> None:
+def set_chromatic_aberrations(cfg):
+    """
+    Sets the chromatic aberration settings.
+    """
+
+    if "chromatic_aberrations" in cfg["rendering"].keys():
+        chromatic_aberrations_cfg = cfg["rendering"]["chromatic_aberrations"]
+        apply_chromatic_aberrations(chromatic_aberrations_cfg)
+
+
+def apply_chromatic_aberrations(settings: ChromaticAberrationsConf = None) -> None:
     """
     Applies the chromatic aberration effect.
 
     Args:
         settings (ChromaticAberrationsConf): The settings of the chromatic aberration.
     """
-    if enable:
-        enable_chromatic_aberrations(True)
-        set_chromatic_aberration_strength(settings.strength)
-        set_chromatic_aberration_model(settings.model)
-        set_chromatic_aberration_lanczos(settings.enableLanczos)
-    else:
-        enable_chromatic_aberrations(False)
+    if settings is not None:
+        enable_chromatic_aberrations(settings.enable)
+        set_chromatic_aberrations_strength(settings.strength)
+        set_chromatic_aberrations_model(settings.model)
+        set_chromatic_aberrations_lanczos(settings.enable_lanczos)
 
 
 def enable_chromatic_aberrations(enable: bool = True) -> None:
@@ -200,7 +218,7 @@ def enable_chromatic_aberrations(enable: bool = True) -> None:
     settings.set("/rtx/post/chromaticAberration/enabled", enable)
 
 
-def set_chromatic_aberration_strength(value: Tuple[float, float, float] = (0.0, 0.0, 0.0)) -> None:
+def set_chromatic_aberrations_strength(value: Tuple[float, float, float] = (0.0, 0.0, 0.0)) -> None:
     """
     Sets the strength of the chromatic aberration.
 
@@ -214,7 +232,7 @@ def set_chromatic_aberration_strength(value: Tuple[float, float, float] = (0.0, 
     settings.set("/rtx/post/chromaticAberration/strengthB", value[2])
 
 
-def set_chromatic_aberration_model(value: Tuple[str, str, str] = ("Radial", "Radial", "Radial")) -> None:
+def set_chromatic_aberrations_model(value: Tuple[str, str, str] = ("Radial", "Radial", "Radial")) -> None:
     """
     Sets the model of the chromatic aberration.
 
@@ -232,7 +250,7 @@ def set_chromatic_aberration_model(value: Tuple[str, str, str] = ("Radial", "Rad
     settings.set("/rtx/post/chromaticAberration/modelB", value[2])
 
 
-def set_chromatic_aberration_lanczos(value: bool = False) -> None:
+def set_chromatic_aberrations_lanczos(value: bool = False) -> None:
     """
     Sets the lanczos of the chromatic aberration.
 
@@ -249,7 +267,17 @@ def set_chromatic_aberration_lanczos(value: bool = False) -> None:
 # ==============================================================================
 
 
-def apply_motion_blur(settings: MotionBlurConf = None, enable: bool = False) -> None:
+def set_motion_blur(cfg):
+    """
+    Sets the motion blur settings.
+    """
+
+    if "motion_blur" in cfg["rendering"].keys():
+        motion_blur_cfg = cfg["rendering"]["motion_blur"]
+        apply_motion_blur(motion_blur_cfg)
+
+
+def apply_motion_blur(settings: MotionBlurConf = None) -> None:
     """
     Applies the motion blur effect.
 
@@ -257,16 +285,14 @@ def apply_motion_blur(settings: MotionBlurConf = None, enable: bool = False) -> 
         settings (MotionBlurConf): The settings of the motion blur.
     """
 
-    if enable:
-        enable_motion_blur(True)
+    if settings is not None:
+        enable_motion_blur(settings.enable)
         set_motion_blur_diameter_fraction(settings.max_blur_diameter_fraction)
         set_motion_blur_exposure_fraction(settings.exposure_fraction)
         set_motion_blur_num_samples(settings.num_samples)
-    else:
-        enable_motion_blur(False)
 
 
-def enable_motion_blur(settings: bool = True) -> None:
+def enable_motion_blur(enable: bool = True) -> None:
     """
     Enables the motion blur effect.
 
@@ -275,7 +301,7 @@ def enable_motion_blur(settings: bool = True) -> None:
     """
 
     settings = carb.settings.get_settings()
-    settings.set("/rtx/post/motionblur/enabled", settings)
+    settings.set("/rtx/post/motionblur/enabled", enable)
 
 
 def set_motion_blur_diameter_fraction(value: float = 0.0) -> None:
