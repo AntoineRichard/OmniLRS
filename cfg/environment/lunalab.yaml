@@ -4,17 +4,10 @@ physics_dt: 0.0333 # 30 Hz
 rendering_dt: 0.0333 # 30 Hz
 enforce_realtime: true
 
-# Stage settings, only edit if you know what you are doing.
-lunalab_settings:
+lunalab_settings: # These settings cannot be changed.
   lab_length: 10.0
   lab_width: 6.5
   resolution: 0.01
-  projector_path: /Lunalab/Projector
-  projector_shader_path: /Lunalab/Looks/Light_12000K/Shader
-  room_lights_path: /Lunalab/CeilingLights
-  curtains_path:
-    extended: /Lunalab/Lab/CurtainExtended
-    folded: /Lunalab/Lab/CurtainFolded
 
 # Rocks sampling parameters.
 rocks_settings:
