@@ -8,7 +8,7 @@ __status__ = "development"
 
 from scipy.spatial.transform import Rotation as SSTR
 from typing import List, Tuple
-import omni.kit.actions.core
+import numpy as np
 import math
 import os
 
@@ -18,9 +18,9 @@ import omni
 from pxr import UsdLux, Gf, Usd
 
 from src.terrain_management.large_scale_terrain_manager import LargeScaleTerrainManager
-from src.configurations.large_scale_terrain_confs import LargeScaleTerrainConf
 from src.terrain_management.large_scale_terrain.pxr_utils import set_xform_ops
 from src.configurations.stellar_engine_confs import StellarEngineConf, SunConf
+from src.configurations.environments import LargeScaleTerrainConf
 from src.stellar.stellar_engine import StellarEngine
 from src.environments.base_env import BaseEnv
 from src.robots.robot import RobotManager
@@ -72,22 +72,25 @@ class LargeScaleController(BaseEnv):
         large_scale = self.stage.DefinePrim(self.scene_name, "Xform")
 
         # Creates the sun
-        sun = self.stage.DefinePrim(os.path.join(self.scene_name, "sun"), "Xform")
-        self._sun_prim = sun.GetPrim()
-        light: UsdLux.DistantLight = UsdLux.DistantLight.Define(self.stage, os.path.join(self.scene_name, "Sun", "sun"))
-        self._sun_lux: Usd.Prim = light.GetPrim()
-        light.CreateIntensityAttr(self.sun_settings.intensity)
-        light.CreateAngleAttr(self.sun_settings.angle)
-        light.CreateDiffuseAttr(self.sun_settings.diffuse_multiplier)
-        light.CreateSpecularAttr(self.sun_settings.specular_multiplier)
-        light.CreateColorAttr(
+        self._sun_prim = self.stage.DefinePrim(os.path.join(self.scene_name, "Sun"), "Xform")
+        self._sun_lux: UsdLux.DistantLight = UsdLux.DistantLight.Define(
+            self.stage, os.path.join(self.scene_name, "Sun", "sun")
+        )
+        self._sun_lux.CreateIntensityAttr(self.sun_settings.intensity)
+        self._sun_lux.CreateAngleAttr(self.sun_settings.angle)
+        self._sun_lux.CreateDiffuseAttr(self.sun_settings.diffuse_multiplier)
+        self._sun_lux.CreateSpecularAttr(self.sun_settings.specular_multiplier)
+        self._sun_lux.CreateColorAttr(
             Gf.Vec3f(self.sun_settings.color[0], self.sun_settings.color[1], self.sun_settings.color[2])
         )
-        light.CreateColorTemperatureAttr(self.sun_settings.temperature)
+        self._sun_lux.CreateColorTemperatureAttr(self.sun_settings.temperature)
         x, y, z, w = SSTR.from_euler(
             "xyz", [0, self.sun_settings.elevation, self.sun_settings.azimuth - 90], degrees=True
         ).as_quat()
-        set_xform_ops(light.GetPrim(), Gf.Vec3d(0, 0, 0), Gf.Quatd(w, Gf.Vec3d(x, y, z)), Gf.Vec3d(1, 1, 1))
+        set_xform_ops(
+            self._sun_lux.GetPrim(), Gf.Vec3d(0, 0, 0), Gf.Quatd(0.5, Gf.Vec3d(0.5, -0.5, -0.5)), Gf.Vec3d(1, 1, 1)
+        )
+        set_xform_ops(self._sun_prim.GetPrim(), Gf.Vec3d(0, 0, 0), Gf.Quatd(w, Gf.Vec3d(x, y, z)), Gf.Vec3d(1, 1, 1))
 
         # Creates the earth
         earth = self.stage.DefinePrim(os.path.join(self.scene_name, "Earth"), "Xform")
@@ -242,12 +245,13 @@ class LargeScaleController(BaseEnv):
         """
 
         w, x, y, z = (orientation[0], orientation[1], orientation[2], orientation[3])
-        x, y, z = (position[0], position[1], position[2])
-        set_xform_ops(self._earth_prim, position=Gf.Vec3d(x, y, z), orientation=Gf.Quatd(w, Gf.Vec3d(x, y, z)))
+        px, py, pz = (position[0], position[1], position[2])
+        set_xform_ops(self._earth_prim, position=Gf.Vec3d(px, py, pz), orientation=Gf.Quatd(w, Gf.Vec3d(x, y, z)))
 
     # ==============================================================================
     # Sun control
     # ==============================================================================
+
     def set_sun_pose(
         self,
         position: Tuple[float, float, float] = (0.0, 0.0, 0.0),
@@ -285,7 +289,17 @@ class LargeScaleController(BaseEnv):
         color = Gf.Vec3d(color[0], color[1], color[2])
         self.set_attribute_batch(self._projector_lux, "color", color)
 
-    def set_sun_angle(self, angle: float) -> None:
+    def set_sun_color_temperature(self, temperature: float = 6500.0) -> None:
+        """
+        Sets the color temperature of the projector.
+
+        Args:
+            temperature (float): The color temperature of the projector in Kelvin.
+        """
+
+        self._sun_lux.GetAttribute("colorTemperature").Set(temperature)
+
+    def set_sun_angle(self, angle: float = 0.53) -> None:
         """
         Sets the angle of the sun. Larger values make the sun larger, and soften the shadows.
 
@@ -301,7 +315,7 @@ class LargeScaleController(BaseEnv):
 
     def get_height_and_normal(
         self, position: Tuple[float, float, float]
-    ) -> Tuple[float, float, float, float, float, float]:
+    ) -> Tuple[float, Tuple[float, float, float, float]]:
         """
         Gets the height and normal of the terrain at a given position.
 
@@ -309,10 +323,20 @@ class LargeScaleController(BaseEnv):
             position (Tuple[float,float,float]): The position in meters.
 
         Returns:
-            Tuple[float,float,float,float,float,float]: The height and normal of the terrain at the given position.
+            Tuple[float, Tuple[float,float,float,float]]: The height and normal of the terrain at the given position.
+                                                          (height, (x,y,z,w))
         """
 
-        return self.LSTM.get_height_and_normal(position)
+        normal_vector = self.LSTM.get_normal_local(position)
+        heading_vector = np.array([1.0, 0.0, 0.0])
+        heading_vector = heading_vector / np.linalg.norm(heading_vector)
+        heading_vector = np.cross(normal_vector, heading_vector)
+        heading_vector = heading_vector / np.linalg.norm(heading_vector)
+        heading_vector_2 = np.cross(normal_vector, heading_vector)
+        RNorm = np.array([heading_vector, heading_vector_2, normal_vector]).T
+        RM = SSTR.from_matrix(RNorm)
+
+        return (self.LSTM.get_height_local(position), RM.as_quat())
 
     def deform_derrain(self) -> None:
         """

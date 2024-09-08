@@ -104,11 +104,15 @@ class LunaryardController(BaseEnv):
         x, y, z, w = SSTR.from_euler(
             "xyz", [0, self.sun_settings.elevation, self.sun_settings.azimuth - 90], degrees=True
         ).as_quat()
-        set_xform_ops(self._sun_lux.GetPrim(), Gf.Vec3d(0, 0, 0), Gf.Quatd(w, Gf.Vec3d(x, y, z)), Gf.Vec3d(1, 1, 1))
+        set_xform_ops(
+            self._sun_lux.GetPrim(), Gf.Vec3d(0, 0, 0), Gf.Quatd(0.5, Gf.Vec3d(0.5, -0.5, -0.5)), Gf.Vec3d(1, 1, 1)
+        )
+        set_xform_ops(self._sun_prim.GetPrim(), Gf.Vec3d(0, 0, 0), Gf.Quatd(w, Gf.Vec3d(x, y, z)), Gf.Vec3d(1, 1, 1))
 
         # Creates the earth
         self._earth_prim = self.stage.DefinePrim(self.stage_settings.earth_path, "Xform")
         self._earth_prim.GetReferences().AddReference(self.stage_settings.earth_usd_path)
+
         dist = self.stage_settings.earth_distance * self.stage_settings.earth_scale
         px = math.cos(math.radians(self.stage_settings.earth_azimuth)) * dist
         py = math.sin(math.radians(self.stage_settings.earth_azimuth)) * dist
@@ -151,6 +155,7 @@ class LunaryardController(BaseEnv):
 
         # Builds the scene
         self.build_scene()
+
         # Generates the instancer for the rocks
         self.RM.build(self.dem, self.mask)
         # Loads the DEM and the mask
@@ -245,12 +250,12 @@ class LunaryardController(BaseEnv):
         """
 
         w, x, y, z = (orientation[0], orientation[1], orientation[2], orientation[3])
-        x, y, z = (
+        px, py, pz = (
             position[0] * self.stage_settings.earth_scale,
             position[1] * self.stage_settings.earth_scale,
             position[2] * self.stage_settings.earth_scale,
         )
-        set_xform_ops(self._earth_prim, translate=Gf.Vec3d(x, y, z), orient=Gf.Quatd(w, Gf.Vec3d(x, y, z)))
+        set_xform_ops(self._earth_prim, translate=Gf.Vec3d(px, py, pz), orient=Gf.Quatd(w, Gf.Vec3d(x, y, z)))
 
     # ==============================================================================
     # Sun control
@@ -280,7 +285,7 @@ class LunaryardController(BaseEnv):
             intensity (float): The intensity of the projector (arbitrary unit).
         """
 
-        self._sun_lux.GetAttribute("intensity").Set(intensity)
+        self._sun_lux.GetIntensityAttr().Set(intensity)
 
     def set_sun_color(self, color: Tuple[float, float, float] = (1.0, 1.0, 1.0)) -> None:
         """
@@ -291,7 +296,7 @@ class LunaryardController(BaseEnv):
         """
 
         color = Gf.Vec3d(color[0], color[1], color[2])
-        self._sun_lux.GetAttribute("color").Set(color)
+        self._sun_lux.GetColorAttr().Set(color)
 
     def set_sun_color_temperature(self, temperature: float = 6500.0) -> None:
         """
@@ -301,7 +306,7 @@ class LunaryardController(BaseEnv):
             temperature (float): The color temperature of the projector in Kelvin.
         """
 
-        self._sun_lux.GetAttribute("colorTemperature").Set(temperature)
+        self._sun_lux.GetColorTemperatureAttr().Set(temperature)
 
     def set_sun_angle(self, angle: float = 0.53) -> None:
         """
@@ -311,7 +316,7 @@ class LunaryardController(BaseEnv):
             angle (float): The angle of the projector.
         """
 
-        self.set_attribute_batch(self._projector_lux, "angle", angle)
+        self._sun_lux.GetAngleAttr().Set(angle)
 
     # ==============================================================================
     # Terrain control

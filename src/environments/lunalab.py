@@ -184,9 +184,11 @@ class LunalabController(BaseEnv):
         """
 
         w, x, y, z = (orientation[0], orientation[1], orientation[2], orientation[3])
-        x, y, z = (position[0], position[1], position[2])
+        px, py, pz = (position[0], position[1], position[2])
 
-        set_xform_ops(self._projector_xform, Gf.Vec3d(x, y, z), Gf.Quatd(w, Gf.Vec3d(x, y, z)), Gf.Vec3d(1.0, 1.0, 1.0))
+        set_xform_ops(
+            self._projector_xform, Gf.Vec3d(px, py, pz), Gf.Quatd(w, Gf.Vec3d(x, y, z)), Gf.Vec3d(1.0, 1.0, 1.0)
+        )
 
     def set_projector_intensity(self, intensity: float = 0.0) -> None:
         """
