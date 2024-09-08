@@ -9,8 +9,6 @@ lunaryard_settings:
   lab_length: 20.0
   lab_width: 20.0
   resolution: 0.025
-  projector_path: /Lunaryard/Sun
-  earth_path: /Lunaryard/Earth
   coordinates:
     latitude: 46.8
     longitude: -26.3
@@ -19,12 +17,21 @@ stellar_engine_settings:
   start_date:
     year: 2024
     month: 5
-    day: 1
-    hour: 12
-    minute: 50
+    day: 21
+    hour: 5
+    minute: 1
   time_scale: 1
   update_interval: 600
-  distance_scale: 0.001
+
+sun_settings:
+  intensity: 1750.0
+  angle: 0.53
+  diffuse_multiplier: 1.0
+  specular_multiplier: 1.0
+  color: [1.0, 1.0, 1.0]
+  temperature: 6500.0
+  azimuth: 180.0
+  elevation: 45.0
 
 # Rocks sampling parameters.
 rocks_settings:
@@ -281,7 +288,7 @@ terrain_manager:
     is_lab: False
 
   root_path: /Lunaryard
-  texture_path: /Lunaryard/Looks/Basalt
+  texture_path: /Looks/Basalt
   dems_path: Terrains/Lunaryard
   mesh_position: [0, 0, 0]
   mesh_orientation: [0, 0, 0, 1] # Quaternion x,y,z,w
@@ -296,24 +303,24 @@ robots_settings:
   max_robots: 5
   robots_root: "/Robots"
   parameters:
-    # -
-    #   robot_name: ex1
-    #   usd_path: assets/USD_Assets/robots/ex1.usd
-    #   pose:
-    #     position: [5.0, 5.0, 0.5]
-    #     orientation: [1, 0, 0, 0]
-    #   domain_id: 0
-    #   target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
-    
-    # -
-    #   robot_name: jackal
-    #   usd_path: assets/USD_Assets/robots/jackal.usd
-    #   pose:
-    #     position: [5.0, 5.0, 0.5]
-    #     orientation: [1, 0, 0, 0]
-    #   domain_id: 0
-    #   target_links: ["front_left_wheel_link", "front_right_wheel_link", "rear_left_wheel_link", "rear_right_wheel_link"]
-    
+#    # -
+#    #   robot_name: ex1
+#    #   usd_path: assets/USD_Assets/robots/ex1.usd
+#    #   pose:
+#    #     position: [5.0, 5.0, 0.5]
+#    #     orientation: [1, 0, 0, 0]
+#    #   domain_id: 0
+#    #   target_links: ["left_front_wheel_link", "left_rear_wheel_link", "right_front_wheel_link", "right_rear_wheel_link"]
+#    
+#    # -
+#    #   robot_name: jackal
+#    #   usd_path: assets/USD_Assets/robots/jackal.usd
+#    #   pose:
+#    #     position: [5.0, 5.0, 0.5]
+#    #     orientation: [1, 0, 0, 0]
+#    #   domain_id: 0
+#    #   target_links: ["front_left_wheel_link", "front_right_wheel_link", "rear_left_wheel_link", "rear_right_wheel_link"]
+#    
     -
       robot_name: husky
       usd_path: assets/USD_Assets/robots/husky_vlp16.usd

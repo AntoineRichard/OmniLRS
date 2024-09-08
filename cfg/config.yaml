@@ -1,6 +1,6 @@
 defaults:
   - environment: lunalab
-  - rendering: path_tracing
+  - rendering: ray_tracing
   - mode: ROS2
   - physics: default_physics
 

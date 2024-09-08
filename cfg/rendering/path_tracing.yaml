@@ -8,12 +8,22 @@ renderer:
   subdiv_refinement_level: 0
 
 lens_flares:
-  enable: True
-  scale: 0.25
-  blades: 8
+  enable: False
+  scale: 0.5
+  blades: 9
   aperture_rotation: 0.0
-  sensor_diagonal: 43.27
+  sensor_diagonal: 28.0
   sensor_aspect_ratio: 1.5
   fstop: 2.8
-  focal_length: 42.0
-  decoupled_flare_intensity_ratio: 10.0
+  focal_length: 12.0
+
+motion_blur:
+  enable: False
+  max_blur_diameter_fraction: 0.02
+  exposure_fraction: 1.0
+  num_samples: 8
+
+chromatic_aberration:
+  enable: False
+  strength: [-0.055, -0.075, 0.015]
+  model: ["Radial", "Radial", "Radial"]
