@@ -9,7 +9,18 @@ authors = [
     { name = "Junnosuke Kamohara", email = "xxx@gatech.edu" },
 ]
 
-dependencies = ["black>=22.0.0", "skyfield", "zfpy", "warp-lang", "numba"]
+dependencies = [
+    "black>=22.0.0",
+    "skyfield",
+    "zfpy",
+    "warp-lang",
+    "numba",
+    "gdown",
+    "gdal",
+    "omegaconf",
+    "hydra-core",
+    "opencv-python",
+]
 
 [tool.black]
 line-length = 120
