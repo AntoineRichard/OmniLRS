@@ -50,9 +50,12 @@ class ROS_LunaryardManager(ROS_BaseManager):
             rospy.Subscriber("/OmniLRS/Sun/AngularSize", Float32, self.set_sun_angle, queue_size=1)
         )
         self.terrains_subs = []
-        self.terrains_subs.append(rospy.Subscriber("/OmniLRS/Terrain/Switch", Int8, self.switch_terrain, queue_size=1))
+        self.terrains_subs.append(rospy.Subscriber("/OmniLRS/Terrain/Switch", Int32, self.switch_terrain, queue_size=1))
         self.terrains_subs.append(
             rospy.Subscriber("/OmniLRS/Terrain/EnableRocks", Bool, self.enable_rocks, queue_size=1)
+        )
+        self.terrains_subs.append(
+            rospy.Subscriber("/OmniLRS/Terrain/RandomizeRocks", Int32, self.randomize_rocks, queue_size=1)
         )
 
     def periodic_update(self, dt: float) -> None:

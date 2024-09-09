@@ -60,7 +60,7 @@ class ROS_LunalabManager(ROS_BaseManager):
             rospy.Subscriber("/OmniLRS/CeilingLights/Intensity", Float32, self.set_ceiling_intensity, queue_size=1)
         )
         self.terrains_subs = []
-        self.terrains_subs.append(rospy.Subscriber("/OmniLRS/Terrain/Switch", Int8, self.switch_terrain, queue_size=1))
+        self.terrains_subs.append(rospy.Subscriber("/OmniLRS/Terrain/Switch", Int32, self.switch_terrain, queue_size=1))
         self.terrains_subs.append(
             rospy.Subscriber("/OmniLRS/Terrain/EnableRocks", Bool, self.enable_rocks, queue_size=1)
         )
