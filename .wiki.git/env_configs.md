@@ -1,4 +1,4 @@
-## Environments \& Configs
+## Environments Configs
 
 In the following we go through the different environments as well as the settings that can be used to tune them.
 Here is the list of default environments that can be generated:
@@ -11,7 +11,9 @@ Upcoming environments:
 - The `the_moon_rostock` from PTS space in Rostock's Airport, Germany.
 - The `confined_large_scale`, a visually large environment that allows for terrain deformation.
 
-All the configurations are using [hydra](https://hydra.cc/docs/intro/) a configuration manager. 
+> All the environments are seeded and unique per seed. That means that they are also reproducible. Given a seed the environment should always be the same.
+
+> Configurations are managed using [hydra](https://hydra.cc/docs/intro/) a configuration manager. 
 
 ### Lunalab
 
@@ -20,35 +22,50 @@ environment allows to test rovers at the uni of luxembourg. The ground is made o
 to perform small scale tests prior to large scale testing in analog environments. This environment was modeled in
 blender and provides 2 terrain that were scanned using a total station.
 
+> This environment is compatible with deformable terrains!
+
 ![Sample image lunalab](./media/lunalab.png)
 
 
 Environment arguments:
-- `resolution`: `(float)` the resolution of the terrain mesh in meters. Typically within \(0.01 and 0.05\)
+- `projector_position`: `(float3)`, The position of the projector in the scene. To replicate similar scenarios to that of the lab, we'd recommend using the following settings: \[0.5\<X\<6.0, 0.0, 0.2\<Z\<2.0\]
+- `projector_orientation`: `(float4)`, The pose of the projector in the scene as a quaternion. Convention: (w,x,y,z).
+- `projector_on`: `(bool)`, If the projector should be turned on when the scene is loaded. True means the projector will be on.
+- `ceiling_lights_on`: `(bool)`, If the ceiling lights should be turned on when the scene is loaded. True means the ceiling lights will be on.
+
 
 The lunaryard can be futher customized by using one of the following objects:
 - [Rock Generator](#extras-rocks), an object that can spawn rocks on the generated terrain.
-- [Terrain Generator](#extras-terrain)
+- [Terrain Generator](#extras-terrain), an object that is used to define how procedurally generated terrain look. It also allows to set the terrain deformation parameters as well as loading DEM.
 
-A complete example is available in the environment config.
+> A complete example of a lunalab environment configuration can be found in: `cfg/environment/lunalab.yaml`
 
 ### Lunaryard
 
-The `lunaryard` is a procedural small scale environment (from 10 to 80 meters) meant to perform simple tests with
-different algorithms. It's simplicity means it will easily run on most machines and will allow to perform basic
-debugging steps.
+The `lunaryard` is a procedural small scale environment (from 10 to 80 meters) meant to perform simple tests with different algorithms. It's simplicity means it will easily run on most machines and will allow to perform basic debugging steps.
+
+> This environment is compatible with deformable terrains!
 
 ![Sample image lunaryard](./media/lunaryard.png)
 
 Environment arguments:
-
+- `lab_length`: `(float)`, The length of the lab in meters. While there is no enforced limits we would recommend staying below 100 meters.
+- `lab_width`: `(float)`, The width of the lab in meters. While there is no enforced limits we would recommend staying below 100 meters.
+- `resolution`: `(float)`, The size of the pixels used to generate the map from which the terrain is derived. Also know as meters-per-pixel (mpp).
+- `terrain_id`: `(int)`, The id of the terrain. More on that in [Terrain Generator](#extras-terrain).
+- `coordinates`: `(Coordinates)`, The [coordinates](#coordinates) of the terrain. This is used by the [stellar engine](#stellar-engine) to compute accurate sun and earth positions. 
+- `earth_elevation`: `(float)`, The elevation of the earth in degrees. Overwritten if the [stellar engine](#stellar-engine) is enabled.
+- `earth_azimuth`: `(float)`, The azimuth of the earth in degrees. Overwritten if the [stellar engine](#stellar-engine) is enabled.
+- `earth_distance`: `(float)`, The distance between the earth and the moon in meters (Give a non-scaled value). Overwritten if the [stellar engine](#stellar-engine) is enabled.
 
 The lunaryard can be futher customized by using one of the following objects:
+- [Sun](#sun), an object allowing to tune the sun settings.
 - [Stellar Engine](#extra-sun), an object allowing to move the earth and sun based on the current time and coordinates on the moon.
 - [Rock Generator](#extras-rocks), an object that can spawn rocks on the generated terrain.
-- [Terrain Generator](#extras-terrain)
+- [Terrain Generator](#extras-terrain), an object that is used to define how procedurally generated terrain look. It also allows to set the terrain deformation parameters as well as loading DEM.
 
-A complete example is available in the environment config.
+> A complete example of a lunaryard environment configuration can be found in: `cfg/environment/lunayard_20m.yaml`
+
 
 ### LargeScale
 
@@ -56,9 +73,67 @@ The `large_scale` environment is meant to fully test navigation and mapping algo
 very long traverses (20km+) while maintaining a locally very high resolution terrain mesh. This environment is a lot
 more resource intensive than the others, be it on the CPU, RAM, GPU, and VRAM.
 
+> This environment is **not** compatible with deformable terrains yet.
+
 ![Sample image large scale](./media/large_scale.png)
 
-A complete example is available in the environment config.
+This environment offers significantly more configuration settings than the others. Though we would recommend not to change them.
+
+Environment arguments:
+- `seed`: `(int)`, The global seed for the configuration. It automatically sets all the other seeds involved in the generation of the environment. Can be overriden.
+- `crater_gen_seed`: `(int)`, Overrides the global seed.
+- `crater_gen_distribution_seed`: `(int)`, Overrides the global seed.
+- `crater_gen_metadata_seed`: `(int)`, Overrides the global seed.
+- `rock_gen_main_seed`: `(int)`, Overrides the global seed.
+
+- `profiling`: `(bool)`, Whether the profiler should be turned on. True means the profiler is enabled.
+- `update_every_n_meters`: `(float)`, The amount of distance that need to be crossed to trigger an update of the terrain.
+- `z_scale`: `(float)`, The scaling value for height of the terrains.
+- `block_size`: `(int)`, The size in meters of a terrain block.
+
+- `dbs_max_elements`: `(int)`, The maximum number of elements that can be stored in a databese.
+- `dbs_save_to_disk`: `(bool)`, Whether the databases should be saved on disk. Not enabled yet.
+- `dbs_write_interval`: `(int)`, How often the databases should be wrote to disk after an update.
+
+- `hr_dem_resolution`: `(float)`, The resolution in meters per pixel of the procedurally generated high resolution map.
+- `hr_dem_generate_craters`: `(bool)` Whether craters should be added onto the high resolution map. If no craters are generated, the high resolution map is then just a bicubic interpolation of the original DEM. If true generates craters.
+- `hr_dem_interpolation_padding`: `(int)` The amount of padding used when interpolating the original DEM, we recommend setting this to 2, as it's the amount required to perform bicubic interpolation without artefacts.
+
+- `lr_dem_folder_path`: `(str)`, Path to the folder containing the low-resolution DEM.
+- `lr_dem_name`: `(str)`, Name of the low-resolution DEM file.
+- `starting_position`: `(tuple)`, Starting position of the terrain generation in meters from the center of the map.
+
+- `geo_cm_num_texels_per_level`: `(int)`, Number of texels per level in the geometry clip map.
+- `geo_cm_target_res`: `(float)`, The target resolution of the geometry clip map.
+- `geo_cm_fine_interpolation_method`: `(str)`, Method used for the interpolation of the fine geometry clip map, options are `bilinear` or `bicubic`.
+- `geo_cm_coarse_interpolation_method`: `(str)`, Method used for the interpolation of the coarse geometry clip map, options are `bilinear` or `bicubic`.
+- `geo_cm_fine_acceleration_mode`: `(str)`, The mode of acceleration for the fine geometry clip map update, options are `gpu` or `hybrid`.
+- `geo_cm_coarse_acceleration_mode`: `(str)`, The mode of acceleration for the coarse geometry clip map update, options are `gpu` or `hybrid`.
+- `geo_cm_apply_smooth_shading`: `(bool)`, Whether to apply smooth shading to the geometry clip maps.
+- `geo_cm_semantic_label`: `(str)`, A label for the type of surface being generated, e.g., `terrain`.
+- `geo_cm_texture_name`: `(str)`, Name of the texture to use for the terrain surface.
+- `geo_cm_texture_path`: `(str)`, Path to the texture file for the terrain surface.
+
+- `terrain_collider_enabled`: `(bool)`, Whether the terrain collider should be enabled.
+- `terrain_collider_resolution`: `(float)`, The resolution of the terrain collider in meters.
+- `terrain_collider_mode`: `(str)`, Mode for terrain collider generation, e.g., `meshSimplification`.
+- `terrain_collider_cache_size`: `(int)`, Size of the cache for storing terrain colliders. That is the maximum amount of `block_size`x`block_size` meters colliders used in the scene.
+- `terrain_collider_building_threshold`: `(float)`, Threshold for building terrain colliders. Minimum distance from a collider boundary to trigger the generation of a new ones. Can affect colliders-based lidars. 
+
+- `rock_gen_cfgs`: `(list)`, List of configurations for rock generation, each configuration specifying parameters for rock size, density, and placement.
+
+> Notes & considerations:
+> - All seeds can be individually overridden, but if not provided, the global seed is used by default.
+> - Queue sizes for the terrain generation process affect memory usage and parallelism performance.
+> - The geometry clip map parameters allow fine-tuning of how terrain is generated, interpolated, and shaded. Increasing the number of texels and reducing the resolution can have adverse effects on the update time of the terrain's visual mesh.
+> - In Isaac, colliders cannot be generated asynchronously from the main simulation thread. Hence, they are only generated when necessary. If your robot is using a "PhysX based lidar", it will not seen the terrain as the robot comes close to the edge of a collider. Use an "RTX-based lidar" instead.
+
+
+The large scale environments can be futher customized by using one of the following objects:
+- [Sun](#sun), an object allowing to tune the sun settings.
+- [Stellar Engine](#extra-sun), an object allowing to move the earth and sun based on the current time and coordinates on the moon.
+
+> A complete example of a large_scale environment configuration can be found in: `cfg/environment/largescale.yaml`
 
 ## Extras: Light Sources
 
@@ -80,6 +155,15 @@ Parameters:
 
 Example:
 ```yaml
+sun_settings:
+  intensity: 1750.0
+  angle: 0.53
+  diffuse_multiplier: 1.0
+  specular_multiplier: 1.0
+  color: [1.0, 1.0, 1.0]
+  temperature: 6500.0
+  azimuth: 180.0
+  elevation: 45.0
 ```
 
 ### Coordinates
