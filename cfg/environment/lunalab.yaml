@@ -108,7 +108,7 @@ terrain_manager:
     
     deformation_engine:
       enable: False
-      render_deform_inv: 10
+      delay: 2.0
       terrain_width: ${....lunalab_settings.lab_width}
       terrain_height: ${....lunalab_settings.lab_length}
       terrain_resolution: ${....lunalab_settings.resolution}
@@ -161,7 +161,7 @@ robots_settings:
     
     -
       robot_name: husky
-      usd_path: assets/USD_Assets/robots/husky_vlp16.usd
+      usd_path: assets/USD_Assets/robots/ros2_husky_PhysX_vlp16.usd
       pose:
         position: [5.0, 5.0, 0.5]
         orientation: [1, 0, 0, 0]

@@ -198,7 +198,7 @@ class DeformationEngineConf:
     Deformation engine parameters.
     Args:
         enable (bool): Enable deformation.
-        render_deform_inv (int): render_rate/deform_rate.
+        delay (float): Delay time (s) for the deformation.
         terrain_resolution (float): Resolution of the terrain.
         terrain_width (float): Width of the terrain.
         terrain_height (float): Height of the terrain.
@@ -208,10 +208,11 @@ class DeformationEngineConf:
         boundary_distribution (dict): Boundary distribution parameters.
         depth_distribution (dict): Deformation depth distribution parameters.
         force_depth_regression (dict): Force depth regression parameters.
+        num_links (int): Total number of links = num_robot * num_target_links.
     """
 
     enable: bool = False
-    render_deform_inv: int = 10
+    delay: float = 1.0
     terrain_resolution: float = dataclasses.field(default_factory=float)
     terrain_width: float = dataclasses.field(default_factory=float)
     terrain_height: float = dataclasses.field(default_factory=float)
@@ -221,15 +222,16 @@ class DeformationEngineConf:
     boundary_distribution: BoundaryDistributionConf = dataclasses.field(default_factory=dict)
     depth_distribution: DepthDistributionConf = dataclasses.field(default_factory=dict)
     force_depth_regression: ForceDepthRegressionConf = dataclasses.field(default_factory=dict)
+    num_links: int = 4
 
     def __post_init__(self):
-        assert type(self.render_deform_inv) is int, "render_deform_inv must be an int"
+        assert type(self.delay) is float, "delay must be float"
         assert type(self.terrain_resolution) is float, "terrain_resolution must be a float"
-
-        assert self.render_deform_inv > 1, "render_deform_inv must be greater than 1"
+        assert self.delay >= 0, "render_deform_inv must be greater than or equal to 1"
         assert self.terrain_resolution > 0, "terrain_resolution must be greater than 0"
         assert self.terrain_width > 0, "terrain_width must be greater than 0"
         assert self.terrain_height > 0, "terrain_height must be greater than 0"
+        assert self.num_links > 0, "num_links must be greater than 0"
 
         self.footprint = FootprintConf(**self.footprint)
         self.deform_constrain = DeformConstrainConf(**self.deform_constrain)
@@ -269,6 +271,7 @@ class TerrainManagerConf:
     sim_length: int = dataclasses.field(default_factory=int)
     sim_width: int = dataclasses.field(default_factory=int)
     resolution: float = dataclasses.field(default_factory=float)
+    augmentation: bool = False
 
     def __post_init__(self):
         self.moon_yard = MoonYardConf(**self.moon_yard)

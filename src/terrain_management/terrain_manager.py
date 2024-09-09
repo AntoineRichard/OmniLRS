@@ -42,6 +42,7 @@ class TerrainManager:
         self._stage = omni.usd.get_context().get_stage()
         self._texture_path = cfg.texture_path
         self._root_path = cfg.root_path
+        self._augmentation = cfg.augmentation
 
         self._dems = {}
         self._DEM = None
@@ -275,15 +276,19 @@ class TerrainManager:
         self._DEM, self._mask, self._craters_data = self._G.randomize()
         self.update(update_collider=True)
 
-    def deformTerrain(self, body_transforms: np.ndarray, contact_forces: np.ndarray) -> None:
+    def deformTerrain(
+        self, world_positions: np.ndarray, world_orientations: np.ndarray, contact_forces: np.ndarray
+    ) -> None:
         """
         Deforms the terrain based on the given body transforms.
 
         Args:
-            body_transforms (np.ndarray): the body transforms.
+            world_positions (np.ndarray): the world positions of the bodies.
+            world_orientations (np.ndarray): the world orientations of the bodies.
+            contact_forces (np.ndarray): the contact forces of the bodies.
         """
 
-        self._DEM, self._mask = self._G.deform(body_transforms, contact_forces)
+        self._DEM, self._mask = self._G.deform(world_positions, world_orientations, contact_forces)
         self.update(update_collider=False)
 
     def loadTerrainByName(self, name: str) -> None:
@@ -295,7 +300,10 @@ class TerrainManager:
         """
 
         self.loadDEMAndMask(name)
-        self._G.register_terrain(self._DEM, self._mask)
+        if self._augmentation:
+            self._DEM, self._mask, self._craters_data = self._G.augment(self._DEM, self._mask)
+        else:
+            self._G.register_terrain(self._DEM, self._mask)
         self.update(update_collider=True)
 
     def loadTerrainId(self, idx: int) -> None:

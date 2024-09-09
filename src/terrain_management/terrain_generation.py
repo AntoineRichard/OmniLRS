@@ -560,6 +560,22 @@ class GenerateProceduralMoonYard:
         self._num_pass = np.zeros_like(mask)
         return DEM, mask, craters_data
 
+    def augment(self, DEM: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        """
+        Generates a random terrain DEM with craters.
+
+        Returns:
+            tuple: random terrain DEM with craters, mask of the craters, and the data regarding the craters generation.
+        """
+        coords, radius = self.D.run()
+        DEM, mask_, craters_data = self.G.generateCraters(DEM, coords, radius)
+        mask = mask * mask_
+        self._dem_init = DEM
+        self._dem_delta = np.zeros_like(DEM)
+        self._mask = mask
+        self._num_pass = np.zeros_like(mask)
+        return DEM, mask, craters_data
+
     def register_terrain(self, DEM: np.ndarray, mask: np.ndarray):
         """
         Register dem and mask to instance variables.
@@ -569,15 +585,18 @@ class GenerateProceduralMoonYard:
         self._mask = mask
         self._num_pass = np.zeros_like(mask)
 
-    def deform(self, body_transforms: np.ndarray, contact_forces: np.ndarray) -> np.ndarray:
+    def deform(
+        self, world_positions: np.ndarray, world_orientations: np.ndarray, contact_forces: np.ndarray
+    ) -> np.ndarray:
         """
         Add vertical deformation to terrain DEM.
         Args:
-            body_transforms(numpy.ndarray): body to world transform of robot links (N, 4, 4)
+            world_positions (numpy.ndarray): world positions of robot links (N, 3)
+            world_orientations (numpy.ndarray): world orientations of robot links (N, 4)
             contact_forces(numpy.ndarray): contact forces on robot links (N, 3)
         """
         self._dem_delta, self._num_pass = self.DE.deform(
-            self._dem_delta, self._num_pass, body_transforms, contact_forces[:, 2]
+            self._dem_delta, self._num_pass, world_positions, world_orientations, contact_forces[:, 2]
         )
         return self._dem_init + self._dem_delta, self._mask
 

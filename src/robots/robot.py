@@ -410,20 +410,23 @@ class RobotRigidGroup:
             pose[i, :3, 3] = position
         return pose
 
-    def get_orientations(self) -> np.ndarray:
+    def get_pose(self) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Returns the orientation of target links.
+        Returns the pose of target links.
 
         Returns:
+            positions (np.ndarray): The position of target links. (x, y, z)
             orientations (np.ndarray): The orientation of target links. (w, x, y, z)
         """
 
         n_links = len(self.target_links)
+        positions = np.zeros((n_links, 3))
         orientations = np.zeros((n_links, 4))
         for i, prim in enumerate(self.prims):
-            _, orientation = prim.get_world_pose()
+            position, orientation = prim.get_world_pose()
+            positions[i, :] = position
             orientations[i, :] = orientation
-        return orientations
+        return positions, orientations
 
     def get_velocities(self) -> Tuple[np.ndarray, np.ndarray]:
         """

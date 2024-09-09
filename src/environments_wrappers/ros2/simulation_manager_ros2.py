@@ -49,6 +49,13 @@ class Rate:
 
             self.last_check = time.time()
 
+    def reset(self) -> None:
+        """
+        Resets the timer.
+        """
+        if not self.is_disabled:
+            self.last_check = time.time()
+
     def sleep(self) -> None:
         """
         Wait for a minimum amount of time between two iterations of a loop.
@@ -59,10 +66,8 @@ class Rate:
             delta = now - self.last_check
             # If time delta is too low sleep, else carry on.
             if delta < self.dt:
-                to_sleep = delta - self.dt
+                to_sleep = self.dt - delta
                 time.sleep(to_sleep)
-                # Update last check after sleep
-                self.last_check = time.time()
 
 
 class ROS2_LabManagerFactory:
@@ -171,7 +176,7 @@ class ROS2_SimulationManager:
         # Keep it in mind if you want to go crazy with the ROS2 calls to modify the sim...
         if "terrain_manager" in cfg["environment"].keys():
             self.terrain_manager_conf: TerrainManagerConf = cfg["environment"]["terrain_manager"]
-            self.render_deform_inv = self.terrain_manager_conf.moon_yard.deformation_engine.render_deform_inv
+            self.deform_delay = self.terrain_manager_conf.moon_yard.deformation_engine.delay
             self.enable_deformation = self.terrain_manager_conf.moon_yard.deformation_engine.enable
         else:
             self.enable_deformation = False
@@ -195,6 +200,7 @@ class ROS2_SimulationManager:
 
         self.timeline.play()
         while self.simulation_app.is_running():
+            self.rate.reset()
             self.world.step(render=True)
             if self.world.is_playing():
                 # Apply modifications to the lab only once the simulation step is finished
@@ -211,9 +217,9 @@ class ROS2_SimulationManager:
                     self.ROSLabManager.trigger_reset = False
                 self.ROSRobotManager.apply_modifications()
                 if self.enable_deformation:
-                    if self.world.current_time_step_index % self.render_deform_inv == 0:
+                    if self.world.current_time_step_index >= (self.deform_delay * self.world.get_physics_dt()):
                         self.ROSLabManager.LC.deform_terrain()
-                    # self.ROSLabManager.LC.applyTerramechanics()
+                        # self.ROSLabManager.LC.applyTerramechanics()
             self.rate.sleep()
 
         self.timeline.stop()
