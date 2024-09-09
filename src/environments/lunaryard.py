@@ -116,7 +116,7 @@ class LunaryardController(BaseEnv):
         dist = self.stage_settings.earth_distance * self.stage_settings.earth_scale
         px = math.cos(math.radians(self.stage_settings.earth_azimuth)) * dist
         py = math.sin(math.radians(self.stage_settings.earth_azimuth)) * dist
-        pz = math.sin(math.radians(self.stage_settings.earth_altitude)) * dist
+        pz = math.sin(math.radians(self.stage_settings.earth_elevation)) * dist
         set_xform_ops(self._earth_prim, Gf.Vec3d(px, py, pz), Gf.Quatd(0, 0, 0, 1))
 
         # Load default textures

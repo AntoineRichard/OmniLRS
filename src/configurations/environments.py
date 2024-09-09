@@ -49,6 +49,8 @@ class LunalabConf:
         curtains_path (dict): The path of the curtains.
         projector_position (tuple): The position of the projector. (x, y, z)
         projector_orientation (tuple): The orientation of the projector. (x, y, z, w)
+        projector_on (bool):
+        ceiling_lights_on (bool):
     """
 
     lab_length: float = 10.0
@@ -56,6 +58,8 @@ class LunalabConf:
     resolution: float = 0.01
     projector_position: tuple = (3.0, 0.0, 1.0)
     projector_orientation: tuple = (0.0, 0.0, 0.0, 1.0)
+    projector_on: bool = True
+    ceiling_lights_on: bool = True
 
     def __post_init__(self):
         assert type(self.resolution) == float, "The resolution must be a float."
@@ -88,7 +92,7 @@ class LunaryardConf:
         resolution (float): The resolution of the lab.
         terrain_id (int): The id of the terrain.
         coordinates (Coordinates): The coordinates of the lab.
-        earth_altitude (float): The altitude of the earth. (in meters)
+        earth_elevation (float): The elevation of the earth. (in meters)
         earth_azimuth (float): The azimuth of the earth. (in degrees)
         earth_distance (float): The distance of the earth. (in meters)
     """
@@ -98,7 +102,7 @@ class LunaryardConf:
     resolution: float = 0.025
     terrain_id: int = -1
     coordinates: Coordinates = dataclasses.field(default_factory=dict)
-    earth_altitude: float = 22.0
+    earth_elevation: float = 22.0
     earth_azimuth: float = 90.0
     earth_distance: float = 384400000.0
 
