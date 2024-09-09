@@ -1,5 +1,5 @@
 ## Main Sections
 - [Home](Home)
 - [Getting Started](getting_started)
-- [Configurations](configurations)
+- [Configurations](Configuration)
 - [Contributing](contribute)

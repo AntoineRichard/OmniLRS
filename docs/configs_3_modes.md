@@ -1,4 +1,4 @@
-## Environment modes
+## Environment Modes Configurations
 
 Modes are what allows the user to use the same environment for different purposes. Say you want to use the lunalab to run a robotic task, you can use the ROS1 or ROS2 modes. But if you wanted to use this environment to generate a dataset for rock detection, you could use the SDG mode.
 

@@ -13,7 +13,6 @@ Upcoming environments:
 
 > All the environments are seeded and unique per seed. That means that they are also reproducible. Given a seed the environment should always be the same.
 
-> Configurations are managed using [hydra](https://hydra.cc/docs/intro/) a configuration manager. 
 
 ### Lunalab
 
