@@ -5,8 +5,26 @@ lunaryard_settings:
   lab_length: 80.0
   lab_width: 80.0
   resolution: 0.05
-  projector_path: /Lunaryard/Sun
-  earth_path: /Lunaryard/Earth
+
+stellar_engine_settings:
+  start_date:
+    year: 2024
+    month: 5
+    day: 21
+    hour: 5
+    minute: 1
+  time_scale: 1
+  update_interval: 600
+
+sun_settings:
+  intensity: 1750.0
+  angle: 0.53
+  diffuse_multiplier: 1.0
+  specular_multiplier: 1.0
+  color: [1.0, 1.0, 1.0]
+  temperature: 6500.0
+  azimuth: 180.0
+  elevation: 45.0
 
 # Rocks sampling parameters.
 rocks_settings:
