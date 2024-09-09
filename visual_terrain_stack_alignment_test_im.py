@@ -5,28 +5,26 @@
 # simulation_app = SimulationApp({"headless": False})
 HRDEMCfg_D = {
     "num_blocks": 4,
-    "block_size": 500,
-    "pad_size": 50.0,
+    "block_size": 50,
+    "pad_size": 10.0,
     "max_blocks": int(1e7),
     "seed": 42,
     "resolution": 0.05,
     "z_scale": 1.0,
     "source_resolution": 5.0,
-    "resolution": 0.5,
+    "resolution": 0.025,
     "interpolation_padding": 2,
-    "generate_craters": False,
+    "generate_craters": True,
 }
 CWMCfg_D = {
     "num_workers": 8,
     "input_queue_size": 400,
-    "output_queue_size": 16,
-    "worker_queue_size": 2,
+    "output_queue_size": 30,
 }
 IWMCfg_D = {
     "num_workers": 1,
     "input_queue_size": 400,
     "output_queue_size": 30,
-    "worker_queue_size": 200,
 }
 CraterDBCfg_D = {
     "block_size": 50,
@@ -56,12 +54,12 @@ CraterSamplerCfg_D = {
 CraterBuilderCfg_D = {
     "block_size": 50,
     "pad_size": 10.0,
-    "resolution": 0.5,
+    "resolution": 0.025,
     "z_scale": 1.0,
 }
 ICfg = {
     "source_resolution": 5.0,
-    "target_resolution": 0.5,
+    "target_resolution": 0.025,
     "source_padding": 2,
     "method": "bicubic",
 }
@@ -76,8 +74,8 @@ HRDEMGenCfg_D = {
 }
 
 MMCfg_D = {
-    "folder_path": "assets/Terrains/SouthPole",
-    "lr_dem_name": "crater",
+    "folder_path": "assets/Terrains/debug",
+    "hrdem_settings": HRDEMGenCfg_D,
 }
 
 NGCMMCfg_D = {
@@ -105,8 +103,13 @@ if __name__ == "__main__":
     # from WorldBuilders.pxr_utils import setDefaultOps, addDefaultOps
     import numpy as np
 
-    from src.terrain_management.large_scale_terrain.map_manager import MapManagerCfg, MapManager
-    from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator import HighResDEMGenCfg
+    from src.terrain_management.large_scale_terrain.map_manager import (
+        MapManagerConf,
+        MapManager,
+    )
+    from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator import (
+        HighResDEMGenConf,
+    )
 
     # from src.terrain_management.large_scale_terrain_manager import (
     #    NestedGeometricClipMapManagerCfg,
@@ -132,8 +135,7 @@ if __name__ == "__main__":
     theta = np.linspace(0, 2 * np.pi, rotation_rate)
     print(rotation_rate)
 
-    hrdem_settings = HighResDEMGenCfg(**HRDEMGenCfg_D)
-    mm_settings = MapManagerCfg(**MMCfg_D)
+    mm_settings = MapManagerConf(**MMCfg_D)
     # ngcmm_settings = NestedGeometricClipMapManagerCfg(**NGCMMCfg_D)
     # lstm_settings = LargeScaleTerrainManagerCfg(**LSTMCfg_D)
 
@@ -141,14 +143,22 @@ if __name__ == "__main__":
     import matplotlib.colors as mcolors
     import cv2
 
-    MM = MapManager(hrdem_settings, mm_settings)
-    MM.load_lr_dem_by_name("NPD_final_adj_5mpp_surf")
+    MM = MapManager(mm_settings)
+    MM.load_lr_dem_by_name("normals")
     MM.initialize_hr_dem((0, 0))
-    MM.hr_dem_gen.shutdown()
+    np.save("hr_dem.npy", MM.get_hr_dem())
     norm = mcolors.Normalize(vmin=MM.lr_dem.min(), vmax=MM.lr_dem.max())
-    hr_rs = cv2.resize(
-        MM.hr_dem_gen.high_res_dem, (0, 0), fx=0.1, fy=0.1, interpolation=cv2.INTER_AREA
-    )
+    hr_rs = cv2.resize(MM.hr_dem_gen.high_res_dem, (0, 0), fx=0.1, fy=0.1, interpolation=cv2.INTER_AREA)
+    MM.update_hr_dem((50, 0))
+    MM.update_hr_dem((0, 50))
+    MM.update_hr_dem((-50, 0))
+    MM.update_hr_dem((0, -50))
+    MM.update_hr_dem((50, 50))
+    MM.update_hr_dem((-50, 50))
+    MM.update_hr_dem((50, -50))
+    MM.update_hr_dem((-50, -50))
+    MM.hr_dem_gen.shutdown()
+
     lr_shape = MM.get_lr_dem_shape()
     x = lr_shape[0] // 2 + 50
     y = lr_shape[1] // 2 + 50
@@ -156,13 +166,13 @@ if __name__ == "__main__":
     plt.imshow(hr_rs, cmap="terrain", norm=norm)
     plt.figure()
     plt.imshow(MM.lr_dem, cmap="terrain", norm=norm)
-    plt.figure()
-    plt.imshow(
-        MM.lr_dem[x - 550 : x + 550, y - 550 : y + 550], cmap="terrain", norm=norm
-    )
-    diff = hr_rs - MM.lr_dem[x - 550 : x + 550, y - 550 : y + 550]
-    plt.figure()
-    plt.imshow(diff, cmap="jet")
+    # plt.figure()
+    # plt.imshow(
+    #    MM.lr_dem[x - 550 : x + 550, y - 550 : y + 550], cmap="terrain", norm=norm
+    # )
+    # diff = hr_rs - MM.lr_dem[x - 550 : x + 550, y - 550 : y + 550]
+    # plt.figure()
+    # plt.imshow(diff, cmap="jet")
     plt.show()
 
     # LSTM = LargeScaleTerrainManager(
