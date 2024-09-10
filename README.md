@@ -45,11 +45,14 @@ The first thing that needs to be done before we proceed with the native installa
 
 If you're unsure on how to install Isaac sim, look-up the following: [How to install Isaac Sim.](https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_workstation.html)
 
-To simplify the remainder of the installation process of the framework we provide a script that will automatically download all the assets, as well as install the required dependencies.
+To simplify the remainder of the installation process of the framework we provide a script that will automatically download all the assets, as well as install the required dependencies. It will not install Isaac Sim.
 
 ```bash
-scripts/install.sh
+scripts/install_native.sh
 ```
+
+<span style="color: red;">**Important**: This should be ran from the repository's root.</span> 
+
 
 If you'd rather do it yourself, here are the commands:
 ```bash
@@ -102,15 +105,15 @@ See [getting started](#getting-started) to learn more about starting your first 
 ### Docker Installation
 
 Before we install the simulation, please follow the procedure [here](https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_container.html) to install all the required components to install IsaacSim in a docker container. You will need an [nvcr.io](https://catalog.ngc.nvidia.com/) account. Once you're all set, the use following to build the image:
-```
-./omnilrs.docker/build.sh
+```bash
+./omnilrs.docker/build_docker.sh
 ```
 
 Once the image is built the simulation should be ready to go.
 Though you will still need to download the assets. If you want to, you can download them from docker directly.
 
 In docker exectute:
-```
+```bash
 scritps/install_docker.sh
 ```
 This will download the assets from docker and it should work fine. The issue is that all the generated folder will be
@@ -129,13 +132,16 @@ See [getting started](#getting-started) to learn more about starting the simulat
 
 
 ## Getting started:
+The following assumes you are running ROS2/SpaceROS.
 
 If you are using docker, first run the container by using:
 ```bash
 ./omnilrs.docker/run_docker.sh
 ```
 
-You can then run the commands inside the docker, as if you were using the native installation. To run isaac prefix `python.sh` by `/isaac-sim/` in docker, and `~/.local/share/ov/pkg/isaac_sim-2023.1.1/` in the native installation.
+If you are using the native installation, make sure ROS2 is sourced **before running the simulation**.
+
+You can then run the commands inside the docker, as if you were using the native installation. To run isaac prefix `python.sh` by `/isaac-sim/` in docker, and `~/.local/share/ov/pkg/isaac_sim-2023.1.1/` in the native installation. Before 
 
 Run your first scene using:
 ```bash
@@ -145,7 +151,7 @@ This will launch a lunalab environment with ROS2 and ray_traced rendering.
 
 You can run the lunaryard by using:
 ```bash
-python.sh run.py environment=lunaryard
+python.sh run.py environment=lunaryard_20m
 ```
 
 You can run the largescale environment by using:
