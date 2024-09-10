@@ -5,7 +5,8 @@
 In this repository, you will find the simulation tools developped jointly by the Space Robotics group from the University of Luxembourg (SpaceR),
 and the Space Robotics Lab from Tohoku University in Japan (SRL). We are now opening it to the community and strongly encourage Space Roboticists to help us grow the feature set of this simulation! Don't be shy shoot a PR!
 
-**This readme provides basic information on how to use the simulation. For a more complete introduction to the simulation and its inner workings please [visit our wiki](https://github.com/AntoineRichard/OmniLRS/wiki)!**
+> [!IMPORTANT]
+> This readme provides basic information on how to use the simulation. For a more complete introduction to the simulation and its inner workings please [visit our wiki](https://github.com/AntoineRichard/OmniLRS/wiki)!
 
 ## Simulation Environments Overview
 
@@ -34,6 +35,7 @@ Hardware requirement:
 Operating System:
 - Linux distros similar to Ubuntu 20.04 or 22.04.
 
+> [!WARNING]
 > Windows is not supported.
 
 To install the simulation we strongly suggest using [docker](#docker-install). Though the install could also be done using a [native installation](#native-installation).
@@ -106,7 +108,12 @@ See [getting started](#getting-started) to learn more about starting your first 
 
 ### Docker Installation
 
-Before we install the simulation, please follow the procedure [here](https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_container.html) to install all the required components to install IsaacSim in a docker container. You will need an [nvcr.io](https://catalog.ngc.nvidia.com/) account. Once you're all set, the use following to build the image:
+Before we install the simulation, please follow the procedure [here](https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_container.html) to install all the required components to install IsaacSim in a docker container.
+
+> [!TIP]
+> You will need an [nvcr.io](https://catalog.ngc.nvidia.com/) account.
+
+Once you're all set, the use following to build the image:
 ```bash
 ./omnilrs.docker/build_docker.sh
 ```
@@ -134,14 +141,17 @@ See [getting started](#getting-started) to learn more about starting the simulat
 
 
 ## Getting started:
-The following assumes you are running ROS2/SpaceROS.
+> [!CAUTION]
+> The following assumes you are running ROS2/SpaceROS. While the code has ROS1 compatibility, we do not provide base configs or robots for ROS1.
 
-If you are using docker, first run the container by using:
+> [!IMPORTANT]
+>If you are using docker, first run the container by using:
 ```bash
 ./omnilrs.docker/run_docker.sh
 ```
 
-If you are using the native installation, make sure ROS2 is sourced **before running the simulation**.
+> [!IMPORTANT]
+> If you are using the native installation, make sure ROS2 is sourced **before running the simulation**.
 
 You can then run the commands inside the docker, as if you were using the native installation. To run isaac prefix `python.sh` by `/isaac-sim/` in docker, and `~/.local/share/ov/pkg/isaac_sim-2023.1.1/` in the native installation. Before 
 
@@ -161,9 +171,12 @@ You can run the largescale environment by using:
 python.sh run.py environment=largescale
 ```
 
-To learn more about how to run scenes please refere to the Wiki [here](https://github.com/AntoineRichard/OmniLRS/wiki/Configuration)!
+> [!TIP]
+> To learn more about how to run scenes please refere to the Wiki [here](https://github.com/AntoineRichard/OmniLRS/wiki/Configuration)!
 
 ## ROS interactions with the scene
+
+The simulation allows user to interact with the Scene through ROS topics. This allows for instance to reset or teleport a robot, or to 
 
 A complete description of the interactions available with the sim from ROS are available on the Wiki [here](https://github.com/AntoineRichard/OmniLRS/wiki/ros_topics).
 
