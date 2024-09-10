@@ -2,14 +2,11 @@ FROM nvcr.io/nvidia/isaac-sim:2023.1.1 AS isaac-sim
 FROM osrf/space-ros:latest
 
 # copy Isaac Sim into the base image
-ARG ISAAC_SIM_PATH="${HOME_DIR}/isaac-sim"
+ARG ISAAC_SIM_PATH="/isaac-sim"
 ENV ISAAC_SIM_PYTHON="${ISAAC_SIM_PATH}/python.sh"
 COPY --from=isaac-sim --chown=${USERNAME}:${USERNAME} /isaac-sim "${ISAAC_SIM_PATH}"
 COPY --from=isaac-sim --chown=${USERNAME}:${USERNAME} /root/.nvidia-omniverse/config "${HOME_DIR}/.nvidia-omniverse/config"
 COPY --from=isaac-sim /etc/vulkan/icd.d/nvidia_icd.json /etc/vulkan/icd.d/nvidia_icd.json
-RUN ISAAC_SIM_VERSION="$(cut -d'-' -f1 < "${ISAAC_SIM_PATH}/VERSION")" && \
-    echo -e "\n# Isaac Sim ${ISAAC_SIM_VERSION}" >> /ros_entrypoint.sh && \
-    echo "export ISAAC_SIM_PATH=\"${ISAAC_SIM_PATH}\"" >> /ros_entrypoint.sh
 
 RUN ${ISAAC_SIM_PYTHON} -m pip install opencv-python omegaconf hydra-core
 
