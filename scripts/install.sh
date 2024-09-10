@@ -10,9 +10,12 @@ sudo apt-get install libgdal-dev
 version=$(gdal-config --version)
 
 # Install Python packages for Isaac Sim
-~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version zfpy gdown black numba
+~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version
+~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install zfpy black numba
+python3 -m pip install gdown
 
 # Download the assets from Google Drive
+source ~/.bashrc
 gdown 1LfdJ8cogFU8Eid2EL-0bu9E383lftC_W
 unzip assets_v6.zip
 rm assets_v6.zip
