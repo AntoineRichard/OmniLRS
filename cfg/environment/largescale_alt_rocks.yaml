@@ -1,6 +1,6 @@
 name: LargeScale
 seed: 42
-physics_dt: 0.01666 # 60 Hz
+physics_dt: 0.0166 # 30 Hz
 rendering_dt: 0.0333 # 30 Hz
 enforce_realtime: true
 
@@ -19,7 +19,7 @@ large_scale_terrain:
           position_distribution:
             name: "thomas_point_process"
             parent_density: 0.04
-            child_density: 100
+            child_density: 150
             sigma: 3.0
             seed: 42
           scale_distribution:
@@ -27,13 +27,11 @@ large_scale_terrain:
             min: 0.02
             max: 0.05
             seed: 43
-      rock_assets_folder: "assets/USD_Assets/rocks/small_rocks"
+      rock_assets_folder: "assets/USD_Assets/rocks/lunar_rocks/rocks_s2_r128"
       instancer_name: "very_small_rock_instancer"
       seed: 46
       block_span: 1
       add_colliders: False
-      texture_name: "seaside_rock_2k"
-      texture_path: "assets/Textures/seaside_rock_2k.mdl"
     -
       rock_sampler_cfg:
         block_size: 50
@@ -43,22 +41,43 @@ large_scale_terrain:
             name: "thomas_point_process"
             parent_density: 0.01
             child_density: 25
-            sigma: 3.0
+            sigma: 2.5
             seed: 44
           scale_distribution:
             name: "uniform"
             min: 0.05
             max: 0.2
             seed: 45
-      rock_assets_folder: "assets/USD_Assets/rocks/small_rocks"
+      rock_assets_folder: "assets/USD_Assets/rocks/lunar_rocks/rocks_s3_r512"
       instancer_name: "small_rock_instancer"
       seed: 47
       block_span: 2
-      add_colliders: False
-      collider_mode: "none"
-      semantic_label: "small_rock"
-      texture_name: "seaside_rock_2k"
-      texture_path: "assets/Textures/seaside_rock_2k.mdl"
+      add_colliders: True
+      collider_mode: "meshSimplification"
+      semantic_label: "rock"
+    -
+      rock_sampler_cfg:
+        block_size: 50
+        seed: 42
+        rock_dist_cfg:
+          position_distribution:
+            name: "thomas_point_process"
+            parent_density: 0.0025
+            child_density: 5
+            sigma: 2.0
+            seed: 44
+          scale_distribution:
+            name: "uniform"
+            min: 0.2
+            max: 0.75
+            seed: 45
+      rock_assets_folder: "assets/USD_Assets/rocks/lunar_rocks/rocks_s4_r512"
+      instancer_name: "medium_rock_instancer"
+      seed: 47
+      block_span: 3
+      add_colliders: True
+      collider_mode: "meshSimplification"
+      semantic_label: "rocks"
 
 stellar_engine_settings:
   start_date:
@@ -88,7 +107,7 @@ robots_settings:
   parameters:
     -
       robot_name: husky
-      usd_path: assets/USD_Assets/robots/ros2_husky_PhysX_vlp16.usd
+      usd_path: assets/USD_Assets/robots/ros2_husky_PhysX_vlp16_mono_depth_imu.usd
       pose:
         position: [0.0, 0.0, 0.5]
         orientation: [1, 0, 0, 0]
