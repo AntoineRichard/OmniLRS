@@ -30,6 +30,7 @@ class PhysicsSceneConf:
     gpu_max_num_partions: int = None
     gpu_collision_stack_size: int = None
     solver_type: str = None
+    broadphase_type: str = None
     enable_stabilization: bool = None
     bounce_threshold_velocity: float = None
     friction_offset_threshold: float = None
@@ -41,3 +42,8 @@ class PhysicsSceneConf:
         for attribute in dataclasses.fields(self):
             if getattr(self, attribute.name) is not None:
                 self.physics_scene_args[attribute.name] = getattr(self, attribute.name)
+
+        if self.broadphase_type is not None:
+            assert self.broadphase_type in ["SAP", "MBP", "GPU"]
+        if self.solver_type is not None:
+            assert self.solver_type in ["PGS", "TGS"]

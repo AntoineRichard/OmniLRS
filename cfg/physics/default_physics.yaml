@@ -1,7 +1,8 @@
 physics_scene:
-  dt: 0.16666
+  dt: 0.016666
   gravity: [0.0, 0.0, -1.62]
   enable_ccd: true
-  enable_stabilization: false
+  enable_stabilization: true
   solver_type: PGS
   use_gpu_pipeline: false
+  broadphase_type: SAP
