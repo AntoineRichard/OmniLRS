@@ -1,4 +1,3 @@
-# OmniLRS v2.0
 <center>
 <img src="media/Logov2.png" width=520/>
 </center>
