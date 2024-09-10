@@ -459,7 +459,7 @@ class DynamicDistribute:
         if self.scale_sampler.seed is None:
             self.scale_sampler.set_seed(self.settings.seed + 3)
 
-    def run(self, region: BoundingBox, map_coordinates: Tuple[float, float]) -> RockBlockData:
+    def run(self, region: BoundingBox, map_coordinates: Tuple[float, float]) -> Tuple[RockBlockData, bool]:
         """
         Runs the rock distribution.
 
@@ -468,7 +468,7 @@ class DynamicDistribute:
             map_coordinates (Tuple[float, float]): coordinates of the map.
 
         Returns:
-            RockBlockData: block of rocks.
+            Tuple[RockBlockData, bool]: block of rocks, not empty. Returns False if the block is empty.
         """
 
         xy_position, num_points = self.position_sampler(region=region)
@@ -477,7 +477,7 @@ class DynamicDistribute:
         z_position, quat = self.sampling_func(xy_position[:, 0], xy_position[:, 1], map_coordinates, self.settings.seed)
         xyz_position = np.stack([xy_position[:, 0], xy_position[:, 1], z_position]).T
         block = RockBlockData(xyz_position, quat, scale, ids)
-        return block
+        return block, num_points > 0
 
     def get_xy_coordinates_from_block(self, block: RockBlockData) -> np.ndarray:
         """
@@ -622,8 +622,9 @@ class RockSampler:
                     block_coordinates[1],
                     block_coordinates[1] + self.settings.block_size,
                 )
-                block = self.rock_dist_gen.run(bb, map_coordinates)
-                self.rock_db.add_block_data(block, block_coordinates)
+                block, not_empty = self.rock_dist_gen.run(bb, map_coordinates)
+                if not_empty:
+                    self.rock_db.add_block_data(block, block_coordinates)
 
     def dissect_region_blocks(
         self, block: RockBlockData, region: BoundingBox
@@ -725,18 +726,19 @@ class RockSampler:
 
             # Samples rocks in the region
             with ScopedTimer("Sampling rocks in region", active=self.profiling):
-                new_block = self.rock_dist_gen.run(new_region, map_coordinates)
+                new_block, not_empty = self.rock_dist_gen.run(new_region, map_coordinates)
 
-            with ScopedTimer("Getting xy coordinates from block", active=self.profiling):
-                coords = self.rock_dist_gen.get_xy_coordinates_from_block(new_block)
+            if not_empty:
+                with ScopedTimer("Getting xy coordinates from block", active=self.profiling):
+                    coords = self.rock_dist_gen.get_xy_coordinates_from_block(new_block)
 
-            # Dissects the region into blocks and adds the rocks to the database
-            with ScopedTimer("Dissecting region into blocks", active=self.profiling):
-                new_blocks_list, block_coordinates_list = self.dissect_region_blocks(new_block, new_region)
+                # Dissects the region into blocks and adds the rocks to the database
+                with ScopedTimer("Dissecting region into blocks", active=self.profiling):
+                    new_blocks_list, block_coordinates_list = self.dissect_region_blocks(new_block, new_region)
 
-            with ScopedTimer("Adding block data to the database", active=self.profiling):
-                for block_data, block_coordinates in zip(new_blocks_list, block_coordinates_list):
-                    self.rock_db.add_block_data(block_data, block_coordinates)
+                with ScopedTimer("Adding block data to the database", active=self.profiling):
+                    for block_data, block_coordinates in zip(new_blocks_list, block_coordinates_list):
+                        self.rock_db.add_block_data(block_data, block_coordinates)
 
         # If the largest rectangle is smaller or equal to 1 block, we sample rocks
         # on a per block basis.

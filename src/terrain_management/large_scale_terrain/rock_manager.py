@@ -75,7 +75,9 @@ class Instancer:
         """
 
         self.file_paths = [
-            os.path.join(self.assets_path, file) for file in os.listdir(self.assets_path) if file.endswith(".usd")
+            os.path.join(self.assets_path, file)
+            for file in os.listdir(self.assets_path)
+            if (file.endswith(".usd") or file.endswith(".usda") or file.endswith(".usdz"))
         ]
 
     def load_material(self):
