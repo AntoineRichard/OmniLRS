@@ -1,7 +1,7 @@
  Welcome to OmniLRS's Wiki
 
 <center>
-<img src="media/Logov2.png" width=520/>
+<img src="./media/Logov2.png" width=520/>
 </center>
 
 Omniverse Lunar Robotics Simulator or OmniLRS, is a simulation tools developped jointly by the Space Robotics group from the University of Luxembourg (SpaceR),
@@ -27,12 +27,12 @@ and the Space Robotics Lab from Tohoku University in Japan (SRL).
 > [!WARNING]
 > This wiki is still under construction, if you are looking for something in particular that's not yet docummented please open an issue.
 
-- [Installation](installation/Installation.md)
-- [Getting Started](getting_started/GettingStarted.md)
-- [Interracting with the Scene](scene_interaction/ros_topics.md)
-- [Configuring simulation modes](modes/Modes.md)
-- [Configuring the environments](environments/Environments.md)
-- [Configuring the rendering](rendering/Rendering.md)
-- [Configuring the physics](physics/Physics.md)
-- [Contribute](contribute/Contribute.md)
-- [FAQ](FAQ/FAQ.md)
+- [Installation](installation/Installation)
+- [Getting Started](getting_started/GettingStarted)
+- [Interacting with the Scene](scene_interaction/ros_topics)
+- [Configuring simulation modes](modes/Modes)
+- [Configuring the environments](environments/Environments)
+- [Configuring the rendering](rendering/Rendering)
+- [Configuring the physics](physics/Physics)
+- [Contribute](contribute/Contribute)
+- [FAQ](FAQ/FAQ)

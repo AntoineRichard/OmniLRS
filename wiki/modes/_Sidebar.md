@@ -1,10 +1,10 @@
 ## Table of Contents
-- [Previous (Scene Interactions)](../scene_interaction/ros_topics.md)
+- [Previous (Scene Interactions)](https://github.com/AntoineRichard/OmniLRS/wiki/ros_topics)
 - [Simulation Modes Configurations](#simulation-modes-configurations)
   - [How to Hydra](#how-to-hydra)
   - [Introduction](#introduction)
   - [ROS1](#ros1)
   - [ROS2](#ros2)
   - [Synthetic Data Generation](#synthetic-data-generation)
-- [Next (Environment Configuration)](../environments/Environments.md)
-- [Back to Home](../Home)
+- [Next (Environment Configuration)](https://github.com/AntoineRichard/OmniLRS/wiki/Environments)
+- [Back to Home](https://github.com/AntoineRichard/OmniLRS/wiki/Home)

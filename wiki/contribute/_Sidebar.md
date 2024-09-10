@@ -1,4 +1,4 @@
 ## Table of Contents
-- [Previous (Rendering Configuration)](../rendering/Rendering.md)
-- [Nest (FAQ)](../FAQ/FAQ.md)
-- [Back to Home](../Home)
+- [Previous (Rendering Configuration)](https://github.com/AntoineRichard/OmniLRS/wiki/Rendering)
+- [Nest (FAQ)](https://github.com/AntoineRichard/OmniLRS/wiki/FAQ)
+- [Back to Home](https://github.com/AntoineRichard/OmniLRS/wiki/Home)

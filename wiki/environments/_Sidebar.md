@@ -1,5 +1,5 @@
 ## Table of Contents
-- [Previous (Mode Configurations)](../modes/Modes.md)
+- [Previous (Mode Configurations)](https://github.com/AntoineRichard/OmniLRS/wiki/Modes)
 - [Environment Configurations](#configurations)
   - [How to Hydra](#how-to-hydra)
   - [Environments Configs](#environments-configs)
@@ -15,5 +15,5 @@
     - [Request](#request)
     - [Request Group](#request-group)
     - [Rock Generation](#rock-generation)
-- [Next](../robots/Robots.md)
-- [Back to Home](../Home)
+- [Next](https://github.com/AntoineRichard/OmniLRS/wiki/Robots)
+- [Back to Home](https://github.com/AntoineRichard/OmniLRS/wiki/Home)
