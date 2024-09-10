@@ -32,6 +32,7 @@ and the Space Robotics Lab from Tohoku University in Japan (SRL).
 - [Interacting with the Scene](scene_interaction/ros_topics)
 - [Configuring simulation modes](modes/Modes)
 - [Configuring the environments](environments/Environments)
+- [Configuring robots](robots/Robots)
 - [Configuring the rendering](rendering/Rendering)
 - [Configuring the physics](physics/Physics)
 - [Contribute](contribute/Contribute)
