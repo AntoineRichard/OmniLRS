@@ -1,10 +1,11 @@
-## Environments ROS 1 & 2 topics
+# Environments ROS 1 & 2 topics
 
 Our simulation provides an interface to alter the simulation's state through ROS topics. This will change in the future as it is likely that we will shift towards a ZeroMQ-based stack with a webserver so that more simulation parameters can be tuned.
 
+> [!NOTE]
 > For most of these operations we should be using services rather than topics. We are fully aware of this, but Omniverse does not allow to easily compile custom services outside of so-called "extensions". This partially explain the planned move to ZeroMQ. We may also release an extension to address some of these shortcomings.
 
-### Common
+## Common
 Rendering topics:
 - `/OmniLRS/Render/EnableRTXRealTime`: `(std_msgs/Empty)`, Switches the renderer to RTXRealTime.
 - `/OmniLRS/Render/EnableRTXInteractive`: `(std_msgs/Empty)`, Switches the renderer to RTXInteractive.
@@ -23,9 +24,10 @@ Robot topics:
 - `/OmniLRS/Robots/Reset`: `(std_msgs/String)`, Resets the robot whose name is in the string. A reset puts the robot back where it was when it was first spawned.
 - `/OmniLRS/Robots/ResetAll`: `(std_msgs/Empty)`, Resets all the robots in the scene. A reset puts the robot back to where it was when it was first spawned.
 
-> Notes: <span style="color: red;">**Large scale environments do not support multiple robots.**:</span>
+> [!NOTE]
+> Large scale environments do not support multiple robots.
 
-### Lunalab 
+## Lunalab 
 Topics offered by the lunalab in addition to the ones in [common](#common).
 - `/OmniLRS/Projector/TurnOn`: `(std_msgs/Bool)`, Turns on or off the projector in the lunalab. Setting it to true turns the projector on.
 - `/OmniLRS/Projector/Intensity`: `(std_msgs/Float32)`, Set the intensity of the projector. This value is set as a percentage of the default value. Setting the value to 50.0 will set the projector's output to 50%.

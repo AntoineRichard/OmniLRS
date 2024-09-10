@@ -1,5 +1,22 @@
 # Simulation Modes Configurations
 
+What are modes? Modes are wrappers that enable the user to interact with a base simulation environment in a particular way. This allows a single base environment, that exposes a given set of methods to manipulate it, to be used for different purposes.
+Say you want to use the lunalab to run a robotic task, you can use the ROS1 or ROS2 modes. But if you wanted to use this environment to generate a dataset for rock detection, you could use the SDG mode.
+In practice the base environment provides a set of method that allows different Modes to achieve what the user desires.
+
+As of now we support 3 modes:
+- ROS1: Noetic
+- ROS2: Foxy, or Humble, also compatible with SpaceROS!
+- SDG: Synthetic Data Generation
+
+> [!CAUTION]
+> As ROS1 is no longer supported, and is no longer shipped with the latest ubuntu releases, it will be phased out with future releases. Having both ROS1 and ROS2 creates more work when adding new features, but also makes docker container generation more complicated.
+
+>[!Note]
+> Future release will include:
+> - SDG_SLAM: A mode to generate image sequence to evaluate SLAM & 3D reconstruction algorithms.
+> - SDG_LRO: A mode to generate LRO like images to test different set of algorithms.
+
 ## How to Hydra
 
 In short hydra allows to combined multiple .yaml file into a single configuration, it also allows to change the value of one of the file's parameters on the fly. Finally hydra provides a mean to perform simple operations inside a yaml file.
@@ -17,10 +34,12 @@ hydra:
   run:
     dir: .
 ```
+
 This means that running:
 ```bash
 python.sh run.py
 ```
+
 Will result in running the simulation using the following configs:
 - cfg/environment/lunalab.yaml
 - cfg/rendering/ray_tracing.yaml
@@ -41,21 +60,6 @@ This will change the year of the starting date of the stellar engine.
 
 Now that you know hydra's basics, let's jump into how to configure the differt modes.
 
-## Introduction
-
-Modes are what allows the user to use the same environment for different purposes. Say you want to use the lunalab to run a robotic task, you can use the ROS1 or ROS2 modes. But if you wanted to use this environment to generate a dataset for rock detection, you could use the SDG mode.
-
-As of now we support 3 modes:
-- ROS1: Noetic
-- ROS2: Foxy, or Humble, also compatible with SpaceROS!
-- SDG: Synthetic Data Generation
-
-As ROS1 is no longer supported, and is no longer shipped with the latest ubuntu releases, it will be phased out with the next release. Having both ROS1 and ROS2 creates more work when adding new features, but also makes docker container generation more complicated.
-
->[!Note]
-> Future release will include:
-> - SDG_SLAM: A mode to generate image sequence to evaluate SLAM & 3D reconstruction algorithms.
-> - SDG_LRO: A mode to generate LRO like images to test different set of algorithms.
 
 ## ROS1
 This mode launches the simulation in ROS1 mode. This means that both the robots and the labs inside the simulation will be running using ROS1 nodes. There is no specific parameters for it.
@@ -161,3 +165,4 @@ camera_settings:
   focus_distance: 10.0
   clipping_range: ${as_tuple:0.01, 1000000.0}
 ```
+

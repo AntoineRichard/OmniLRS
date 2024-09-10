@@ -1,38 +1,7 @@
-## Physics Configs
+# Physics Configuration
 
-
-@dataclasses.dataclass
-class PhysicsSceneConf:
-    dt: float = dataclasses.field(default_factory=float)
-    gravity: Tuple[float, float, float] = None
-    substeps: int = None
-    use_gpu_pipeline: bool = None
-    worker_thread_count: int = None
-    use_fabric: bool = None
-    enable_scene_query_support: bool = None
-    gpu_max_rigid_contact_count: int = None
-    gpu_max_rigid_patch_contact_count: int = None
-    gpu_found_lost_pairs_capacity: int = None
-    gpu_total_aggregate_pairs_capacity: int = None
-    gpu_max_soft_body_contacts: int = None
-    gpu_max_particle_contacts: int = None
-    gpu_heap_capacity: int = None
-    gpu_temp_buffer_capacity: int = None
-    gpu_max_num_partions: int = None
-    gpu_collision_stack_size: int = None
-    solver_type: str = None
-    enable_stabilization: bool = None
-    bounce_threshold_velocity: float = None
-    friction_offset_threshold: float = None
-    friction_correlation_distance: float = None
-    enable_ccd: bool = None
-
-    def __post_init__(self):
-        self.physics_scene_args = {}
-        for attribute in dataclasses.fields(self):
-            if getattr(self, attribute.name) is not None:
-                self.physics_scene_args[attribute.name] = getattr(self, attribute.name)
-
+> [!Warning]
+> This page is under construction.
 
 Attributes:
 - `dt`: `(float)`, The time step for each physics simulation update. Defines the amount of time that passes per frame for physics calculations.
@@ -59,10 +28,12 @@ Attributes:
 - `friction_correlation_distance`: `(float)`, The correlation distance for friction calculation. Defines the area over which friction is applied between two surfaces.
 - `enable_ccd`: `(bool)`, Whether to enable Continuous Collision Detection (CCD). CCD prevents fast-moving objects from passing through one another by performing more frequent collision checks.
 
+> [!Note]
 > - GPU-specific settings are important for optimizing large simulations, especially when dealing with rigid bodies, soft bodies, and particles.
 > - The number of substeps and solver type significantly impact the accuracy and stability of the physics simulation.
 > - Using the GPU pipeline and adjusting thread count allows for performance improvements, particularly in complex scenes.
 > - The stabilization options and collision detection settings like CCD help avoid errors in physics calculations, such as objects passing through one another or jittering at rest.
+
 
 Example:
 ```yaml

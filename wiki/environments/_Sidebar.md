@@ -1,6 +1,6 @@
 ## Table of Contents
-
-- [Configurations](#configurations)
+- [Previous (Mode Configurations)](../modes/Modes.md)
+- [Environment Configurations](#configurations)
   - [How to Hydra](#how-to-hydra)
   - [Environments Configs](#environments-configs)
     - [Lunalab](#lunalab)
@@ -15,12 +15,5 @@
     - [Request](#request)
     - [Request Group](#request-group)
     - [Rock Generation](#rock-generation)
-    - [ROS1](#ros1)
-    - [ROS2](#ros2)
-    - [SDG](#sdg)
-  - [Rendering Configs](#rendering-configs)
-    - [RTXRealTime & RTXInteractive](#rtxrealtime--rtxinteractive)
-    - [Lens Flares](#lens-flares)
-    - [Motion Blur](#motion-blur)
-    - [Chromatic Aberrations](#chromatic-aberrations)
+- [Next](../robots/Robots.md)
 - [Back to Home](../Home)

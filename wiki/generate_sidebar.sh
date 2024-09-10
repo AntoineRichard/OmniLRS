@@ -43,3 +43,4 @@ while IFS= read -r line; do
 done < "$input_file"
 
 echo "_Sidebar.md has been generated from $input_file."
+

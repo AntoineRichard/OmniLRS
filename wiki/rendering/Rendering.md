@@ -1,12 +1,13 @@
-## Rendering Configs
+# Rendering Configuration
 
 In the following we will go over the different configurations available to you to tweak the rendering in the simulation.
 
-### RTXRealTime & RTXInteractive
+## RTXRealTime & RTXInteractive
 
 Let's start by what they are. RTXRealTime is has it's name imply, a high FPS renderer that trades some of the rendering quality to push more frames per second. The RTXInteractive renderer makes less compromises on the rendering quality and hence the overall quality of rendered frame is higher at the cost of slower render time.
 
-We only expose a few parameters of the fairly large amount available to tune. They should be expended when time allows.
+> [!Note]
+> We only expose a few parameters of the fairly large amount available to tune. They should be expended when time allows.
 
 Arguments:
 - `samples_per_pixel_per_frame`: (`int`), RTXInteractive only.
@@ -39,7 +40,7 @@ renderer:
   subdiv_refinement_level: 0
 ```
 
-### Lens Flares
+## Lens Flares
 
 Should you want to make Michael Bay proud, you may be interested in adding lens flares. Though lens flares in isaac are pretty basic, so not sure he'll be that impressed. Regardless, here are the available settings!
 
@@ -53,7 +54,8 @@ Arguments:
 - `fstop`: (float), fstop of the lens used to simulate the flares.
 - `focal_length`: (float), Focal length of the lens used to simulate the flares.
 
-> Note: These camera parameters are completely independent of the ones you have inside the scene's cameras.
+> [!Note]
+> These camera parameters are completely independent of the ones you have inside the scene's cameras.
 
 Example:
 ```yaml
@@ -68,7 +70,7 @@ lens_flares:
   focal_length: 12.0
 ```
 
-### Motion Blur
+## Motion Blur
 
 To add motion blur to the rendered image, you can use the following arguments:
 
@@ -87,7 +89,7 @@ motion_blur:
   num_samples: 8
 ```
 
-### Chromatic Aberrations
+## Chromatic Aberrations
 
 To add chromatic aberrations to your renders, you can use the following arguments:
 
@@ -103,3 +105,4 @@ chromatic_aberration:
   strength: [-0.055, -0.075, 0.015]
   model: ["Radial", "Radial", "Radial"]
 ```
+
