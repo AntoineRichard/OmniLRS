@@ -26,5 +26,5 @@ done
 echo "Finished moving DEMs."
 
 echo "Cleaning up..."
-rm -rm $DEMS_PATH
+rm -r $DEMS_PATH
 echo "Finished cleanup."

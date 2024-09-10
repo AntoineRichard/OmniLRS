@@ -39,7 +39,7 @@ read -n 1 -r
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "Cleaning up..."
-    rm -rm $DEMS_PATH
+    rm -r $DEMS_PATH
     echo "Finished cleanup."
 else
     echo "Cleanup skipped."
