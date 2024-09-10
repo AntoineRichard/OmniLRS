@@ -1,5 +1,5 @@
 [submodule "WorldBuilders"]
 	path = WorldBuilders
 	url = https://github.com/AntoineRichard/WorldBuilders.git
-	btanch = main
+	branch = main
 
