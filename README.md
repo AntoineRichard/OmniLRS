@@ -1,4 +1,7 @@
 # OmniLRS v2.0
+<center>
+<img src="media/Logov2.png" width=520/>
+</center>
 
 In this repository, you will find the simulation tools developped jointly by the Space Robotics group from the University of Luxembourg (SpaceR),
 and the Space Robotics Lab from Tohoku University in Japan (SRL). We are now opening it to the community and strongly encourage Space Roboticists to help us grow the feature set of this simulation! Don't be shy shoot a PR!
