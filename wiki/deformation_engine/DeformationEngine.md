@@ -1,4 +1,4 @@
-# DeformationEngine
+# Deformation Engine
 
 > [!WARNING]
 > This wiki page is under construction
@@ -65,7 +65,7 @@ force_distribution:
     wave_frequency: 2.0
 ```
 
-### Boundary Distribution
+## Boundary Distribution
 Controls boundary shape (y axis vs z axis with FLU convention). 
 
 ```yaml
