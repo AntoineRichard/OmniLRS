@@ -1,14 +1,10 @@
 #!/bin/bash
 
-# Pulls WorldBuilder
-git submodule init
-git submodule update
-
 # Download the assets from Google Drive
-/isaac_sim/python.sh gdown 1XuFlDRELPQmjJFLP1E54IOhRiFn5iM_7
+/isaac-sim/python.sh -m gdown 1XuFlDRELPQmjJFLP1E54IOhRiFn5iM_7
 unzip assets_v6.zip
 rm assets_v6.zip
-/isaac_sim/python.sh gdown 1sXrsT7ZdA3VslMREBtjo6-Ou1-v8-8dI
+/isaac-sim/python.sh -m gdown 1sXrsT7ZdA3VslMREBtjo6-Ou1-v8-8dI
 unzip lunar_rocks.zip -d assets/USD_Assets/rocks
 rm lunar_rocks.zip
 

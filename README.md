@@ -127,7 +127,17 @@ Once you're all set, the use following to build the image:
 Once the image is built the simulation should be ready to go.
 Though you will still need to download the assets. If you want to, you can download them from docker directly.
 
-In docker exectute:
+First pull the submodule
+```bash
+# Pulls WorldBuilder
+git submodule init
+git submodule update
+```
+Then start the docker
+```bash
+./omnilrs.docker/run_docker.sh
+```
+And run the script in the docker:
 ```bash
 scritps/install_docker.sh
 ```
