@@ -42,3 +42,51 @@ and the Space Robotics Lab from Tohoku University in Japan (SRL).
 - [Configuring the physics](physics/Physics)
 - [Contribute](contribute/Contribute)
 - [FAQ](FAQ/FAQ)
+
+## Run with SpaceROS
+
+> [!IMPORTANT]
+> The following assumes you've gone through the [installation process] and the [getting started process]. It also assumes you went with the docker install. However, we provide an alternative option to run the simulation using a native installation.
+
+### Simple Teleoperation Demo
+In the following we provide a basic example to exaplain the workflow between OmniLRS and SpaceROS. This workflow extends
+to other ROS style development.
+
+First we will start by spinning up the simulation's docker:
+```bash
+./omnilrs.docker/run_docker.sh
+```
+
+> [!TIP]
+> If you installed the simulation in a native environment (no docker) you can simply run `PATH_TO_ISAAC/python.sh run.py`.
+> `PATH_TO_ISAAC` is typically `~/.local/share/ov/pkg/isaac_sim-2023.1.1`.
+
+It will open an interactive terminal in which you can start a simulation:
+```
+/isaac-sim/python.sh run.py
+```
+This will open a simulation with the lunalab and a Husky in it.
+
+
+
+> [!IMPORTANT]
+> Build the docker for the demo by running: `./spaceros_demo.docker/build_docker.sh`
+
+Now we will start the SpaceROS docker
+```bash
+./spaceros_demo.docker/run_docker.sh
+```
+This will open an interactive terminal with spaceROS already sourced and a teleoperation built natively. 
+
+You can now run the teleoperation node:
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
+Following the instructions on screen you should be able to visualize the robot moving in the lab!
+
+### Justification
+We believe the simulation should be an independent component from the software that's running in it.
+This seperation of the components allows for multiple things. Say you'd like to test a navigation algorithm on a very specific type of hardware,
+well, you can have a powerful computer running the simulation, and that specialized hardware connected to the same network that will
+interact with the simulation. Another argument is that this separation also eases the deployments of algorithms.
+If they are already built in a separate docker, this docker can be directly shipped to a robot for real world validation.

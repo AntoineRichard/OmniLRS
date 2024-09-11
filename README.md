@@ -12,6 +12,7 @@ and the Space Robotics Lab from Tohoku University in Japan (SRL). We are now ope
 > [!IMPORTANT]
 > Isaac Sim is using ROS2 by default, most of the tools available in Isaac are meant for ROS2. Hence, this simulation uses ROS2. To use this simulation with SpaceROS, the ROS2 simulation docker must first be spinned up, and then in a second time, another container running SpaceROS must be launched to interact with the simulation.
 > To illustrate this, we provide a simple teleop demonstration with the sim in ROS2 and SpaceROS sending velocity commands.
+> Check the Wiki for a [step-by-step guide](https://github.com/AntoineRichard/OmniLRS/wiki#run-with-spaceros) on how to run this demo.
 
 ## Simulation Environments Overview
 
