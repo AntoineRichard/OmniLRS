@@ -49,7 +49,7 @@ python3 -m pip install --upgrade pip
 python3 -m pip instal gdal==$version gdown black
 
 # Download the assets from Google Drive
-gdown 1LfdJ8cogFU8Eid2EL-0bu9E383lftC_W 
+gdown 1XuFlDRELPQmjJFLP1E54IOhRiFn5iM_7
 unzip assets_v6.zip
 rm assets_v6.zip
 gdown 1sXrsT7ZdA3VslMREBtjo6-Ou1-v8-8dI
