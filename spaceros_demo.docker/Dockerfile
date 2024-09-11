@@ -16,5 +16,9 @@ RUN source /ros_entrypoint.sh -- && \
     --install-base "${DEMO_SPACEROS_WS_PATH}/install" && \
     rm -rf ./log 
 
-ENTRYPOINT ["/ros_entrypoint.sh"]
+WORKDIR "${HOME_DIR}"
+
+COPY ./entrypoint.sh /
+
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]
