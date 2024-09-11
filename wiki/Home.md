@@ -10,6 +10,10 @@ and the Space Robotics Lab from Tohoku University in Japan (SRL).
 > [!IMPORTANT]
 > We are now opening it to the community and strongly encourage Space Roboticists to help us grow the feature set of this simulation! Don't be shy shoot a PR!
 
+## Integration & Workflow with SpaceROS
+> [!IMPORTANT]
+> Isaac Sim is using ROS2 by default, most of the tools available in Isaac are meant for ROS2. Hence, this simulation uses ROS2. To use this simulation with SpaceROS, the ROS2 simulation docker must first be spinned up, and then in a second time, another container running SpaceROS must be launched to interact with the simulation.
+> To illustrate this, we provide a simple teleop demonstration with the sim in ROS2 and SpaceROS sending velocity commands.
 
 ## Simulation Environments Overview
 
@@ -32,6 +36,7 @@ and the Space Robotics Lab from Tohoku University in Japan (SRL).
 - [Interacting with the Scene](scene_interaction/ros_topics)
 - [Configuring simulation modes](modes/Modes)
 - [Configuring the environments](environments/Environments)
+- [Deformation engine](deformation_engine/DeformationEngine)
 - [Configuring robots](robots/Robots)
 - [Configuring the rendering](rendering/Rendering)
 - [Configuring the physics](physics/Physics)
