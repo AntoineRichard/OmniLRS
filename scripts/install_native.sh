@@ -22,7 +22,7 @@ python3 -m pip install gdown black gdal==$version
 # Download the assets from Google Drive
 echo "Downloading assets from Google Drive"
 source ~/.bashrc
-gdown 1LfdJ8cogFU8Eid2EL-0bu9E383lftC_W
+gdown 1XuFlDRELPQmjJFLP1E54IOhRiFn5iM_7
 unzip -qq assets_v6.zip
 rm assets_v6.zip
 gdown 1sXrsT7ZdA3VslMREBtjo6-Ou1-v8-8dI

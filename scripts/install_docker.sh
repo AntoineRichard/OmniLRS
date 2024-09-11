@@ -5,7 +5,7 @@ git submodule init
 git submodule update
 
 # Download the assets from Google Drive
-/isaac_sim/python.sh gdown 1LfdJ8cogFU8Eid2EL-0bu9E383lftC_W
+/isaac_sim/python.sh gdown 1XuFlDRELPQmjJFLP1E54IOhRiFn5iM_7
 unzip assets_v6.zip
 rm assets_v6.zip
 /isaac_sim/python.sh gdown 1sXrsT7ZdA3VslMREBtjo6-Ou1-v8-8dI

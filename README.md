@@ -8,6 +8,11 @@ and the Space Robotics Lab from Tohoku University in Japan (SRL). We are now ope
 > [!IMPORTANT]
 > This readme provides basic information on how to use the simulation. For a more complete introduction to the simulation and its inner workings please [visit our wiki](https://github.com/AntoineRichard/OmniLRS/wiki)!
 
+## Integration & Workflow with SpaceROS
+> [!IMPORTANT]
+> Isaac Sim is using ROS2 by default, most of the tools available in Isaac are meant for ROS2. Hence, this simulation uses ROS2. To use this simulation with SpaceROS, the ROS2 simulation docker must first be spinned up, and then in a second time, another container running SpaceROS must be launched to interact with the simulation.
+> To illustrate this, we provide a simple teleop demonstration with the sim in ROS2 and SpaceROS sending velocity commands.
+
 ## Simulation Environments Overview
 
 
@@ -72,7 +77,7 @@ python3 -m pip install --upgrade pip
 python3 -m pip instal gdal==$version gdown black
 
 # Download the assets from Google Drive
-gdown 1LfdJ8cogFU8Eid2EL-0bu9E383lftC_W 
+gdown 1XuFlDRELPQmjJFLP1E54IOhRiFn5iM_7
 unzip assets_v6.zip
 rm assets_v6.zip
 gdown 1sXrsT7ZdA3VslMREBtjo6-Ou1-v8-8dI
