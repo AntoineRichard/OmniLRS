@@ -14,6 +14,7 @@ and the Space Robotics Lab from Tohoku University in Japan (SRL).
 > [!IMPORTANT]
 > Isaac Sim is using ROS2 by default, most of the tools available in Isaac are meant for ROS2. Hence, this simulation uses ROS2. To use this simulation with SpaceROS, the ROS2 simulation docker must first be spinned up, and then in a second time, another container running SpaceROS must be launched to interact with the simulation.
 > To illustrate this, we provide a simple teleop demonstration with the sim in ROS2 and SpaceROS sending velocity commands.
+> Check the Wiki for a [step-by-step guide](#run-with-spaceros) on how to run this demo.
 
 ## Simulation Environments Overview
 
@@ -31,22 +32,22 @@ and the Space Robotics Lab from Tohoku University in Japan (SRL).
 > [!WARNING]
 > This wiki is still under construction, if you are looking for something in particular that's not yet docummented please open an issue.
 
-- [Installation](installation/Installation)
-- [Getting Started](getting_started/GettingStarted)
-- [Interacting with the Scene](scene_interaction/ros_topics)
-- [Configuring simulation modes](modes/Modes)
-- [Configuring the environments](environments/Environments)
-- [Deformation engine](deformation_engine/DeformationEngine)
-- [Configuring robots](robots/Robots)
-- [Configuring the rendering](rendering/Rendering)
-- [Configuring the physics](physics/Physics)
-- [Contribute](contribute/Contribute)
-- [FAQ](FAQ/FAQ)
+- [Installation](https://github.com/AntoineRichard/OmniLRS/wiki/Installation)
+- [Getting Started](https://github.com/AntoineRichard/OmniLRS/wiki/GettingStarted)
+- [Interacting with the Scene](https://github.com/AntoineRichard/OmniLRS/wiki/ros_topics)
+- [Configuring simulation modes](https://github.com/AntoineRichard/OmniLRS/wiki/Modes)
+- [Configuring the environments](https://github.com/AntoineRichard/OmniLRS/wiki/Environments)
+- [Deformation engine](https://github.com/AntoineRichard/OmniLRS/wiki/DeformationEngine)
+- [Configuring robots](https://github.com/AntoineRichard/OmniLRS/wiki/Robots#how-to-set-up-robots)
+- [Configuring the rendering](https://github.com/AntoineRichard/OmniLRS/wiki/Physics)
+- [Configuring the physics](https://github.com/AntoineRichard/OmniLRS/wiki/Rendering)
+- [Contribute](https://github.com/AntoineRichard/OmniLRS/wiki/Contribute)
+- [FAQ (WIP)](https://github.com/AntoineRichard/OmniLRS/wiki/FAQ)
 
 ## Run with SpaceROS
 
 > [!IMPORTANT]
-> The following assumes you've gone through the [installation process] and the [getting started process]. It also assumes you went with the docker install. However, we provide an alternative option to run the simulation using a native installation.
+> The following assumes you've gone through the [installation process](https://github.com/AntoineRichard/OmniLRS/wiki/Installation) and the [getting started process](https://github.com/AntoineRichard/OmniLRS/wiki/GettingStarted). It also assumes you went with the docker install. However, we provide an alternative option to run the simulation using a native installation.
 
 ### Simple Teleoperation Demo
 In the following we provide a basic example to exaplain the workflow between OmniLRS and SpaceROS. This workflow extends
