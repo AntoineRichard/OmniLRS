@@ -6,7 +6,7 @@ requires-python = ">=3.10"
 keywords = ["lunar", "simulator", "rover", "locomotion", "IsaacSim"]
 authors = [
     { name = "Antoine Richard", email = "antoine.richard@uni.lu" },
-    { name = "Junnosuke Kamohara", email = "xxx@gatech.edu" },
+    { name = "Junnosuke Kamohara", email = "jkamohara3@gatech.edu" },
 ]
 
 dependencies = [
