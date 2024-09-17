@@ -54,7 +54,7 @@ large_scale_terrain:
       instancer_name: "small_rock_instancer"
       seed: 47
       block_span: 2
-      add_colliders: False
+      add_colliders: True
       collider_mode: "none"
       texture_name: "seaside_rock_2k"
       texture_path: "assets/Textures/seaside_rock_2k.mdl"
