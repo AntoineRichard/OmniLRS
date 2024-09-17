@@ -63,7 +63,7 @@ large_scale_terrain:
             name: "thomas_point_process"
             parent_density: 0.0025
             child_density: 5
-            sigma: 2.0
+            sigma: 3.0
             seed: 46
           scale_distribution:
             name: "uniform"
@@ -83,9 +83,9 @@ large_scale_terrain:
         rock_dist_cfg:
           position_distribution:
             name: "thomas_point_process"
-            parent_density: 0.0025
-            child_density: 5
-            sigma: 2.0
+            parent_density: 0.001
+            child_density: 3
+            sigma: 4.0
             seed: 48
           scale_distribution:
             name: "uniform"
