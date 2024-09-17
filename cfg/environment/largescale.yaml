@@ -56,7 +56,6 @@ large_scale_terrain:
       block_span: 2
       add_colliders: False
       collider_mode: "none"
-      semantic_label: "small_rock"
       texture_name: "seaside_rock_2k"
       texture_path: "assets/Textures/seaside_rock_2k.mdl"
 
@@ -67,7 +66,7 @@ stellar_engine_settings:
     day: 21
     hour: 5
     minute: 1
-  time_scale: 1
+  time_scale: 1.0
   update_interval: 600
 
 sun_settings:
