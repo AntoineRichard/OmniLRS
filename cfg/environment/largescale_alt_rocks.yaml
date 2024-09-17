@@ -29,7 +29,7 @@ large_scale_terrain:
             seed: 43
       rock_assets_folder: "assets/USD_Assets/rocks/lunar_rocks/rocks_s2_r128"
       instancer_name: "very_small_rock_instancer"
-      seed: 46
+      seed: 5
       block_span: 1
       add_colliders: False
     -
@@ -50,11 +50,10 @@ large_scale_terrain:
             seed: 45
       rock_assets_folder: "assets/USD_Assets/rocks/lunar_rocks/rocks_s3_r512"
       instancer_name: "small_rock_instancer"
-      seed: 47
+      seed: 51
       block_span: 2
       add_colliders: True
       collider_mode: "meshSimplification"
-      semantic_label: "rock"
     -
       rock_sampler_cfg:
         block_size: 50
@@ -65,19 +64,40 @@ large_scale_terrain:
             parent_density: 0.0025
             child_density: 5
             sigma: 2.0
-            seed: 44
+            seed: 46
           scale_distribution:
             name: "uniform"
             min: 0.2
             max: 0.75
-            seed: 45
+            seed: 47
       rock_assets_folder: "assets/USD_Assets/rocks/lunar_rocks/rocks_s4_r512"
       instancer_name: "medium_rock_instancer"
-      seed: 47
+      seed: 52
       block_span: 3
       add_colliders: True
       collider_mode: "meshSimplification"
-      semantic_label: "rocks"
+    -
+      rock_sampler_cfg:
+        block_size: 50
+        seed: 42
+        rock_dist_cfg:
+          position_distribution:
+            name: "thomas_point_process"
+            parent_density: 0.0025
+            child_density: 5
+            sigma: 2.0
+            seed: 48
+          scale_distribution:
+            name: "uniform"
+            min: 0.75
+            max: 2.5
+            seed: 49
+      rock_assets_folder: "assets/USD_Assets/rocks/lunar_rocks/rocks_s5_r1024"
+      instancer_name: "large_rock_instancer"
+      seed: 53
+      block_span: 4
+      add_colliders: True
+      collider_mode: "meshSimplification"
 
 stellar_engine_settings:
   start_date:
