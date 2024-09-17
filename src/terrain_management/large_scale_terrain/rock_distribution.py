@@ -152,8 +152,6 @@ class ThomasPointProcess(BaseDistribution):
     seed: int = None
 
     def __post_init__(self):
-        if self.seed is not None:
-            self.set_seed(self.seed)
         assert type(self.parent_density == float), "parent_density must be a float."
         assert self.parent_density > 0, "parent_density must be larger than 0."
         assert type(self.child_density == float), "child_density must be a float."
@@ -164,6 +162,15 @@ class ThomasPointProcess(BaseDistribution):
         self.parent = Poisson(name="poisson", density=self.parent_density, seed=self.seed)
         self.normal = Normal(name="normal", mean=0.0, std=self.sigma, seed=self.seed)
         self.extension = 7 * self.sigma
+        if self.seed is not None:
+            self.set_seed(self.seed)
+
+    def set_seed(self, seed: int) -> None:
+        self.rng = np.random.default_rng(seed)
+        if self.parent.seed is None:
+            self.parent.set_seed(seed)
+        if self.normal.seed is None:
+            self.normal.set_seed(seed)
 
     def sample_parents(self, region: BoundingBox) -> Tuple[np.ndarray, int]:
         """
@@ -253,7 +260,6 @@ class Uniform(BaseDistribution):
             self.set_seed(self.seed)
         self.min = float(self.min)
         self.max = float(self.max)
-        self.seed = int(self.seed)
 
     def sample(self, num_points: int = 1, dim: int = 1, **kwargs):
         """
