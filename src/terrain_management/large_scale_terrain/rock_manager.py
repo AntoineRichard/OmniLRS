@@ -6,7 +6,7 @@ __maintainer__ = "Antoine Richard"
 __email__ = "antoine.richard@uni.lu"
 __status__ = "development"
 
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Union
 import numpy as np
 import dataclasses
 import threading
@@ -17,7 +17,13 @@ import os
 from semantics.schema.editor import PrimSemanticData
 import omni
 
-from src.terrain_management.large_scale_terrain.pxr_utils import add_collider, load_material, bind_material
+from src.terrain_management.large_scale_terrain.pxr_utils import (
+    add_collider,
+    load_material,
+    bind_material,
+    delete_prim,
+    set_xform_ops,
+)
 from src.terrain_management.large_scale_terrain.rock_distribution import RockSamplerConf, RockSampler
 from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBlockData, ScopedTimer
 from src.terrain_management.large_scale_terrain.rock_database import RockDB, RockDBConf
@@ -173,6 +179,183 @@ class Instancer:
         return len(self.file_paths)
 
 
+class CustomInstancer:
+    """
+    StandaloneInstancer class. It is used to create an instancer that allows to spawn multiple instances of the same assets.
+    We defined our own instancer instead of using a Usd.Geom.PointInstancer as the latter does not support semantic information properly.
+    It may be fixed in the next release of Omniverse?"""
+
+    def __init__(
+        self,
+        instancer_path: str,
+        assets_path: str,
+        seed: int,
+        add_colliders: bool = False,
+        collider_mode: str = None,
+        semantic_label: str = None,
+        texture_name: str = None,
+        texture_path: str = None,
+    ):
+        """
+        Args:
+            instancer_path (str): The path of the instancer.
+            asset_list (list): The list of assets that can be spawned by the instancer.
+            seed (int, optional): The seed used to generate the random numbers. Defaults to 0.
+        """
+
+        self.instance_paths = []
+        self.instancer_path = instancer_path
+        self.stage = omni.usd.get_context().get_stage()
+        self.assets_path = assets_path
+        self.add_colliders = add_colliders
+        self.apply_material = False
+        self.add_semantic_label = True if semantic_label is not None else False
+        self.collider_mode = collider_mode
+        self.semantic_label = semantic_label
+        self.texture_name = texture_name
+        self.texture_path = texture_path
+        self.stage = omni.usd.get_context().get_stage()
+        self.get_asset_list()
+        self.load_material()
+        self.create_instancer()
+        self.rng = np.random.default_rng(seed=seed)
+
+    def get_asset_list(self):
+        """
+        Get the list of assets in the assets folder.
+        """
+
+        self.file_paths = [
+            os.path.join(self.assets_path, file)
+            for file in os.listdir(self.assets_path)
+            if (file.endswith(".usd") or file.endswith(".usda") or file.endswith(".usdz"))
+        ]
+
+    def load_material(self):
+        """
+        Load the material.
+
+        Warnings:
+            - If the texture name is not provided, a warning is raised.
+            - If the texture path is not provided, a warning is raised.
+        """
+        self.apply_material = False
+        if (self.texture_name is not None) and (self.texture_path is not None):
+            self.material_path = load_material(self.texture_name, self.texture_path)
+            self.apply_material = True
+        elif (self.texture_name is not None) and (self.texture_path is None):
+            warnings.warn("Texture path not provided. Material will not be loaded.")
+        elif (self.texture_name is None) and (self.texture_path is not None):
+            warnings.warn("Texture name not provided. Material will not be loaded.")
+
+    def apply_semantic_label(self, prim_path: Usd.Prim):
+        prim_sd = PrimSemanticData(self.stage.GetPrimAtPath(prim_path))
+        prim_sd.add_entry("class", self.semantic_label)
+
+    def create_instancer(self):
+        """
+        Create the instancer.
+        """
+
+        self.instancer_path = omni.usd.get_stage_next_free_path(self.stage, self.instancer_path, False)
+        instancer_prim = self.stage.DefinePrim(self.instancer_path, "Xform")
+        instancer_prim = UsdGeom.Xformable(instancer_prim)
+
+        self.prim_paths = []
+        for i, file_path in enumerate(self.file_paths):
+            prim = self.stage.DefinePrim(os.path.join(self.instancer_path, "asset_" + str(i)), "Xform")
+            prim.GetReferences().AddReference(file_path)
+            if self.add_colliders:
+                add_collider(self.stage, prim.GetPath(), mode=self.collider_mode)
+            if self.apply_material:
+                bind_material(self.stage, self.material_path, prim.GetPath())
+            if self.add_semantic_label:
+                self.apply_semantic_label(prim.GetPath())
+            prim.SetInstanceable(True)
+            prim.GetAttribute("visibility").Set("invisible")
+
+            self.prim_paths.append(prim.GetPath())
+
+        self.set_instancer_parameters(
+            np.array([[0, 0, 0]]), np.array([[0, 0, 0, 1]]), np.array([[1, 1, 1]]), np.array([0])
+        )
+
+    def set_instancer_parameters(
+        self, position: np.ndarray, orientation: np.ndarray, scale: np.ndarray, ids: np.ndarray
+    ) -> None:
+        """
+        Set the instancer's parameters. It sets the position, orientation, scale, and semantic class of the instances.
+
+        Args:
+            position (np.ndarray): The position of the instances.
+            orientation (np.ndarray): The orientation of the instances.
+            scale (np.ndarray): The scale of the instances.
+            ids (np.ndarray): The ids of the instances.
+        """
+
+        self.destroy()
+        self.num = position.shape[0]
+        self.position = position
+        self.orientation = orientation
+        self.scale = scale
+        self.ids = ids
+        self.update()
+
+    def update(self) -> None:
+        """
+        Update the instancer. It creates the instances and set their parameters.
+        It also sets the semantic class of the instances if it is not None.
+        """
+
+        self.instance_paths = []
+        for i, id in enumerate(self.ids):
+            source_prim_path = self.file_paths[id]
+            prefix = os.path.join(self.instancer_path, f"instance_{i}")
+            self.instance_paths.append(prefix)
+            prim = self.stage.DefinePrim(prefix, "Xform")
+            prim.GetReferences().AddReference(source_prim_path)
+
+            if self.add_colliders:
+                add_collider(self.stage, prim.GetPath(), mode=self.collider_mode)
+            if self.apply_material:
+                bind_material(self.stage, self.material_path, prim.GetPath())
+            if self.add_semantic_label:
+                self.apply_semantic_label(prim.GetPath())
+            prim.SetInstanceable(True)
+            set_xform_ops(
+                prim,
+                Gf.Vec3d(float(self.position[i, 0]), float(self.position[i, 1]), float(self.position[i, 2])),
+                Gf.Quatd(
+                    float(self.orientation[i, 0]),
+                    (float(self.orientation[i, 1]), float(self.orientation[i, 2]), float(self.orientation[i, 3])),
+                ),
+                Gf.Vec3d(float(self.scale[i, 0]), float(self.scale[i, 1]), float(self.scale[i, 2])),
+            )
+
+    def destroy(self):
+        """
+        Destroy the instancer."""
+
+        for instance_path in self.instance_paths:
+            delete_prim(self.stage, instance_path)
+        self.num = None
+        self.position = None
+        self.orientation = None
+        self.scale = None
+        self.ids = None
+        self.semantic_classes = None
+
+    def get_num_prototypes(self) -> int:
+        """
+        Get the number of prototypes.
+
+        Returns:
+            int: The number of prototypes.
+        """
+
+        return len(self.file_paths)
+
+
 class ChangeBlock:
     """
     Point instancer object with extra capabilities regarding colliders, texturing and semantic labeling.
@@ -223,7 +406,9 @@ class ChangeBlock:
         """
 
         self.file_paths = [
-            os.path.join(self.assets_path, file) for file in os.listdir(self.assets_path) if file.endswith(".usd")
+            os.path.join(self.assets_path, file)
+            for file in os.listdir(self.assets_path)
+            if (file.endswith(".usd") or file.endswith(".usda") or file.endswith(".usdz"))
         ]
 
     def load_material(self):
@@ -287,7 +472,6 @@ class ChangeBlock:
             for i, id in enumerate(ids):
                 prim_path = self.instancer_path + "/asset_2_" + str(i)
                 prim_spec = Sdf.CreatePrimInLayer(layer, prim_path)
-
                 Sdf.CopySpec(prim_spec.layer, Sdf.Path(self.prim_paths[id]), prim_spec.layer, Sdf.Path(prim_path))
 
                 position_spec = prim_spec.GetAttributeAtPath(prim_path + ".xformOp:translate")
@@ -298,7 +482,9 @@ class ChangeBlock:
                 orient_spec = prim_spec.GetAttributeAtPath(prim_path + ".xformOp:orient")
                 if orient_spec is None:
                     orient_spec = Sdf.AttributeSpec(prim_spec, "xformOp:orient", Sdf.ValueTypeNames.Quatf)
-                orient_spec.default = Gf.Quatf(quats[i, 0], quats[i, 1], quats[i, 2], quats[i, 3])
+                orient_spec.default = Gf.Quatf(
+                    float(quats[i, 3]), (float(quats[i, 0]), float(quats[i, 1]), float(quats[i, 2]))
+                )
 
                 scale_spec = prim_spec.GetAttributeAtPath(prim_path + ".xformOp:scale")
                 if scale_spec is None:
@@ -402,16 +588,29 @@ class RockGenerator:
         if self.settings.rock_sampler_cfg.seed is None:
             self.settings.rock_sampler_cfg.seed = self.settings.seed + 1
 
-        self.rock_instancer = Instancer(
-            os.path.join(self.instancer_path, self.settings.instancer_name),
-            self.settings.rock_assets_folder,
-            self.settings.seed,
-            self.settings.add_colliders,
-            self.settings.collider_mode,
-            self.settings.semantic_label,
-            self.settings.texture_name,
-            self.settings.texture_path,
-        )
+        if self.settings.semantic_label is not None:
+            self.rock_instancer = CustomInstancer(
+                os.path.join(self.instancer_path, self.settings.instancer_name),
+                self.settings.rock_assets_folder,
+                self.settings.seed,
+                self.settings.add_colliders,
+                self.settings.collider_mode,
+                self.settings.semantic_label,
+                self.settings.texture_name,
+                self.settings.texture_path,
+            )
+        else:
+            self.rock_instancer = Instancer(
+                os.path.join(self.instancer_path, self.settings.instancer_name),
+                self.settings.rock_assets_folder,
+                self.settings.seed,
+                self.settings.add_colliders,
+                self.settings.collider_mode,
+                self.settings.semantic_label,
+                self.settings.texture_name,
+                self.settings.texture_path,
+            )
+
         self.rock_sampler = RockSampler(
             self.settings.rock_sampler_cfg,
             self.rock_db,
