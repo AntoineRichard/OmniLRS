@@ -194,8 +194,7 @@ def delete_prim(
     """
 
     # Get the prim and delete it.
-    prim = stage.GetPrimAtPath(path)
-    stage.RemovePrim(prim)
+    stage.RemovePrim(path)
 
 
 def enable_smooth_shade(
