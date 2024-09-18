@@ -7,8 +7,7 @@ git submodule update
 
 # Install GDAL
 echo "Installing GDAL"
-sudo apt-get install gdal-bin
-sudo apt-get install libgdal-dev
+sudo apt-get install gdal-bin python3-pip libgdal-dev
 version=$(gdal-config --version)
 
 # Install Python packages for Isaac Sim
