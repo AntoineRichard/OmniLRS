@@ -185,6 +185,19 @@ class HighResDEMGen:
         self.lr_dem_ratio = self.settings.source_resolution / self.settings.resolution
         self.lr_dem_block_size = int(self.settings.block_size / self.settings.source_resolution)
 
+    def get_center_top_left(self) -> Tuple[float, float]:
+        """
+        Returns the center top left coordinates of the high resolution DEM.
+        """
+
+        width = self.high_res_dem.shape[0] * self.settings.resolution
+        height = self.high_res_dem.shape[1] * self.settings.resolution
+
+        top = height / 2 - self.settings.block_size / 2
+        left = width / 2 - self.settings.block_size / 2
+
+        return (top, left)
+
     def instantiate_high_res_dem(self) -> None:
         """
         Instantiates the high resolution DEM with the given settings.

@@ -59,7 +59,7 @@ class LargeScaleTerrainManager:
             self.collider_manager_cfg,
             self.map_manager.get_hr_dem(),
             self.map_manager.get_hr_dem_shape(),
-            (250, 250),
+            self.map_manager.get_hr_dem_center_top_left(),
             self.map_manager.get_hr_dem_res(),
         )
         self.collider_manager.build()
@@ -73,8 +73,8 @@ class LargeScaleTerrainManager:
             self.map_manager.get_lr_dem_shape(),
             self.map_manager.get_hr_dem_res(),
             self.map_manager.get_lr_dem_res(),
-            (250, 250),
-            (250, 250),
+            self.map_manager.get_hr_dem_center_top_left(),
+            self.map_manager.get_lr_dem_center_top_left(),
         )
 
     def build_rock_manager(self):

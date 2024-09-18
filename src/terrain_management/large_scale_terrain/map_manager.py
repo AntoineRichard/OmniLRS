@@ -298,6 +298,32 @@ class MapManager:
 
         raise NotImplementedError
 
+    def get_hr_dem_center_top_left(self) -> Tuple[float, float]:
+        """
+        Returns the coordinates of the top left corner of the center block of the high resolution DEM.
+
+        Returns:
+            Tuple[float, float]: coordinates of the high resolution DEM center's block top left corner.
+        """
+
+        return self.hr_dem_gen.get_center_top_left()
+
+    def get_lr_dem_center_top_left(self) -> Tuple[float, float]:
+        """
+        Returns the coordinates of the top left corner of the center block of the high resolution DEM.
+
+        Returns:
+            Tuple[float, float]: coordinates of the high resolution DEM center's block top left corner.
+        """
+
+        height = self.lr_dem_info.size[0] * self.lr_dem_info.pixel_size[0]
+        width = self.lr_dem_info.size[1] * abs(self.lr_dem_info.pixel_size[1])
+
+        top = height / 2 - self.settings.hrdem_settings.high_res_dem_cfg.block_size / 2
+        left = width / 2 - self.settings.hrdem_settings.high_res_dem_cfg.block_size / 2
+
+        return self.hr_dem_gen.get_center_top_left()
+
     def update_hr_dem(self, coordinates: Tuple[float, float]) -> bool:
         """
         Updates the high resolution DEM around the coordinates.
