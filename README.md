@@ -61,7 +61,7 @@ To simplify the remainder of the installation process of the framework we provid
 scripts/install_native.sh
 ```
 
-If you'd rather do it yourself, here are the commands:
+If you'd rather do it yourself, here are the commands for Isaac Sim 2023.1.1:
 ```bash
 # Pulls WorldBuilder
 git submodule init
@@ -73,7 +73,7 @@ sudo apt-get install libgdal-dev
 version=$(gdal-config --version)
 
 # Install Python packages for Isaac Sim
-~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version zfpy numba
+~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version zfpy numba empy
 python3 -m pip install --upgrade pip
 python3 -m pip instal gdal==$version gdown black
 
@@ -91,6 +91,13 @@ rm lunar_rocks.zip
 # Get Ephemeris data
 ./scripts/get_ephemeris_data.sh
 ```
+For Isaac Sim 4.1.0, the python environment pre-installed numpy is incompatible with OmniLRS so it needs to be downgraded to 1.22.0. You also need to install lark package:
+```
+# Install Python packages for Isaac Sim
+~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version zfpy numba empy lark
+~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh -m pip install --upgrade numpy==1.22.0
+```
+
 
 Once this is done you should be off to the races!
 However, before you venture forward, check that the assets folder has been created with success.
