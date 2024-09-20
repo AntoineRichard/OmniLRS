@@ -16,11 +16,16 @@ echo "Installing Python packages for Isaac Sim"
 if [[ -e  ~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh]]
 then
     ~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version
-    ~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install zfpy numba
+    ~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install zfpy numba empy
 elif [[ -e ~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh]]
 then
     ~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version
-    ~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh -m pip install zfpy numba
+    ~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh -m pip install zfpy numba empy
+elif [[ -e ~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh]]
+then
+    ~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version
+    ~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh -m pip install zfpy numba empy lark
+    ~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh -m pip install --upgrade numpy==1.22.0
 else
     echo "Could not find Isaac Sim installation"
 fi
