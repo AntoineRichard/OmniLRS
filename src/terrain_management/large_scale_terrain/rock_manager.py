@@ -10,7 +10,7 @@ from typing import List, Tuple, Dict, Union
 import numpy as np
 import dataclasses
 import threading
-import warnings
+import logging
 import time
 import os
 
@@ -29,6 +29,9 @@ from src.terrain_management.large_scale_terrain.utils import BoundingBox, RockBl
 from src.terrain_management.large_scale_terrain.rock_database import RockDB, RockDBConf
 
 from pxr import UsdGeom, Gf, Usd, Vt, Sdf
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
 
 
 class Instancer:
@@ -99,9 +102,9 @@ class Instancer:
             self.material_path = load_material(self.texture_name, self.texture_path)
             self.apply_material = True
         elif (self.texture_name is not None) and (self.texture_path is None):
-            warnings.warn("Texture path not provided. Material will not be loaded.")
+            logger.warn("Texture path not provided. Material will not be loaded.")
         elif (self.texture_name is None) and (self.texture_path is not None):
-            warnings.warn("Texture name not provided. Material will not be loaded.")
+            logger.warn("Texture name not provided. Material will not be loaded.")
 
     def apply_semantic_label(self, prim_path: Usd.Prim):
         prim_sd = PrimSemanticData(self.stage.GetPrimAtPath(prim_path))
@@ -156,7 +159,7 @@ class Instancer:
         try:
             self.update_extent()
         except Exception as e:
-            print("Error updating extent", e)
+            logger.warn("Error updating extent", e)
 
     def update_extent(self) -> None:
         """
@@ -244,9 +247,9 @@ class CustomInstancer:
             self.material_path = load_material(self.texture_name, self.texture_path)
             self.apply_material = True
         elif (self.texture_name is not None) and (self.texture_path is None):
-            warnings.warn("Texture path not provided. Material will not be loaded.")
+            logger.warn("Texture path not provided. Material will not be loaded.")
         elif (self.texture_name is None) and (self.texture_path is not None):
-            warnings.warn("Texture name not provided. Material will not be loaded.")
+            logger.warn("Texture name not provided. Material will not be loaded.")
 
     def apply_semantic_label(self, prim_path: Usd.Prim):
         prim_sd = PrimSemanticData(self.stage.GetPrimAtPath(prim_path))
@@ -424,9 +427,9 @@ class ChangeBlock:
             self.material_path = load_material(self.texture_name, self.texture_path)
             self.apply_material = True
         elif (self.texture_name is not None) and (self.texture_path is None):
-            warnings.warn("Texture path not provided. Material will not be loaded.")
+            logger.warn("Texture path not provided. Material will not be loaded.")
         elif (self.texture_name is None) and (self.texture_path is not None):
-            warnings.warn("Texture name not provided. Material will not be loaded.")
+            logger.warn("Texture name not provided. Material will not be loaded.")
 
     def apply_semantic_label(self, prim_path: Usd.Prim):
         prim_sd = PrimSemanticData(self.stage.GetPrimAtPath(prim_path))

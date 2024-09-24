@@ -33,9 +33,11 @@ class LargeScaleTerrainManager:
         self,
         settings: LargeScaleTerrainConf,
         is_simulation_alive: callable = lambda: True,
+        close_simulation: callable = lambda: None,
     ):
         self.settings = settings
         self.is_simulation_alive = is_simulation_alive
+        self.close_simulation = close_simulation
         self.last_update_coordinates = None
 
     def build_configs(self):
@@ -51,7 +53,9 @@ class LargeScaleTerrainManager:
         self.build_rock_manager()
 
     def build_map_manager(self):
-        self.map_manager = MapManager(self.mapmanager_cfg, is_simulation_alive = self.is_simulation_alive)
+        self.map_manager = MapManager(
+            self.mapmanager_cfg, is_simulation_alive=self.is_simulation_alive, close_simulation=self.close_simulation
+        )
         self.map_manager.load_lr_dem_by_name(self.settings.lr_dem_name)
         self.map_manager.initialize_hr_dem(self.settings.starting_position)
 

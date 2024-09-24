@@ -11,8 +11,12 @@ from typing import Tuple
 import dataclasses
 import numpy as np
 import threading
+import logging
 import time
 import zfpy
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
 
 
 @dataclasses.dataclass
@@ -149,6 +153,6 @@ class ScopedTimer:
             # If we are back to the outermost level, print all accumulated messages
             if self._thread_local_data.nesting_level == 0:
                 for msg in self._thread_local_data.messages:
-                    print(msg)
+                    logger.info(msg)
                 # Clear the message stack
                 self._thread_local_data.messages.clear()

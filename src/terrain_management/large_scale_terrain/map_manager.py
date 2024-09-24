@@ -9,11 +9,14 @@ __status__ = "development"
 from typing import Tuple
 import dataclasses
 import numpy as np
-import warnings
+import logging
 import math
 import yaml
 import time
 import os
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
 
 from src.terrain_management.large_scale_terrain.high_resolution_DEM_generator import (
     HighResDEMGen,
@@ -61,15 +64,22 @@ class MapManager:
     interract with the DEMs.
     """
 
-    def __init__(self, map_manager_settings: MapManagerConf, is_simulation_alive: callable = lambda: True) -> None:
+    def __init__(
+        self,
+        map_manager_settings: MapManagerConf,
+        is_simulation_alive: callable = lambda: True,
+        close_simulation: callable = lambda: None,
+    ) -> None:
         """
         Args:
             map_manager_settings (MapManagerConf): settings for the map manager.
             is_simulation_alive (callable): function to check if the simulation is alive.
+            close_simulation (callable): function to close the simulation.
         """
 
         self.hr_dem_settings = map_manager_settings.hrdem_settings
         self.is_simulation_alive = is_simulation_alive
+        self.close_simulation = close_simulation
         self.settings = map_manager_settings
         self.lr_dem = None
 
@@ -112,18 +122,18 @@ class MapManager:
                 if os.path.exists(dem_path):
                     self.dem_paths[folder] = dem_path
                 else:
-                    warnings.warn(
+                    logger.warn(
                         f"DEM {dem_path} does not exist. Expected to find dem.npy in the folder but could not find it."
                     )
                 if os.path.exists(dem_info_path):
                     with open(dem_info_path, "r") as file:
                         self.dem_infos[folder] = DemInfo(**yaml.safe_load(file))
                 else:
-                    warnings.warn(
+                    logger.warn(
                         f"DEM info {dem_info_path} does not exist. Expected to find dem.yaml in the folder but could not find it."
                     )
             else:
-                warnings.warn(f"Folder {folder} is not a directory.")
+                logger.warn(f"Folder {folder} is not a directory.")
 
     def load_lr_dem_by_name(self, name: str) -> None:
         """
@@ -140,13 +150,18 @@ class MapManager:
             else:
                 raise ValueError(f"DEM info {name} does not exist in the folder path {self.settings.folder_path}")
         else:
-            warnings.warn(f"DEM {name} does not exist in the folder path {self.settings.folder_path}")
+            logger.warn(f"DEM {name} does not exist in the folder path {self.settings.folder_path}")
 
         # Override the source resolution
         lr_dem_res = self.lr_dem_info.pixel_size[0]
         self.hr_dem_settings.high_res_dem_cfg.source_resolution = lr_dem_res
         self.hr_dem_settings.interpolator_cfg.source_resolution = lr_dem_res
-        self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
+        self.hr_dem_gen = HighResDEMGen(
+            self.lr_dem,
+            self.hr_dem_settings,
+            is_simulation_alive=self.is_simulation_alive,
+            close_simulation=self.close_simulation,
+        )
 
     def load_lr_dem_by_path(self, path: str) -> None:
         """
@@ -168,7 +183,12 @@ class MapManager:
         lr_dem_res = self.lr_dem_info.pixel_size[0]
         self.hr_dem_settings.high_res_dem_cfg.source_resolution = lr_dem_res
         self.hr_dem_settings.interpolator_cfg.source_resolution = lr_dem_res
-        self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
+        self.hr_dem_gen = HighResDEMGen(
+            self.lr_dem,
+            self.hr_dem_settings,
+            is_simulation_alive=self.is_simulation_alive,
+            close_simulation=self.close_simulation,
+        )
 
     def load_lr_dem_by_id(self, id: int) -> None:
         """
@@ -179,7 +199,7 @@ class MapManager:
             id (int): id of the DEM to load.
         """
 
-        warnings.warn("load_lr_dem_by_id is a legacy method and should not be used. Use load_lr_dem_by_name instead.")
+        logger.warn("load_lr_dem_by_id is a legacy method and should not be used. Use load_lr_dem_by_name instead.")
         if id in list(range(len(self.dem_paths.keys()))):
             key = list(self.dem_paths.keys())[id]
             self.lr_dem = self.load(self.dem_paths[key])
@@ -193,7 +213,12 @@ class MapManager:
         lr_dem_res = self.lr_dem_info.pixel_size[0]
         self.hr_dem_settings.high_res_dem_cfg.source_resolution = lr_dem_res
         self.hr_dem_settings.interpolator_cfg.source_resolution = lr_dem_res
-        self.hr_dem_gen = HighResDEMGen(self.lr_dem, self.hr_dem_settings)
+        self.hr_dem_gen = HighResDEMGen(
+            self.lr_dem,
+            self.hr_dem_settings,
+            is_simulation_alive=self.is_simulation_alive,
+            close_simulation=self.close_simulation,
+        )
 
     def generate_procedural_lr_dem(self):
         """
@@ -374,13 +399,13 @@ class MapManager:
             coordinates (Tuple[float,float]): coordinates in meters.
         """
 
-        print("Initializing HR DEM")
+        logger.info("Initializing HR DEM")
         start = time.time()
         self.update_hr_dem(coordinates)
         while not self.is_hr_dem_updated():
             time.sleep(0.1)
         end = time.time()
-        print(f"HR DEM initialized in {end - start} seconds")
+        logger.info(f"HR DEM initialized in {end - start} seconds")
 
     def is_hr_dem_updated(self) -> bool:
         """

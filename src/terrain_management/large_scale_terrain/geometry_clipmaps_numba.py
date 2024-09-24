@@ -8,6 +8,10 @@ __status__ = "development"
 
 import numba as nb
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
 
 point3 = nb.types.UniTuple(nb.types.float32, 3)
 point2 = nb.types.UniTuple(nb.types.float32, 2)
@@ -143,7 +147,7 @@ def _build_mesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
         coordinates, and list of indices in the mesh backbone.
     """
 
-    print("Building the mesh backbone, this may take time...")
+    logger.info("Building the mesh backbone, this may take time...")
     points = nb.typed.List.empty_list(point3)
     uvs = nb.typed.List.empty_list(point2)
     indices = nb.typed.List.empty_list(nb.types.int32)
@@ -151,7 +155,7 @@ def _build_mesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
     new_indices = nb.typed.Dict.empty(key_type=point2, value_type=nb.types.int32)
     index_count = 0
     for level in range(start_level, num_levels):
-        print("Generating level " + str(level + 1) + " out of " + str(num_levels) + "...")
+        logger.info("Generating level " + str(level + 1) + " out of " + str(num_levels) + "...")
         step = 1 << level
         if level == 0:
             prevStep = 0

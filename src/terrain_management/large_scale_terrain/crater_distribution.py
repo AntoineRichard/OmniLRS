@@ -12,7 +12,11 @@ from typing import List, Tuple
 import dataclasses
 import numpy as np
 import colorsys
+import logging
 import pickle
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
 
 from src.terrain_management.large_scale_terrain.utils import BoundingBox, CraterMetadata
 from src.terrain_management.large_scale_terrain.crater_database import CraterDB
@@ -344,7 +348,7 @@ class CraterMetadataGenerator:
         spline profiles are generated only once and cached inside the database.
         """
 
-        print("Warming up crater generation...")
+        logger.debug("Warming up crater generation...")
         self.generate_deformation_profiles()
         self.generate_marking_profiles()
         self.load_profiles()
@@ -384,7 +388,7 @@ class CraterMetadataGenerator:
         Generates the deformation profiles for the craters.
         """
 
-        print("Pre-generating crater deformation profiles")
+        logger.debug("Pre-generating crater deformation profiles")
         for i in range(self.settings.num_unique_profiles):
             deformation_profile = self._rng.uniform(0.95, 1, 9)
             deformation_profile = np.concatenate([deformation_profile, [deformation_profile[0]]], axis=0)
@@ -396,7 +400,7 @@ class CraterMetadataGenerator:
         Generates the marking profiles for the craters.
         """
 
-        print("Pre-generating crater marking profiles")
+        logger.debug("Pre-generating crater marking profiles")
         for i in range(self.settings.num_unique_profiles):
             # Generates a profile to add marks that converges toward the center of the crater
             marks_profile = self._rng.uniform(0.0, 0.01, 45)
@@ -409,7 +413,7 @@ class CraterMetadataGenerator:
         Loads the half crater spline profiles from a pickle file.
         """
 
-        print("Loading crater profiles")
+        logger.debug("Loading crater profiles")
         with open(self.settings.profiles_path, "rb") as handle:
             self.crater_profiles = pickle.load(handle)
 
