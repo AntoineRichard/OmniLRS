@@ -24,6 +24,7 @@ class ROS_LargeScaleManager(ROS_BaseManager):
     def __init__(
         self,
         environment_cfg: dict = None,
+        is_simulation_alive: callable = lambda: True,
         **kwargs,
     ) -> None:
         """
@@ -31,11 +32,12 @@ class ROS_LargeScaleManager(ROS_BaseManager):
 
         Args:
             environment_cfg (dict): Environment configuration.
+            is_simulation_alive (callable): function to check if the simulation is alive.
             **kwargs: Additional arguments.
         """
 
         super().__init__(environment_cfg=environment_cfg, **kwargs)
-        self.LC = LargeScaleController(**environment_cfg)
+        self.LC = LargeScaleController(**environment_cfg, is_simulation_alive=is_simulation_alive)
         self.LC.load()
 
         self.create_subscription(Float32, "/OmniLRS/Sun/Intensity", self.set_sun_intensity, 1)

@@ -8,6 +8,7 @@ __status__ = "development"
 
 from threading import Thread
 
+from omni.isaac.kit import SimulationApp
 from omni.isaac.core import World
 from typing import Union
 import omni
@@ -92,6 +93,7 @@ class ROS2_LabManagerFactory:
     def __call__(
         self,
         cfg: dict,
+        is_simulation_alive: callable,
     ) -> Union[ROS_LunalabManager, ROS_LunaryardManager]:
         """
         Returns an instance of the lab manager corresponding to the environment name.
@@ -105,7 +107,7 @@ class ROS2_LabManagerFactory:
 
         return self._lab_managers[cfg["environment"]["name"]](
             environment_cfg=cfg["environment"],
-            flares_cfg=cfg["rendering"]["lens_flares"],
+            is_simulation_alive=is_simulation_alive,
         )
 
 
@@ -128,7 +130,7 @@ class ROS2_SimulationManager:
     def __init__(
         self,
         cfg: dict,
-        simulation_app,
+        simulation_app: SimulationApp,
     ) -> None:
         """
         Initializes the simulation.
@@ -158,7 +160,7 @@ class ROS2_SimulationManager:
             self.rate = Rate(is_disabled=True)
 
         # Lab manager thread
-        self.ROSLabManager = ROS2_LMF(cfg)
+        self.ROSLabManager = ROS2_LMF(cfg, self.simulation_app.is_running)
         exec1 = Executor()
         exec1.add_node(self.ROSLabManager)
         self.exec1_thread = Thread(target=exec1.spin, daemon=True, args=())

@@ -12,7 +12,7 @@ from src.environments.large_scale_lunar import LargeScaleController
 
 # Loads ROS1 dependent libraries
 import rospy
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, ColorRGBA
 from geometry_msgs.msg import Pose
 
 
@@ -23,6 +23,7 @@ class ROS_LargeScaleManager(ROS_BaseManager):
     def __init__(
         self,
         environment_cfg: dict = None,
+        is_simulation_alive: callable = lambda: True,
         **kwargs,
     ) -> None:
         """
@@ -31,11 +32,12 @@ class ROS_LargeScaleManager(ROS_BaseManager):
         Args:
             environment_cfg (dict): Environment configuration dictionary.
             flares_cfg (dict): Lens flares configuration dictionary.
+            is_simulation_alive (callable): function to check if the simulation is alive.
             **kwargs: Additional keyword arguments.
         """
 
         super().__init__(environment_cfg=environment_cfg, **kwargs)
-        self.LC = LargeScaleController(**environment_cfg)
+        self.LC = LargeScaleController(**environment_cfg, is_simulation_alive=is_simulation_alive)
         self.LC.load()
 
         self.projector_subs = []
