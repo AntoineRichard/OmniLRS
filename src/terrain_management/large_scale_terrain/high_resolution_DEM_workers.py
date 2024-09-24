@@ -802,7 +802,6 @@ class ThreadMonitor:
          - The ctrl-c signal. This was added as it seems that the simulation was completely ignoring the ctrl-c signal.
         """
 
-        use_multiprocessing = False
         while not self.event.is_set():
             time.sleep(1)
             if not threading.main_thread().is_alive():
@@ -818,13 +817,9 @@ class ThreadMonitor:
                 logger.warn(
                     "Use kill -9 PID to kill the remaining threads. PID being the PIDs returned by the previous command."
                 )
-                use_multiprocessing = True
                 break
             if self.ctrl_c:
                 logger.debug("Ctrl-C caught, shutting down workers.")
                 break
-        if use_multiprocessing:
-            self.apply_shutdowns_in_different_process()
-        else:
-            self.apply_shutdowns()
+        self.apply_shutdowns()
         logger.debug("Thread monitor exiting.")

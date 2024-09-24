@@ -179,6 +179,9 @@ class ROS2_SimulationManager:
         self.exec2_thread = Thread(target=self.exec2.spin, daemon=True, args=())
         self.exec2_thread.start()
 
+        if self.ROSLabManager.get_wait_for_threads():
+            self.simulation_app.add_wait(self.ROSLabManager.get_wait_for_threads())
+
         # Have you ever asked your self: "Is there a limit of topics one can subscribe to in ROS2?"
         # Yes "Josh" there is.
         # 24 topics. More than that and you won't reveive any messages.

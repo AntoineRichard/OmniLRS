@@ -217,3 +217,10 @@ class ROS_BaseManager(Node):
         """
 
         return True
+
+    def get_wait_for_threads(self):
+        """
+        Returns the list of waiting threads.
+        """
+
+        return []

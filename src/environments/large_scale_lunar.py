@@ -131,6 +131,9 @@ class LargeScaleController(BaseEnv):
     def monitor_thread_is_alive(self) -> None:
         return self.LSTM.map_manager.hr_dem_gen.monitor_thread.thread.is_alive()
 
+    def get_wait_for_threads(self) -> None:
+        return [self.LSTM.map_manager.hr_dem_gen.monitor_thread.thread.join]
+
     def load(self) -> None:
         """
         Loads the lab interactive elements in the stage.

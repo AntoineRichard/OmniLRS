@@ -124,3 +124,6 @@ class ROS_LargeScaleManager(ROS_BaseManager):
 
     def monitor_thread_is_alive(self):
         return self.LC.monitor_thread_is_alive()
+
+    def get_wait_for_threads(self):
+        return self.LC.get_wait_for_threads()
