@@ -65,7 +65,8 @@ class SDG_SimulationManager:
 
     def run_simulation(self) -> None:
         """
-        Runs the simulation."""
+        Runs the simulation.
+        """
 
         self.timeline.play()
         while self.simulation_app.is_running() and (self.count < self.generation_settings.num_images):

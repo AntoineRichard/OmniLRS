@@ -61,14 +61,15 @@ class MapManager:
     interract with the DEMs.
     """
 
-    def __init__(self, map_manager_settings: MapManagerConf) -> None:
+    def __init__(self, map_manager_settings: MapManagerConf, is_simulation_alive: callable = lambda: True) -> None:
         """
         Args:
-            hrdem_settings (HighResDEMGenConf): settings for the high resolution DEM generation.
             map_manager_settings (MapManagerConf): settings for the map manager.
+            is_simulation_alive (callable): function to check if the simulation is alive.
         """
 
         self.hr_dem_settings = map_manager_settings.hrdem_settings
+        self.is_simulation_alive = is_simulation_alive
         self.settings = map_manager_settings
         self.lr_dem = None
 

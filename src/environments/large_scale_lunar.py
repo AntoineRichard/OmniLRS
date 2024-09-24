@@ -37,6 +37,7 @@ class LargeScaleController(BaseEnv):
         large_scale_terrain: LargeScaleTerrainConf = None,
         stellar_engine_settings: StellarEngineConf = None,
         sun_settings: SunConf = None,
+        is_simulation_alive: callable = lambda: True,
         **kwargs,
     ) -> None:
         """
@@ -48,12 +49,14 @@ class LargeScaleController(BaseEnv):
             env_settings (LargeScaleTerrainConf): The settings of the lab.
             stellar_engine_settings (StellarEngineConf): The settings of the stellar engine.
             sun_settings (SunConf): The settings of the sun.
+            is_simulation_alive (callable): function to check if the simulation is alive.
             **kwargs: Arbitrary keyword arguments.
         """
 
         super().__init__(**kwargs)
         self.stage_settings = large_scale_terrain
         self.sun_settings = sun_settings
+        self.is_simulation_alive = is_simulation_alive
         if stellar_engine_settings is not None:
             self.SE = StellarEngine(stellar_engine_settings)
             self.enable_stellar_engine = True
@@ -133,7 +136,7 @@ class LargeScaleController(BaseEnv):
 
         self.build_scene()
         # Instantiates the terrain manager
-        self.LSTM = LargeScaleTerrainManager(self.stage_settings)
+        self.LSTM = LargeScaleTerrainManager(self.stage_settings, is_simulation_alive=self.is_simulation_alive)
         self.LSTM.build()
         # Sets the sun using the stellar engine if enabled
         if self.enable_stellar_engine:
