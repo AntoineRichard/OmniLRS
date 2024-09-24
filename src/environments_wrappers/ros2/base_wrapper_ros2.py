@@ -210,3 +210,10 @@ class ROS_BaseManager(Node):
         """
 
         self.destroy_node()
+
+    def monitor_thread_is_alive(self):
+        """
+        Checks if the monitor thread is alive.
+        """
+
+        return True

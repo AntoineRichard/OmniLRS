@@ -25,6 +25,7 @@ class ROS_LargeScaleManager(ROS_BaseManager):
         self,
         environment_cfg: dict = None,
         is_simulation_alive: callable = lambda: True,
+        close_simulation: callable = lambda: None,
         **kwargs,
     ) -> None:
         """
@@ -37,7 +38,9 @@ class ROS_LargeScaleManager(ROS_BaseManager):
         """
 
         super().__init__(environment_cfg=environment_cfg, **kwargs)
-        self.LC = LargeScaleController(**environment_cfg, is_simulation_alive=is_simulation_alive)
+        self.LC = LargeScaleController(
+            **environment_cfg, is_simulation_alive=is_simulation_alive, close_simulation=close_simulation
+        )
         self.LC.load()
 
         self.create_subscription(Float32, "/OmniLRS/Sun/Intensity", self.set_sun_intensity, 1)
@@ -118,3 +121,6 @@ class ROS_LargeScaleManager(ROS_BaseManager):
         position = [data.position.x, data.position.y, data.position.z]
         orientation = [data.orientation.w, data.orientation.y, data.orientation.z, data.orientation.x]
         self.modifications.append([self.LC.set_sun_pose, {"position": position, "orientation": orientation}])
+
+    def monitor_thread_is_alive(self):
+        return self.LC.monitor_thread_is_alive()

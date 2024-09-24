@@ -10,7 +10,7 @@ from typing import List, Tuple, Dict
 import numpy as np
 import dataclasses
 import threading
-import warnings
+import logging
 import time
 import copy
 
@@ -33,6 +33,9 @@ from src.terrain_management.large_scale_terrain.high_resolution_DEM_workers impo
     CPUInterpolator_PIL,
     ThreadMonitor,
 )
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
 
 
 @dataclasses.dataclass
@@ -111,15 +114,21 @@ class HighResDEMGen:
         low_res_dem: np.ndarray,
         settings: HighResDEMGenConf,
         profiling: bool = True,
+        is_simulation_alive: callable = lambda: True,
+        close_simulation: callable = lambda: None,
     ) -> None:
         """
         Args:
             low_res_dem (np.ndarray): The low resolution DEM.
             settings (HighResDEMGenConf): The settings for the high resolution DEM generation.
             profiling (bool): True if the profiling is enabled, False otherwise.
+            is_simulation_alive (callable): A callable that returns True if the simulation is alive, False otherwise.
+            close_simulation (callable): A callable that closes the simulation.
         """
         self.low_res_dem = low_res_dem
         self.settings = settings
+        self.is_simulation_alive = is_simulation_alive
+        self.close_simulation = close_simulation
 
         self.current_block_coord = (0, 0)
         self.sim_is_warm = False
@@ -149,7 +158,9 @@ class HighResDEMGen:
         # Creates the worker managers that will distribute the work to the workers.
         # This enables the generation of craters and the interpolation of the terrain
         # data to be done in parallel.
-        self.monitor_thread = ThreadMonitor()
+        self.monitor_thread = ThreadMonitor(
+            is_simulation_alive=self.is_simulation_alive, close_simulation=self.close_simulation
+        )
 
         self.crater_builder_manager = CraterBuilderManager(
             settings=self.settings.crater_worker_manager_cfg,
@@ -161,6 +172,7 @@ class HighResDEMGen:
             interp=self.interpolator,
             parent_thread=self.monitor_thread.thread,
         )
+        self.monitor_thread.add_shutdowns(self.crater_builder_manager.shutdown, self.interpolator_manager.shutdown)
         # Instantiates the high resolution DEM with the given settings.
         self.settings = self.settings.high_res_dem_cfg
         self.build_block_grid()
@@ -429,7 +441,7 @@ class HighResDEMGen:
         # even if the terrain reconstruction is not complete. This would prevent a full simulation lock
         # that waits for one reconstruction to finish before starting the next one.
 
-        print("Called shift")
+        logger.debug("Called shift")
         with ScopedTimer("Shift", active=self.profiling):
             # Compute initial coordinates in block space
             with ScopedTimer("Cast coordinates to block space", active=self.profiling):
@@ -459,7 +471,7 @@ class HighResDEMGen:
             with ScopedTimer("Add terrain blocks to queues", active=self.profiling):
                 # Asynchronous terrain block generation
                 self.generate_terrain_blocks()  # <-- This is the bit that needs to be edited to support multiple calls
-        print("Shift done")
+        logger.debug("Shift done")
 
     def get_height(self, coordinates: Tuple[float, float]) -> float:
         """
@@ -576,30 +588,29 @@ class HighResDEMGen:
 
         # Initial map generation
         if not self.sim_is_warm:
-            print("Warming up simulation")
+            logger.debug("Warming up simulation")
             self.shift(block_coordinates)
             # Threaded update, the function will return before the update is done
-            threading.Thread(target=self.threaded_high_res_dem_update).start()
+            thread = threading.Thread(target=self.threaded_high_res_dem_update)
+            thread.start()
             self.sim_is_warm = True
             updated = True
 
         # Map update if the block has changed
         if self.current_block_coord != block_coordinates:
-            print("Triggering high res DEM update")
+            logger.debug("Triggering high res DEM update")
             if not self.terrain_is_primed:
-                print("Map is not done, waiting for the terrain data")
+                logger.debug("Map is not done, waiting for the terrain data")
                 while not self.terrain_is_primed:
                     time.sleep(0.2)
-                    print([self.block_grid_tracker[coord] for coord in self.list_missing_blocks()])
-                    # print(self.crater_builder_manager.get_load_per_worker())
-                    # print(self.interpolator_manager.get_load_per_worker())
-                print("Map is done carrying on")
+                    logger.debug([self.block_grid_tracker[coord] for coord in self.list_missing_blocks()])
+                logger.debug("Map is done carrying on")
             # Threaded update, the function will return before the update is done
             if self.thread is None:
                 self.shift(coords)
                 self.thread = threading.Thread(target=self.threaded_high_res_dem_update).start()
             elif self.thread.is_alive():
-                print("Thread is alive waiting for it to finish")
+                logger.debug("Thread is alive waiting for it to finish")
                 while self.thread.is_alive():
                     time.sleep(0.1)
                 self.shift(coords)
@@ -639,12 +650,12 @@ class HighResDEMGen:
         # even if the terrain reconstruction is not complete. This would prevent a full simulation lock
         # that waits for one reconstruction to finish before starting the next one.
 
-        print("Opening thread")
+        logger.debug("Opening thread")
         self.terrain_is_primed = False
         while (not self.is_map_done()) and (self.monitor_thread.thread.is_alive()):
             self.collect_terrain_data()
             time.sleep(0.1)
-        print("Thread closing map is done")
+        logger.debug("Thread closing map is done")
         self.terrain_is_primed = True
 
     def generate_craters_metadata(self, new_block_coord) -> None:
@@ -672,7 +683,7 @@ class HighResDEMGen:
                 self.block_grid_tracker[local_coords]["has_crater_metadata"] = True
             else:
                 self.block_grid_tracker[local_coords]["has_crater_metadata"] = False
-                print(f"Block {coords} does not have crater metadata")
+                logger.warn(f"Block {coords} does not have crater metadata")
 
     def querry_low_res_dem(self, coordinates: Tuple[float, float]) -> np.ndarray:
         """
@@ -766,7 +777,7 @@ class HighResDEMGen:
 
         # Offset to account for the padding blocks
         offset = int((self.settings.num_blocks + 1) * self.settings.block_size / self.settings.resolution)
-        print("collecting...")
+        logger.debug("collecting...")
         # Collect the results from the workers responsible for adding craters
         crater_results = self.crater_builder_manager.collect_results()
         for coords, data in crater_results:

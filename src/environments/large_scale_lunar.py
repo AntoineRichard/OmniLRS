@@ -128,6 +128,9 @@ class LargeScaleController(BaseEnv):
         p, _ = self.pose_tracker()
         self.LSTM.update_visual_mesh((p[0], p[1]))
 
+    def monitor_thread_is_alive(self) -> None:
+        return self.LSTM.map_manager.hr_dem_gen.monitor_thread.thread.is_alive()
+
     def load(self) -> None:
         """
         Loads the lab interactive elements in the stage.
