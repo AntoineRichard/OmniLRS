@@ -29,10 +29,15 @@ and the Space Robotics Lab from Tohoku University in Japan (SRL). We are now ope
 ## OmniLRS in action!
 
 First release:
+
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/PebUZjm0WuA/0.jpg)](https://www.youtube.com/watch?v=PebUZjm0WuA)
+
 Wheel traces:
+
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/TpzD0h-5hv4/0.jpg)](https://www.youtube.com/watch?v=TpzD0h-5hv4)
+
 Large Scale update:
+
 [![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/3m78fO5uXwA/0.jpg)](https://www.youtube.com/watch?v=PebUZjm0WuA3m78fO5uXwA)
 
 
