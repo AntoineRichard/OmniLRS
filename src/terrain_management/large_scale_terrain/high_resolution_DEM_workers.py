@@ -280,6 +280,11 @@ class BaseWorker(multiprocessing.Process):
         while not self.input_queue.empty():
             self.input_queue.get()
         logger.debug("Worker input queue emptied.")
+        try:
+            while True:
+                self.input_queue.task_done()
+        except:
+            pass
         self.input_queue.join()
         logger.debug("Worker input queue joined.")
 
@@ -522,6 +527,11 @@ class BaseWorkerManager:
         while not self.input_queue.empty():
             self.input_queue.get()
             self.input_queue.task_done()
+        try:
+            while True:
+                self.input_queue.task_done()
+        except:
+            pass
         logger.debug("Emptied input queue.")
         self.input_queue.join()
         logger.debug("Joined input queue.")

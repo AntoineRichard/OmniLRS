@@ -13,6 +13,7 @@ import threading
 import logging
 import time
 import copy
+import sys
 
 from src.terrain_management.large_scale_terrain.utils import ScopedTimer, BoundingBox, CraterMetadata
 from src.terrain_management.large_scale_terrain.crater_generation import (
@@ -593,8 +594,13 @@ class HighResDEMGen:
             # Threaded update, the function will return before the update is done
             thread = threading.Thread(target=self.threaded_high_res_dem_update)
             thread.start()
+            thread.join()
             self.sim_is_warm = True
             updated = True
+            if not self.monitor_thread.thread.is_alive():
+                logger.warn("Simulation exited before being fully initialized. Trying to exit.")
+                logger.warn("You may need to kill the process manually. Or use Ctrl + \ to exit.")
+                sys.exit(0)
 
         # Map update if the block has changed
         if self.current_block_coord != block_coordinates:
