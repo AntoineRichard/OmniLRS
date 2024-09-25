@@ -26,26 +26,14 @@ and the Space Robotics Lab from Tohoku University in Japan (SRL). We are now ope
 > [!NOTE]
 > Please note that this is a partial release. More robots will be made available at a later date. Should you run into a bug, or would like to request a new feature, feel free to open an issue. Want to collaborate, reach out to us!
 
-## OmniLRS in action
+## OmniLRS in action!
 
 First release:
-<div align="center">
-      <a href="https://youtu.be/PebUZjm0WuA?si=hb-BivXSh4xw7Mqq">
-         <img src="media/thumb/thumbnail.png" style="width:200px;">
-      </a>
-</div>
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/PebUZjm0WuA/0.jpg)](https://www.youtube.com/watch?v=PebUZjm0WuA)
 Wheel traces:
-<div align="center">
-      <a href="https://www.youtube.com/watch?v=TpzD0h-5hv4&ab_channel=SpaceRoboticsLab">
-         <img src="" style="width:200px;">
-      </a>
-</div>
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/TpzD0h-5hv4/0.jpg)](https://www.youtube.com/watch?v=TpzD0h-5hv4)
 Large Scale update:
-<div align="center">
-      <a href="https://www.youtube.com/watch?v=3m78fO5uXwA&ab_channel=SnT-SpaceR">
-         <img src="wiki/media/Logov2.png" style="width:200px;">
-      </a>
-</div>
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/3m78fO5uXwA/0.jpg)](https://www.youtube.com/watch?v=PebUZjm0WuA3m78fO5uXwA)
 
 
 
@@ -142,7 +130,7 @@ Before we install the simulation, please follow the procedure [here](https://doc
 > [!TIP]
 > You will need an [nvcr.io](https://catalog.ngc.nvidia.com/) account.
 
-Once you're all set, the use following to build the image:
+Once you're all set, use following to build the image:
 ```bash
 ./omnilrs.docker/build_docker.sh
 ```
@@ -185,6 +173,7 @@ See [getting started](#getting-started) to learn more about starting the simulat
 
 > [!CAUTION]
 > If you are using native ROS2 please follow the ROS2 installation process in particular [this part](https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_ros.html#enabling-the-ros-bridge-extension)
+> Make sure Nucleus is running.
 
 > [!IMPORTANT]
 >If you are using docker, first run the container by using:
