@@ -12,7 +12,7 @@ CWD=$(pwd)
 mkdir -p tmp
 cd tmp
 
-cat $CWD/scripts/dems_list.txt | xargs -n 1 -P 8 wget -q -nc
+cat $CWD/scripts/dems_list.txt | xargs -n 1 -P 8 wget -nv -nc
 
 cd $CWD
 
