@@ -160,8 +160,8 @@ scritps/install_docker.sh
 This will download the assets from docker and it should work fine. The issue is that all the generated folder will be
 owned by root. So you may want to change that afterwards by running:
 ```bash
-chown -r $USER assets
-chgrp -r $USER assets
+chown -R $USER assets
+chgrp -R $USER assets
 ```
 
 Provided you have Gdal and gdown installed on your system, you can also run:
