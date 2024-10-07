@@ -38,7 +38,7 @@ Wheel traces:
 
 Large Scale update:
 
-[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/3m78fO5uXwA/0.jpg)](https://www.youtube.com/watch?v=PebUZjm0WuA3m78fO5uXwA)
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/3m78fO5uXwA/0.jpg)](https://www.youtube.com/watch?v=3m78fO5uXwA)
 
 
 
