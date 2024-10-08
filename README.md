@@ -6,7 +6,7 @@ Omniverse Lunar Robotics Simulator or OmniLRS, is a simulation tools developped 
 and the Space Robotics Lab from Tohoku University in Japan (SRL). We are now opening it to the community and strongly encourage Space Roboticists to help us grow the feature set of this simulation! Don't be shy shoot a PR!
 
 > [!IMPORTANT]
-> This readme provides basic information on how to use the simulation. For a more complete introduction to the simulation and its inner workings please [visit our wiki](https://github.com/AntoineRichard/OmniLRS/wiki)! For specific question or to have a chat join [our discord](https://discord.gg/NUpKtFs6)!
+> This readme provides basic information on how to use the simulation. For a more complete introduction to the simulation and its inner workings please [visit our wiki](https://github.com/AntoineRichard/OmniLRS/wiki)! For specific questions or to have a chat join [our discord](https://discord.gg/NUpKtFs6)!
 
 ## Integration & Workflow with SpaceROS
 > [!IMPORTANT]
