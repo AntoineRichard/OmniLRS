@@ -457,7 +457,7 @@ class RobotRigidGroup:
         n_links = len(self.target_links)
         contact_forces = np.zeros((n_links, 3))
         for i, prim_view in enumerate(self.prim_views):
-            contact_force = prim_view.get_net_contact_forces().squeeze()
+            contact_force = prim_view.get_net_contact_forces(dt = 1/60).squeeze()
             contact_forces[i, :] = contact_force
         return contact_forces
 
