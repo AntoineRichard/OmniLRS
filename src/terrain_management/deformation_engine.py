@@ -689,7 +689,7 @@ class DeformationEngine:
         """
         depth = np.zeros((normal_forces.shape[0], self.profile.shape[0]))
         amplitude, mean_value = self.force_depth_regression_model(normal_forces)
-        depth = self.boundary_dist[None, :] * (amplitude[:, None] * self.depth_dist[None, :] - mean_value[:, None])
+        depth = self.boundary_dist[None, :] * (amplitude[:, None]/2.0 * self.depth_dist[None, :] - mean_value[:, None])
         self.depth = depth.reshape(-1)
 
     def deform(
