@@ -648,8 +648,8 @@ class DeformationEngine:
         n is the number of links.
         num_points = n * num_point_sample
         """
-        self.headings[:, 0] = 2.0 * (world_orientations[:, 0] * world_orientations[:, 3])
-        self.headings[:, 1] = 1.0 - 2.0 * (world_orientations[:, 3] * world_orientations[:, 3])
+        self.headings[:, 0] = 2.0 * (world_orientations[:, 0] * world_orientations[:, 3] + world_orientations[:, 1] * world_orientations[:, 2])
+        self.headings[:, 1] = 1.0 - 2.0 * (world_orientations[:, 2] * world_orientations[:, 2] + world_orientations[:, 3] * world_orientations[:, 3])
         projection_points = np.zeros((world_positions.shape[0], self.profile.shape[0], 2))
         projection_points[:, :, 0] = (
             self.profile[:, 0] * self.headings[:, 1, None]
