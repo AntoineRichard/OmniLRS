@@ -74,10 +74,17 @@ To simplify the remainder of the installation process of the framework we provid
 > Run this command at the root of the repository. 
 
 ```bash
-scripts/install_native.sh
+./scripts/install_native.sh
 ```
 
-If you'd rather do it yourself, here are the commands:
+To install for IsaacSim 4.1.0
+
+```bash
+./script/install_native.sh -v
+```
+
+
+If you'd rather do it yourself, here are the commands for IsaacSim 2023.1.1:
 ```bash
 # Pulls WorldBuilder
 git submodule init
@@ -89,7 +96,10 @@ sudo apt-get install libgdal-dev
 version=$(gdal-config --version)
 
 # Install Python packages for Isaac Sim
-~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version zfpy numba
+~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version zfpy numba empy
+# If this does not work for you, you maybe running an older version of IsaacSim 2023.1.1, try running the following:
+# ~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version zfpy numba empy
+
 python3 -m pip install --upgrade pip
 python3 -m pip instal gdal==$version gdown black
 
@@ -107,6 +117,21 @@ rm lunar_rocks.zip
 # Get Ephemeris data
 ./scripts/get_ephemeris_data.sh
 ```
+
+For Isaac Sim 4.1.0, the python environment pre-installed numpy is incompatible with OmniLRS so it needs to be downgraded to 1.22.0. You also need to install lark package:
+
+```bash
+# Similar process with IsaacSim 2023.1.1 until Python packages installation
+
+# Install Python packages for Isaac Sim
+~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version zfpy numba empy lark
+~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh -m pip install --upgrade numpy==1.22.0
+python3 -m pip install --upgrade pip
+python3 -m pip instal gdal==$version gdown black
+
+# Continue with asset downloads
+```
+
 
 Once this is done you should be off to the races!
 However, before you venture forward, check that the assets folder has been created with success.
