@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# Flag for IsaacSim version
+USE_ISAAC_V4=false
+while getopts ':v' opt; do
+    case $opt in 
+        v) 
+            USE_ISAAC_V4=true
+            ;;
+        *) 
+            echo 'Unsupported argument' >&2
+            exit 1
+            ;;
+    esac
+done
+
 # Pulls WorldBuilder
 echo "Pulling WorldBuilder"
 git submodule init
@@ -12,17 +26,30 @@ sudo apt-get install gdal-bin libgdal-dev
 version=$(gdal-config --version)
 
 # Install Python packages for Isaac Sim
-echo "Installing Python packages for Isaac Sim"
-if [[ -e  ~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh]]
+if $USE_ISAAC_V4 
 then
-    ~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version
-    ~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install zfpy numba
-elif [[ -e ~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh]]
-then
-    ~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version
-    ~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh -m pip install zfpy numba
+    echo "Installing Python packages for Isaac Sim 4.1.0"
+    if [[ -e ~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh ]]
+    then
+        ~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version
+        ~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh -m pip install zfpy numba empy lark
+        ~/.local/share/ov/pkg/isaac-sim-4.1.0/python.sh -m pip install --upgrade numpy==1.22.0
+    else
+        echo "Could not find Isaac Sim 4.1.0 installation"
+    fi
 else
-    echo "Could not find Isaac Sim installation"
+    echo "Installing Python packages for Isaac Sim 2023.1.1"
+    if [[ -e  ~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh ]]
+    then
+        ~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version
+        ~/.local/share/ov/pkg/isaac_sim-2023.1.1/python.sh -m pip install zfpy numba empy
+    elif [[ -e ~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh ]]
+    then
+        ~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh -m pip install opencv-python omegaconf hydra-core skyfield gdal==$version
+        ~/.local/share/ov/pkg/isaac-sim-2023.1.1/python.sh -m pip install zfpy numba empy
+    else
+         echo "Could not find Isaac Sim 2023.1.1 installation"
+    fi
 fi
 
 echo "Installing Python packages for default Python"
