@@ -8,3 +8,6 @@
 **data
 .thumbs
 .zip
+
+# Assets downloaded from S3 shall not be version controlled
+assets/Terrains/SouthPole/
