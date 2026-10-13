@@ -46,7 +46,15 @@ class PragyaanCameraHandler:
     BUCKET_LANDER = "images_lander"
     BUCKET_MONITORING = "images_monitoring"
 
-    def __init__(self, images_handler: ImagesHandler, robot, lander_camera_conf=None,*, streaming_interval: float, compression_conf) -> None:
+    def __init__(
+        self,
+        images_handler: ImagesHandler,
+        robot,
+        lander_camera_conf=None,
+        *,
+        streaming_interval: float,
+        compression_conf,
+    ) -> None:
         self._images_handler = images_handler
         self._robot = robot
         self._lander_cam = None
