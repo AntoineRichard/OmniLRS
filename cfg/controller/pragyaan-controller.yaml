@@ -11,6 +11,13 @@ robots_settings:
     intervals:
       robot_stats: 1
       camera_streaming: 1
+    camera_compression:
+      bitrate: 150_000 # Target bits/s with VBV constraints
+      crf: null # 0-51; overrides bitrate, higher means lower quality
+      keyframe_interval: 10
+      max_payload_size: 1200
+      loss_probability: 0.0 # Per-fragment drop probability; e.g. 0.01 to degrade the stream
+      seed: null
     lander_camera:
       prim_path: "/StaticAssets/lander/Lander/Cam_Right/Lander_Camera"
       resolution: [1440, 1080]

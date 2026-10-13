@@ -33,7 +33,7 @@ class PragyaanController(YamcsTMTC):
         super().__init__(yamcs_instance_conf, yamcs_conf, robot_name, robot_RG, robot)
         self._intervals = yamcs_conf["intervals"]
         self._payload_handler: PayloadHandler = PayloadHandler(self._images_handler, self._yamcs_conf["payload"])
-        self._camera_handler = PragyaanCameraHandler(self._images_handler, robot, yamcs_conf["lander_camera"])
+        self._camera_handler = PragyaanCameraHandler(self._images_handler, robot, yamcs_conf["lander_camera"], streaming_interval=self._intervals["camera_streaming"], compression_conf=yamcs_conf["camera_compression"])
         self._transmitter: PragyaanTransmitter = PragyaanTransmitter(
             self.transmit_to_yamcs,
             self._intervals_handler,

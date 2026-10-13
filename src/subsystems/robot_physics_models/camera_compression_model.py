@@ -1,25 +1,131 @@
+import re
+from dataclasses import dataclass
 from fractions import Fraction
 from typing import Any, Dict
 
-import av  # PyAV library for handling video encoding and decoding
+import av
 import numpy as np
 from PIL import Image
 
 from src.subsystems.robot_physics_models.robot_physics_model import RobotPhysicsModel
 
+# Annex B separates H.264 NAL units with three- or four-byte start codes.
+START_CODE = b"\x00\x00\x00\x01"
+ANNEX_B_START_CODE = re.compile(b"\x00\x00\x00\x01|\x00\x00\x01")
+
+
+@dataclass(frozen=True)
+class NetworkPacket:
+    """One simulated network packet carrying part of an H.264 NAL unit."""
+
+    sequence: int  # Identifies the encoded access unit (usually one frame).
+    nal_index: int  # Identifies the NAL within that access unit.
+    fragment_index: int  # Position of this fragment within the NAL.
+    fragment_count: int  # Number of fragments required to rebuild the NAL.
+    payload: bytes
+
+
+def split_nal_units(data: bytes) -> list[bytes]:
+    """Extract network abstraction layer (NAL) units from a complete Annex B packet."""
+    if not data:
+        return []
+
+    start_codes = list(ANNEX_B_START_CODE.finditer(data))
+    if not start_codes:
+        raise ValueError("Encoded packet does not contain Annex B start codes")
+    if any(data[: start_codes[0].start()]):
+        raise ValueError("Unexpected data before the first Annex B start code")
+
+    nal_units = []
+    for index, start_code in enumerate(start_codes):
+        end = start_codes[index + 1].start() if index + 1 < len(start_codes) else len(data)
+        # Start codes and trailing padding are not part of the NAL payload.
+        nal = data[start_code.end() : end].rstrip(b"\x00")
+        if nal:
+            nal_units.append(nal)
+    return nal_units
+
+
+def packetize(sequence: int, nal_units: list[bytes], max_payload_size: int) -> list[NetworkPacket]:
+    """Split each NAL into packets no larger than max_payload_size bytes."""
+    if max_payload_size <= 0:
+        raise ValueError("max_payload_size must be positive")
+
+    packets = []
+    for nal_index, nal in enumerate(nal_units):
+        fragment_count = (len(nal) + max_payload_size - 1) // max_payload_size
+        for fragment_index in range(fragment_count):
+            start = fragment_index * max_payload_size
+            packets.append(
+                NetworkPacket(
+                    sequence=sequence,
+                    nal_index=nal_index,
+                    fragment_index=fragment_index,
+                    fragment_count=fragment_count,
+                    payload=nal[start : start + max_payload_size],
+                )
+            )
+    return packets
+
+
+def depacketize(packets: list[NetworkPacket]) -> bytes | None:
+    """Recover complete NALs from one access unit and discard incomplete NALs."""
+    if not packets:
+        return None
+
+    sequence = packets[0].sequence
+    fragments: dict[int, dict[int, bytes]] = {}
+    counts: dict[int, int] = {}
+    for packet in packets:
+        if packet.sequence != sequence:
+            raise ValueError("Packets must belong to the same access unit")
+        if packet.fragment_count <= 0:
+            raise ValueError("fragment_count must be positive")
+        if not 0 <= packet.fragment_index < packet.fragment_count:
+            raise ValueError("Invalid fragment_index")
+
+        previous_count = counts.setdefault(packet.nal_index, packet.fragment_count)
+        if previous_count != packet.fragment_count:
+            raise ValueError("Inconsistent fragment counts for a NAL")
+
+        parts = fragments.setdefault(packet.nal_index, {})
+        previous_payload = parts.get(packet.fragment_index)
+        if previous_payload is not None and previous_payload != packet.payload:
+            raise ValueError("Conflicting duplicate fragment")
+        parts[packet.fragment_index] = packet.payload
+
+    # A missing fragment makes its entire NAL unusable; other NALs can survive.
+    nal_units = []
+    for nal_index, parts in sorted(fragments.items()):
+        count = counts[nal_index]
+        if all(index in parts for index in range(count)):
+            nal_units.append(b"".join(parts[index] for index in range(count)))
+    if not nal_units:
+        return None
+    return b"".join(START_CODE + nal for nal in nal_units)
+
 
 class CameraCompressionModel(RobotPhysicsModel):
-    """H.264-compress sequential camera images and return their decoded frames.
+    """Apply H.264 compression and simulated packet loss to sequential camera images.
 
-    Uses a fixed bitrate by default; `crf` overrides it. Resolution is fixed after the first frame.
+    Uses a target bitrate with VBV constraints by default; `crf` overrides both.
+    Resolution is fixed after the first frame.
+    Keep one persistent instance per camera stream and call compute() once per new image.
+    Timestamps advance at the configured fps; dt is unused.
+    x264 splits each frame into one slice per encoder thread, so slice count depends on the host CPU, and encoded
+    bytes vary between runs; the seed only fixes which fragments drop for a given encoded stream.
+    The threaded decoder does not conceal lost slices, which then decode as flat green (zero YUV).
     """
 
     def initialize(
         self,
-        fps: int = 1,  # Assumed frame arrival rate; sets timestamps and the bitrate budget, `dt` is ignored.
+        fps: float = 1,  # Frame arrival rate; sets timestamps and the bitrate budget.
         bitrate: int = 20_000,  # Bits per second; low by default for strong compression.
         keyframe_interval: int = 10,  # Group of pictures size: number of frames between keyframes.
-        crf: int | None = None,  # Currently implemented, but not recommended for real-time streaming, since it may introduce variable bitrate (it depends on the complexity of the content).
+        crf: int | None = None,  # Optional quality mode; bitrate varies with image complexity.
+        max_payload_size: int = 1200,  # Maximum NAL payload bytes per transport fragment.
+        loss_probability: float = 0.0,  # Independent probability of dropping each fragment.
+        seed: int | None = None,  # Seed for reproducible packet loss.
     ) -> None:
         # CRF: 0-51, lower means higher quality. None uses bitrate instead.
         if crf is not None and not 0 <= crf <= 51:
@@ -30,6 +136,12 @@ class CameraCompressionModel(RobotPhysicsModel):
             raise ValueError("keyframe_interval must be positive")
         if bitrate <= 0:
             raise ValueError("bitrate must be positive")
+        if crf is None and bitrate < 1000:
+            raise ValueError("VBV bitrate mode requires at least 1000 bits/s")
+        if max_payload_size <= 0:
+            raise ValueError("max_payload_size must be positive")
+        if not 0 <= loss_probability <= 1:
+            raise ValueError("loss_probability must be between 0 and 1")
 
         self._image: Image.Image | None = None
         self._compressed_image: Image.Image | None = None
@@ -38,14 +150,22 @@ class CameraCompressionModel(RobotPhysicsModel):
         self._bitrate = bitrate
         self._keyframe_interval = keyframe_interval
         self._crf = crf
+        self._max_payload_size = max_payload_size
+        self._loss_probability = loss_probability
+        self._rng = np.random.default_rng(seed)
         self._frame_index = 0
+        self._access_unit_index = 0
+        self._bytes_sent = 0
+        self._packets_sent = 0
+        self._packets_lost = 0
+        self._decode_errors = 0
         self._last_frame: Image.Image | None = None
         self._encoder = None
         # Persistent H.264 decoder
         self._decoder = av.CodecContext.create("h264", "r")
         self._decoder.open()
 
-    def set_inputs(self, image: Image.Image) -> None:
+    def set_inputs(self, image: Image.Image | None) -> None:
         self._image = image
 
     def compute(self, dt: float) -> None:
@@ -65,21 +185,56 @@ class CameraCompressionModel(RobotPhysicsModel):
         frame.time_base = self._encoder.time_base
         self._frame_index += 1
 
-        # Compress one frame, then decode the resulting packets.
-        # TODO: Handle potential packet loss or reordering in real-time streaming scenarios.
+        # Keep the encoder and decoder alive across frames to preserve H.264 references.
         decoded_frames = []
         for packet in self._encoder.encode(frame):
-            decoded_frames.extend(self._decoder.decode(packet))
+            received_packet = self._transmit_packet(packet)
+            if received_packet is None:
+                continue
+            try:
+                decoded_frames.extend(self._decoder.decode(received_packet))
+            except av.error.InvalidDataError:
+                # Preserve decoder state; a later keyframe can restore the stream.
+                self._decode_errors += 1
 
         if decoded_frames:
             decoded_rgb = decoded_frames[-1].to_ndarray(format="rgb24")
             self._compressed_image = Image.fromarray(decoded_rgb)
-            self._last_frame = self._compressed_image
+            self._last_frame = self._compressed_image.copy()
         elif self._last_frame is not None:
-            # Application-level frame concealment.
+            # Freeze the previous image when no new frame can be decoded.
             self._compressed_image = self._last_frame.copy()
         else:
-            raise RuntimeError("H.264 encoder produced no decodable frame and none is available to conceal with")
+            # No decoded frame has arrived yet.
+            self._compressed_image = Image.new("RGB", self._image.size, color=(0, 0, 0))
+
+    def _transmit_packet(self, packet: av.Packet) -> av.Packet | None:
+        """Fragment an encoded packet, drop random fragments and rebuild complete NALs."""
+        network_packets = packetize(
+            sequence=self._access_unit_index,
+            nal_units=split_nal_units(bytes(packet)),
+            max_payload_size=self._max_payload_size,
+        )
+        self._access_unit_index += 1
+
+        # Encoded video bytes before packetization and loss.
+        self._bytes_sent += packet.size
+        self._packets_sent += len(network_packets)
+
+        received_packets = [fragment for fragment in network_packets if self._rng.random() >= self._loss_probability]
+        self._packets_lost += len(network_packets) - len(received_packets)
+
+        received_data = depacketize(received_packets)
+        if received_data is None:
+            return None
+
+        # Rebuilt packets retain the original frame timing for the decoder.
+        received_packet = av.Packet(received_data)
+        received_packet.pts = packet.pts
+        received_packet.dts = packet.dts
+        if packet.time_base is not None:
+            received_packet.time_base = packet.time_base
+        return received_packet
 
     def _initialize_codecs(self, resolution: tuple[int, int]) -> None:
         width, height = resolution
@@ -90,13 +245,13 @@ class CameraCompressionModel(RobotPhysicsModel):
         self._encoder = av.CodecContext.create("libx264", "w")
         self._encoder.width = width
         self._encoder.height = height
-        self._encoder.pix_fmt = pixel_format  # Pixel format for H.264 encoding, commonly used.
-        self._encoder.time_base = Fraction(1, self._fps)
-        self._encoder.framerate = Fraction(self._fps, 1)
+        self._encoder.pix_fmt = pixel_format
+        self._encoder.framerate = Fraction(self._fps).limit_denominator(1000)
+        self._encoder.time_base = 1 / self._encoder.framerate
         if self._crf is None:
             self._encoder.bit_rate = self._bitrate
         self._encoder.gop_size = self._keyframe_interval
-        self._encoder.max_b_frames = 0
+        self._encoder.max_b_frames = 0  # Avoid frame reordering and its extra latency.
         self._encoder.options = {
             "preset": "veryfast",  # Encoding speed/efficiency tradeoff, slower presets give better compression.
             "tune": "zerolatency",  # Minimize latency for real-time applications.
@@ -104,13 +259,13 @@ class CameraCompressionModel(RobotPhysicsModel):
                 f"keyint={self._keyframe_interval}:"  # Maximum interval between keyframes.
                 f"min-keyint={self._keyframe_interval}:"  # Minimum interval between keyframes.
                 "scenecut=0:"
-                "repeat-headers=1"
+                "repeat-headers=1:"  # Repeat decoder settings at keyframes for recovery after loss.
+                "annexb=1"
             ),
         }
         if self._crf is None:
             self._encoder.options["x264-params"] += (
-                f":vbv-maxrate={self._bitrate // 1000}:"
-                f"vbv-bufsize={self._bitrate // 1000}"
+                f":vbv-maxrate={self._bitrate // 1000}:vbv-bufsize={self._bitrate // 1000}"
             )
         else:
             # Quality mode: bitrate and its VBV limits are not applied.
@@ -118,9 +273,24 @@ class CameraCompressionModel(RobotPhysicsModel):
         self._encoder.open()
         self._resolution = resolution
 
+    @property
+    def bandwidth(self) -> float:
+        """Average encoded H.264 bits/s before loss over frame_count / configured_fps seconds.
+
+        Includes Annex B start codes; excludes transport overhead. This is not received bitrate.
+        """
+        if self._frame_index == 0:
+            return 0.0
+        return self._bytes_sent * 8 * self._fps / self._frame_index
+
     def get_outputs(self) -> Dict[str, Any]:
+        """Return the current image, average bandwidth and cumulative transport counters."""
         return {
             "resolution": self._resolution,
             "fps": self._fps,
             "compressed_image": self._compressed_image,
+            "bandwidth": self.bandwidth,
+            "packets_sent": self._packets_sent,
+            "packets_lost": self._packets_lost,
+            "decode_errors": self._decode_errors,
         }

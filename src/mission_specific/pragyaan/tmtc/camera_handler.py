@@ -46,11 +46,14 @@ class PragyaanCameraHandler:
     BUCKET_LANDER = "images_lander"
     BUCKET_MONITORING = "images_monitoring"
 
-    def __init__(self, images_handler: ImagesHandler, robot, lander_camera_conf=None) -> None:
+    def __init__(self, images_handler: ImagesHandler, robot, lander_camera_conf=None,*, streaming_interval: float, compression_conf) -> None:
         self._images_handler = images_handler
         self._robot = robot
         self._lander_cam = None
         self._monitoring_cam = None
+        self._compression_conf = dict(compression_conf)
+        # Use the same nominal rate as the transmission scheduler.
+        self._compression_conf["fps"] = 1 / streaming_interval
         # One model per (bucket, resolution)
         self._compression_models: dict[tuple[str, str], CameraCompressionModel] = {}
         self._initialize_lander_cam(lander_camera_conf)
@@ -129,7 +132,7 @@ class PragyaanCameraHandler:
         key = (bucket, resolution)
         if key not in self._compression_models:
             model = CameraCompressionModel()
-            model.initialize()
+            model.initialize(**self._compression_conf)
             self._compression_models[key] = model
 
         model = self._compression_models[key]
