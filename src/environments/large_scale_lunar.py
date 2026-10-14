@@ -122,6 +122,16 @@ class LargeScaleController(BaseEnv, StellarEngineEnvMixin):
     # Terrain info
     # ==============================================================================
 
+    def get_terrain_height(self, position: Tuple[float, float]) -> float:
+        """
+        Returns the terrain height at a local (x, y) position.
+
+        Args:
+            position (Tuple[float, float]): the (x, y) position in meters.
+        """
+
+        return self.LSTM.get_height_local(position)
+
     def get_height_and_normal(
         self, position: Tuple[float, float, float]
     ) -> Tuple[float, Tuple[float, float, float, float]]:

@@ -121,11 +121,7 @@ class Zenoh_SimulationManager:
             self.enable_deformation = False
 
     def _preload_robot(self):
-        if self.cfg["environment"]["name"] == "LargeScale":
-            height, quat = self.Zenoh_EC.LC.get_height_and_normal((0.0, 0.0, 0.0))
-            self.Zenoh_RM.get_RM().preload_robot_at_pose(self.world, (0, 0, height + 0.5), (1, 0, 0, 0))
-        else:
-            self.Zenoh_RM.get_RM().preload_robot(self.world)
+        self.Zenoh_RM.get_RM().preload_robot(self.world, get_height_func=self.Zenoh_EC.LC.get_terrain_height)
 
     def _start_transports(self):
         """
