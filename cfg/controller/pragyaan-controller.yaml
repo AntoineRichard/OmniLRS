@@ -77,6 +77,10 @@ robots_settings:
       current_draw_eps: "/Rover/current_draw_eps"
       neutron_counts: "/Rover/neutron_counts"
       camera_streaming_state: "/Rover/camera/images_streaming/state"
+      camera_bandwidth: "/Rover/camera/images_streaming/bandwidth"
+      camera_packets_sent: "/Rover/camera/images_streaming/packets_sent"
+      camera_packets_lost: "/Rover/camera/images_streaming/packets_lost"
+      camera_decode_errors: "/Rover/camera/images_streaming/decode_errors"
       solar_panel_state: "/Rover/solar_panel_state"
       motor_encoder: "/Rover/motor_encoder"
     commands:

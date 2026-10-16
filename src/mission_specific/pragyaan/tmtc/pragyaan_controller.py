@@ -47,6 +47,7 @@ class PragyaanController(YamcsTMTC):
             self._robot_RG,
             robot_name,
             self._yamcs_conf["parameters"],
+            self._camera_handler,
         )
         self._commander: PragyaanCommander = PragyaanCommander(
             self._robot,
@@ -116,6 +117,13 @@ class PragyaanController(YamcsTMTC):
             is_repeating=True,
             execute_immediately=True,
             function=self._transmitter.transmit_camera_streaming_state,
+        )
+        self._intervals_handler.add_new_interval(
+            name="Camera compression",
+            seconds=self._intervals["robot_stats"],
+            is_repeating=True,
+            execute_immediately=True,
+            function=self._transmitter.transmit_camera_compression_info,
         )
         self._intervals_handler.add_new_interval(
             name="GO_NOGO",

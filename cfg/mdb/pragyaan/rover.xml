@@ -583,8 +583,29 @@ See https://github.com/yamcs/pymdb
     <SpaceSystem name="images_streaming" shortDescription="Streaming capture metadata">
       <TelemetryMetaData>
         <ParameterTypeSet>
+          <FloatParameterType name="bandwidth" sizeInBits="32">
+            <UnitSet>
+              <Unit form="calibrated">bit/s</Unit>
+            </UnitSet>
+            <ValidRange validRangeAppliesToCalibrated="true" minInclusive="0.0"/>
+          </FloatParameterType>
+          <IntegerParameterType name="decode_errors" signed="false" sizeInBits="32">
+            <UnitSet>
+              <Unit form="calibrated">counts</Unit>
+            </UnitSet>
+          </IntegerParameterType>
           <StringParameterType name="name"/>
           <IntegerParameterType name="number" signed="false" sizeInBits="32"/>
+          <IntegerParameterType name="packets_lost" signed="false" sizeInBits="32">
+            <UnitSet>
+              <Unit form="calibrated">counts</Unit>
+            </UnitSet>
+          </IntegerParameterType>
+          <IntegerParameterType name="packets_sent" signed="false" sizeInBits="32">
+            <UnitSet>
+              <Unit form="calibrated">counts</Unit>
+            </UnitSet>
+          </IntegerParameterType>
           <EnumeratedParameterType name="state">
             <EnumerationList>
               <Enumeration value="0" label="OFF"/>
@@ -596,10 +617,22 @@ See https://github.com/yamcs/pymdb
           <StringParameterType name="url_storage"/>
         </ParameterTypeSet>
         <ParameterSet>
+          <Parameter name="bandwidth" parameterTypeRef="bandwidth" shortDescription="Rolling encoded H.264 bitrate of the streaming camera">
+            <ParameterProperties dataSource="local" persistence="true"/>
+          </Parameter>
+          <Parameter name="decode_errors" parameterTypeRef="decode_errors" shortDescription="Cumulative streaming H.264 decode errors">
+            <ParameterProperties dataSource="local" persistence="true"/>
+          </Parameter>
           <Parameter name="name" parameterTypeRef="name" shortDescription="Friendly name for the streaming capture">
             <ParameterProperties dataSource="local" persistence="true"/>
           </Parameter>
           <Parameter name="number" parameterTypeRef="number" shortDescription="Sequence identifier for streaming captures">
+            <ParameterProperties dataSource="local" persistence="true"/>
+          </Parameter>
+          <Parameter name="packets_lost" parameterTypeRef="packets_lost" shortDescription="Cumulative streaming packets lost">
+            <ParameterProperties dataSource="local" persistence="true"/>
+          </Parameter>
+          <Parameter name="packets_sent" parameterTypeRef="packets_sent" shortDescription="Cumulative streaming packets sent">
             <ParameterProperties dataSource="local" persistence="true"/>
           </Parameter>
           <Parameter name="state" parameterTypeRef="state" shortDescription="Streaming pipeline state">

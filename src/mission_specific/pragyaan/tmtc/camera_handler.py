@@ -9,6 +9,7 @@ from isaacsim.sensors.camera import Camera
 from PIL import Image
 
 from src.environments.monitoring_cameras_manager import MonitoringCamerasManager
+from src.mission_specific.pragyaan.tmtc.enums import PragyaanCameraResolution
 from src.subsystems.robot_physics_models.camera_compression_model import CameraCompressionModel
 from src.tmtc.yamcs_TMTC import ImagesHandler
 
@@ -147,6 +148,12 @@ class PragyaanCameraHandler:
         model.set_inputs(image)
         model.compute(0.0)
         return model.get_outputs()["compressed_image"]
+
+    def get_compression_model_outputs(self):
+        model = self._compression_models.get((self.BUCKET_STREAMING, PragyaanCameraResolution.LOW.value))
+        if model is None:
+            return None
+        return model.get_outputs()
 
     def transmit_camera_view(self, bucket: str, resolution: str, type: CameraViewType = CameraViewType.RGBA):
         camera_view: Image = None

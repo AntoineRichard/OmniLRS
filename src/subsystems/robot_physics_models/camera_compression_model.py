@@ -191,7 +191,9 @@ class CameraCompressionModel(RobotPhysicsModel):
         self._rng = np.random.default_rng(seed)
         self._frame_index = 0
         self._access_unit_index = 0
-        self._encoded_byte_samples: deque[tuple[float, int]] = deque()  # (timestamp in seconds, encoded packet size in bytes)
+        self._encoded_byte_samples: deque[tuple[float, int]] = (
+            deque()
+        )  # (timestamp in seconds, encoded packet size in bytes)
         self._packets_sent = 0
         self._packets_lost = 0
         self._decode_errors = 0
@@ -337,7 +339,7 @@ class CameraCompressionModel(RobotPhysicsModel):
         """Return the current image, rolling average bandwidth in bits per second, and cumulative transport counters."""
         return {
             "compressed_image": self._compressed_image,
-            "bandwidth": self.bandwidth, #bits per second (bit/s)
+            "bandwidth": self.bandwidth,  # bits per second (bit/s)
             "packets_sent": self._packets_sent,
             "packets_lost": self._packets_lost,
             "decode_errors": self._decode_errors,
