@@ -77,6 +77,19 @@ class PragyaanController(YamcsTMTC):
         )
         self._commands_handler.add_command(commands_conf["camera_capture_depth"], self._commander.handle_depth_capture)
         self._commands_handler.add_command(
+            commands_conf["set_camera_streaming_params"],
+            self._commander.set_camera_streaming_params,
+            args=[
+                "bitrate",
+                "crf",
+                "keyframe_interval",
+                "max_payload_size",
+                "loss_probability",
+                "seed",
+                "bandwidth_window_seconds",
+            ],
+        )
+        self._commands_handler.add_command(
             commands_conf["power_electronics"],
             self._commander.handle_electronics_on_off,
             args=["subsystem_id", "power_state"],

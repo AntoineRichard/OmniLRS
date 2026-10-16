@@ -137,14 +137,17 @@ class PragyaanCameraHandler:
 
         return camera_view
 
-    def _compress(self, image: Image, bucket: str, resolution: str) -> Image:
+    def _get_compression_model(self, bucket: str, resolution: str) -> CameraCompressionModel:
         key = (bucket, resolution)
         if key not in self._compression_models:
             model = CameraCompressionModel()
             model.initialize(**self._compression_conf)
             self._compression_models[key] = model
 
-        model = self._compression_models[key]
+        return self._compression_models[key]
+
+    def _compress(self, image: Image, bucket: str, resolution: str) -> Image:
+        model = self._get_compression_model(bucket, resolution)
         model.set_inputs(image)
         model.compute(0.0)
         return model.get_outputs()["compressed_image"]
@@ -154,6 +157,10 @@ class PragyaanCameraHandler:
         if model is None:
             return None
         return model.get_outputs()
+
+    def set_streaming_compression_params(self, **params):
+        model = self._get_compression_model(self.BUCKET_STREAMING, PragyaanCameraResolution.LOW.value)
+        model.update_parameters(**params)
 
     def transmit_camera_view(self, bucket: str, resolution: str, type: CameraViewType = CameraViewType.RGBA):
         camera_view: Image = None

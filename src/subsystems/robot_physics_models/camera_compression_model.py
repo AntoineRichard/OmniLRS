@@ -1,4 +1,5 @@
 import re
+import threading
 from collections import deque
 from dataclasses import dataclass
 from fractions import Fraction
@@ -115,6 +116,7 @@ class CameraCompressionModel(RobotPhysicsModel):
     Resolution is fixed after the first frame.
     Keep one persistent instance per camera stream and call compute() once per new image.
     Timestamps advance at the configured fps; dt is unused.
+    update_parameters() may be called from another thread (e.g. a telecommand); it waits for a running compute().
 
     Flow (after initialize()):
         [set_inputs(image)]
@@ -160,11 +162,48 @@ class CameraCompressionModel(RobotPhysicsModel):
         seed: int | None = None,  # Seed for reproducible packet loss.
         bandwidth_window_seconds: float = 10.0,  # Duration of the rolling bitrate measurement window.
     ) -> None:
+        if fps <= 0:
+            raise ValueError("fps must be positive")
+
+        self._image: Image.Image | None = None
+        self._compressed_image: Image.Image | None = None
+        self._resolution: tuple[int, int] | None = None
+        self._fps = fps
+        self._lock = threading.Lock()
+        self._frame_index = 0
+        self._access_unit_index = 0
+        self._encoded_byte_samples: deque[tuple[float, int]] = (
+            deque()
+        )  # (timestamp in seconds, encoded packet size in bytes)
+        self._packets_sent = 0
+        self._packets_lost = 0
+        self._decode_errors = 0
+        self._last_frame: Image.Image | None = None
+        # Persistent H.264 decoder
+        self._decoder = av.CodecContext.create("h264", "r")
+        self._decoder.open()
+        self.update_parameters(
+            bitrate, keyframe_interval, crf, max_payload_size, loss_probability, seed, bandwidth_window_seconds
+        )
+
+    def update_parameters(
+        self,
+        bitrate: int,
+        keyframe_interval: int,
+        crf: int | None,
+        max_payload_size: int,
+        loss_probability: float,
+        seed: int | None,
+        bandwidth_window_seconds: float,
+    ) -> None:
+        """Set the compression and packet loss parameters described in initialize().
+
+        The encoder is rebuilt on the next compute() so bitrate, crf and keyframe_interval apply; the decoder is kept
+        and resynchronizes at the new keyframe. The packet loss random generator is reseeded.
+        """
         # CRF: 0-51, lower means higher quality. None uses bitrate instead.
         if crf is not None and not 0 <= crf <= 51:
             raise ValueError("crf must be between 0 and 51, or None")
-        if fps <= 0:
-            raise ValueError("fps must be positive")
         if keyframe_interval <= 0:
             raise ValueError("keyframe_interval must be positive")
         if bitrate <= 0:
@@ -178,35 +217,24 @@ class CameraCompressionModel(RobotPhysicsModel):
         if not isfinite(bandwidth_window_seconds) or bandwidth_window_seconds <= 0:
             raise ValueError("bandwidth_window_seconds must be a finite positive number")
 
-        self._image: Image.Image | None = None
-        self._compressed_image: Image.Image | None = None
-        self._resolution: tuple[int, int] | None = None
-        self._fps = fps
-        self._bitrate = bitrate
-        self._keyframe_interval = keyframe_interval
-        self._crf = crf
-        self._max_payload_size = max_payload_size
-        self._loss_probability = loss_probability
-        self._bandwidth_window_seconds = bandwidth_window_seconds
-        self._rng = np.random.default_rng(seed)
-        self._frame_index = 0
-        self._access_unit_index = 0
-        self._encoded_byte_samples: deque[tuple[float, int]] = (
-            deque()
-        )  # (timestamp in seconds, encoded packet size in bytes)
-        self._packets_sent = 0
-        self._packets_lost = 0
-        self._decode_errors = 0
-        self._last_frame: Image.Image | None = None
-        self._encoder = None
-        # Persistent H.264 decoder
-        self._decoder = av.CodecContext.create("h264", "r")
-        self._decoder.open()
+        with self._lock:
+            self._bitrate = bitrate
+            self._keyframe_interval = keyframe_interval
+            self._crf = crf
+            self._max_payload_size = max_payload_size
+            self._loss_probability = loss_probability
+            self._bandwidth_window_seconds = bandwidth_window_seconds
+            self._rng = np.random.default_rng(seed)
+            self._encoder = None
 
     def set_inputs(self, image: Image.Image | None) -> None:
         self._image = image
 
     def compute(self, dt: float) -> None:
+        with self._lock:
+            self._compute()
+
+    def _compute(self) -> None:
         if self._image is None:
             self._compressed_image = None
             return
