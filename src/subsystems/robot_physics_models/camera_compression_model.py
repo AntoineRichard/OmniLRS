@@ -1,6 +1,8 @@
 import re
+from collections import deque
 from dataclasses import dataclass
 from fractions import Fraction
+from math import isfinite
 from typing import Any, Dict
 
 import av
@@ -9,7 +11,7 @@ from PIL import Image
 
 from src.subsystems.robot_physics_models.robot_physics_model import RobotPhysicsModel
 
-# Annex B separates H.264 NAL units with three- or four-byte start codes.
+# Annex B separates H.264 Network Abstraction Layer (NAL) units with three- or four-byte start codes.
 START_CODE = b"\x00\x00\x00\x01"
 ANNEX_B_START_CODE = re.compile(b"\x00\x00\x00\x01|\x00\x00\x01")
 
@@ -26,7 +28,7 @@ class NetworkPacket:
 
 
 def split_nal_units(data: bytes) -> list[bytes]:
-    """Extract network abstraction layer (NAL) units from a complete Annex B packet."""
+    """Extract Network Abstraction Layer (NAL) units from a complete Annex B packet."""
     if not data:
         return []
 
@@ -108,10 +110,40 @@ def depacketize(packets: list[NetworkPacket]) -> bytes | None:
 class CameraCompressionModel(RobotPhysicsModel):
     """Apply H.264 compression and simulated packet loss to sequential camera images.
 
-    Uses a target bitrate with VBV constraints by default; `crf` overrides both.
+    Uses target-bitrate mode with Video Buffering Verifier (VBV) constraints when `crf` is None.
+    Setting `crf` selects quality-based mode and ignores `bitrate`.
     Resolution is fixed after the first frame.
     Keep one persistent instance per camera stream and call compute() once per new image.
     Timestamps advance at the configured fps; dt is unused.
+
+    Flow (after initialize()):
+        [set_inputs(image)]
+                | PIL image
+                v
+        +---------------------- compute() -----------------------+
+        | [_initialize_codecs()]  (first frame only)             |
+        |           |                                            |
+        | [_encoder.encode(frame)]                               |
+        |           | H.264 packets                              |
+        |           v                                            |
+        | +------------- _transmit_packet() -------------------+ |
+        | | split_nal_units() ---------------> packetize()     | |
+        | |                                        |           | |
+        | |                                        v           | |
+        | |   depacketize()  <-------------- fragment loss     | |
+        | +----------------------------------------------------+ |
+        |           | surviving H.264 packets                    |
+        |           v                                            |
+        | [_decoder.decode(packet)]                              |
+        |           | decoded image                              |
+        |           v                                            |
+        | [new image OR previous/black image if none decoded]    |
+        +--------------------------------------------------------+
+                |
+                v
+        [get_outputs()]
+          compressed_image | bandwidth (bit/s) | packet/error counts
+
     x264 splits each frame into one slice per encoder thread, so slice count depends on the host CPU, and encoded
     bytes vary between runs; the seed only fixes which fragments drop for a given encoded stream.
     The threaded decoder does not conceal lost slices, which then decode as flat green (zero YUV).
@@ -120,12 +152,13 @@ class CameraCompressionModel(RobotPhysicsModel):
     def initialize(
         self,
         fps: float = 1,  # Frame arrival rate; sets timestamps and the bitrate budget.
-        bitrate: int = 20_000,  # Bits per second; low by default for strong compression.
+        bitrate: int = 20_000,  # Target bits/s; used only when crf is None.
         keyframe_interval: int = 10,  # Group of pictures size: number of frames between keyframes.
-        crf: int | None = None,  # Optional quality mode; bitrate varies with image complexity.
+        crf: int | None = None,  # Set 0-51 for quality-based mode; when set, bitrate is ignored.
         max_payload_size: int = 1200,  # Maximum NAL payload bytes per transport fragment.
         loss_probability: float = 0.0,  # Independent probability of dropping each fragment.
         seed: int | None = None,  # Seed for reproducible packet loss.
+        bandwidth_window_seconds: float = 10.0,  # Duration of the rolling bitrate measurement window.
     ) -> None:
         # CRF: 0-51, lower means higher quality. None uses bitrate instead.
         if crf is not None and not 0 <= crf <= 51:
@@ -137,11 +170,13 @@ class CameraCompressionModel(RobotPhysicsModel):
         if bitrate <= 0:
             raise ValueError("bitrate must be positive")
         if crf is None and bitrate < 1000:
-            raise ValueError("VBV bitrate mode requires at least 1000 bits/s")
+            raise ValueError("Video Buffering Verifier bitrate mode requires at least 1000 bits/s")
         if max_payload_size <= 0:
             raise ValueError("max_payload_size must be positive")
         if not 0 <= loss_probability <= 1:
             raise ValueError("loss_probability must be between 0 and 1")
+        if not isfinite(bandwidth_window_seconds) or bandwidth_window_seconds <= 0:
+            raise ValueError("bandwidth_window_seconds must be a finite positive number")
 
         self._image: Image.Image | None = None
         self._compressed_image: Image.Image | None = None
@@ -152,10 +187,11 @@ class CameraCompressionModel(RobotPhysicsModel):
         self._crf = crf
         self._max_payload_size = max_payload_size
         self._loss_probability = loss_probability
+        self._bandwidth_window_seconds = bandwidth_window_seconds
         self._rng = np.random.default_rng(seed)
         self._frame_index = 0
         self._access_unit_index = 0
-        self._bytes_sent = 0
+        self._encoded_byte_samples: deque[tuple[float, int]] = deque()  # (timestamp in seconds, encoded packet size in bytes)
         self._packets_sent = 0
         self._packets_lost = 0
         self._decode_errors = 0
@@ -197,6 +233,8 @@ class CameraCompressionModel(RobotPhysicsModel):
                 # Preserve decoder state; a later keyframe can restore the stream.
                 self._decode_errors += 1
 
+        self._prune_encoded_byte_samples(self._frame_index / self._fps)
+
         if decoded_frames:
             decoded_rgb = decoded_frames[-1].to_ndarray(format="rgb24")
             self._compressed_image = Image.fromarray(decoded_rgb)
@@ -217,8 +255,8 @@ class CameraCompressionModel(RobotPhysicsModel):
         )
         self._access_unit_index += 1
 
-        # Encoded video bytes before packetization and loss.
-        self._bytes_sent += packet.size
+        # Track encoded video bytes before packetization and loss.
+        self._encoded_byte_samples.append((self._frame_index / self._fps, packet.size))
         self._packets_sent += len(network_packets)
 
         received_packets = [fragment for fragment in network_packets if self._rng.random() >= self._loss_probability]
@@ -268,28 +306,38 @@ class CameraCompressionModel(RobotPhysicsModel):
                 f":vbv-maxrate={self._bitrate // 1000}:vbv-bufsize={self._bitrate // 1000}"
             )
         else:
-            # Quality mode: bitrate and its VBV limits are not applied.
+            # Quality mode: bitrate and its Video Buffering Verifier limits are not applied.
             self._encoder.options["crf"] = str(self._crf)
         self._encoder.open()
         self._resolution = resolution
 
     @property
     def bandwidth(self) -> float:
-        """Average encoded H.264 bits/s before loss over frame_count / configured_fps seconds.
+        """Rolling average encoded H.264 bitrate in bits per second (bit/s).
 
-        Includes Annex B start codes; excludes transport overhead. This is not received bitrate.
+        Uses up to the most recent `bandwidth_window_seconds` of processed frames, or the
+        elapsed time since the first frame during startup. The count includes Annex B start
+        codes and is measured before simulated packet loss, but excludes transport overhead;
+        it is not the bitrate received by the decoder.
         """
         if self._frame_index == 0:
             return 0.0
-        return self._bytes_sent * 8 * self._fps / self._frame_index
+        elapsed = self._frame_index / self._fps
+        self._prune_encoded_byte_samples(elapsed)
+        window_start = elapsed - self._bandwidth_window_seconds
+        window_bytes = sum(size for timestamp, size in self._encoded_byte_samples if timestamp > window_start)
+        return window_bytes * 8 / min(elapsed, self._bandwidth_window_seconds)
+
+    def _prune_encoded_byte_samples(self, current_time: float) -> None:
+        window_start = current_time - self._bandwidth_window_seconds
+        while self._encoded_byte_samples and self._encoded_byte_samples[0][0] <= window_start:
+            self._encoded_byte_samples.popleft()
 
     def get_outputs(self) -> Dict[str, Any]:
-        """Return the current image, average bandwidth and cumulative transport counters."""
+        """Return the current image, rolling average bandwidth in bits per second, and cumulative transport counters."""
         return {
-            "resolution": self._resolution,
-            "fps": self._fps,
             "compressed_image": self._compressed_image,
-            "bandwidth": self.bandwidth,
+            "bandwidth": self.bandwidth, #bits per second (bit/s)
             "packets_sent": self._packets_sent,
             "packets_lost": self._packets_lost,
             "decode_errors": self._decode_errors,
