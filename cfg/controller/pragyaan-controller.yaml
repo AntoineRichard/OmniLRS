@@ -10,6 +10,7 @@ robots_settings:
       - "cfg/mdb/pragyaan/admin.xml"
     intervals:
       robot_stats: 1
+      neutron_count: 2
       camera_streaming: 1
     camera_compression:
       bitrate: 150_000 # Target bits/s with Video Buffering Verifier (VBV) constraints
@@ -19,6 +20,8 @@ robots_settings:
       loss_probability: 0.0 # Per-fragment drop probability; e.g. 0.01 to degrade the stream
       seed: null
       bandwidth_window_seconds: 10.0 # Rolling bitrate measurement window
+      camera_streaming: 2
+      neutron_count: 2
     lander_camera:
       prim_path: "/StaticAssets/lander/Lander/Cam_Right/Lander_Camera"
       resolution: [1440, 1080]

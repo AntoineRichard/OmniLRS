@@ -1,4 +1,4 @@
-__author__ = "Antoine Richard"
+__author__ = "Antoine Richard, Bach Nguyen"
 __maintainer__ = "Louis Burtz"
 __email__ = "ljburtz@jaops.com"
 
@@ -7,7 +7,12 @@ def startSim(cfg: dict):
     import omni
     from isaacsim import SimulationApp
 
-    from src.environments.rendering import set_chromatic_aberrations, set_lens_flares, set_motion_blur
+    from src.environments.rendering import (
+        set_chromatic_aberrations,
+        set_lens_flares,
+        set_motion_blur,
+        set_tbn_frame_mode,
+    )
 
     class SimulationApp_wait(SimulationApp):
         def __init__(self, launch_config: dict = None, experience: str = "") -> None:
@@ -85,7 +90,10 @@ def startSim(cfg: dict):
 
     # Starts the simulation and allows to import things related to Isaac and PXR
     renderer_cfg = cfg["rendering"]["renderer"]
-    simulation_app = SimulationApp_wait(renderer_cfg.__dict__)
+    launch_config = renderer_cfg.__dict__.copy()
+    tbn_frame_mode = launch_config.pop("tbn_frame_mode")
+    simulation_app = SimulationApp_wait(launch_config)
+    set_tbn_frame_mode(tbn_frame_mode)
     set_lens_flares(cfg)
     set_motion_blur(cfg)
     set_chromatic_aberrations(cfg)
@@ -93,6 +101,14 @@ def startSim(cfg: dict):
     # NOTE mode is chosen by setting the value of "mode" property within "defaults" @cfg/config.yaml
     # it can also be overwritten through console, same as environment
     # mode is required to exist also @cfg/mode/[mode_name].yaml with "name" property
+
+    # Zenoh mode
+    if cfg["mode"]["name"] == "Zenoh":
+        from src.environments_wrappers.zenoh.simulation_manager_zenoh import (
+            Zenoh_SimulationManager,
+        )
+
+        SM = Zenoh_SimulationManager(cfg, simulation_app)
 
     # Omits ROS settings, purely Yamcs-native
     if cfg["mode"]["name"] == "Yamcs":

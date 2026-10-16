@@ -4,13 +4,14 @@ __email__ = "ljburtz@jaops.com"
 
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 @dataclass
 class Pose:
     position: List[float] = field(default_factory=list)
     orientation: List[float] = field(default_factory=list)
+    height_above_terrain_override: Optional[float] = None
 
 
 @dataclass
@@ -28,6 +29,7 @@ class RobotParameters:
     dimensions: dict = field(default_factory=dict)
     turn_speed_coef: float = 1
     solar_panel_joint: str = field(default_factory=str)
+    zenoh: Dict = field(default_factory=dict)
 
     def __post_init__(self):
         self.usd_path = os.path.join(os.getcwd(), self.usd_path)

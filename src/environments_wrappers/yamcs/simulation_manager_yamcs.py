@@ -76,6 +76,7 @@ class Yamcs_SimulationManager:
 
         self.EC = self._get_environment_controller(self.cfg["environment"]["name"])
         self.EC.load()
+        self.simulation_app.add_wait(self.EC.get_wait_for_threads())
 
         self.RM = RobotManager(cfg["environment"]["robots_settings"], mode=SimulatorMode.YAMCS)
 
@@ -205,14 +206,7 @@ class Yamcs_SimulationManager:
             self.enable_deformation = False
 
     def _preload_robot(self):
-        if self.cfg["environment"]["name"] == "LargeScale":
-            robot_pos = self.RM.robot_parameters.pose.position
-            robot_ori = self.RM.robot_parameters.pose.orientation
-            height, _ = self.EC.get_height_and_normal((robot_pos[0], robot_pos[1], 0.0))
-            self.RM.preload_robot_at_pose(self.world, (robot_pos[0], robot_pos[1], height + 0.5), robot_ori)
-
-        else:
-            self.RM.preload_robot(self.world)
+        self.RM.preload_robot(self.world, get_height_func=self.EC.get_terrain_height)
 
     def run_simulation(self) -> None:
         """
@@ -238,8 +232,15 @@ class Yamcs_SimulationManager:
                     if self.RM.robot is not None:
                         self.RM.robot.invalidate_articulation_api()
 
-                if not did_reset and self.RM.robot is not None:
-                    self.RM.robot.update_articulation_api()
+                if not did_reset:
+                    # Must happen before EC.update(), because LargeScale calls robot.get_pose().
+                    if self.RM.robot is not None:
+                        self.RM.robot.update_articulation_api()
+                    self.EC.update()
+
+            if not self.EC.monitor_thread_is_alive():
+                logger.warning("Environment worker thread died. Stopping the simulation.")
+                break
 
             self.rate.sleep()
 
