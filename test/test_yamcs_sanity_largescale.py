@@ -9,7 +9,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 # LargeScale cold start on CI (fresh container: crater/DEM generation, uncached mesh backbone,
-# robot loading) takes well over 10 minutes. Keep within the Artefacts job timeout (30 min).
+# robot loading) takes well over 10 minutes. Keep within the Artefacts job timeout (defined in artefacts.yaml).
 STARTUP_TIMEOUT = int(os.environ.get("OMNILRS_TEST_TIMEOUT", "1200"))
 TELEMETRY_TIMEOUT = int(os.environ.get("OMNILRS_TELEMETRY_TIMEOUT", "120"))
 
