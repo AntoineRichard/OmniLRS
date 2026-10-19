@@ -149,7 +149,7 @@ class PragyaanCommander:
             if not self._intervals_handler.does_exist(IntervalName.NEUTRON_COUNT.value):
                 self._intervals_handler.add_new_interval(
                     name=IntervalName.NEUTRON_COUNT.value,
-                    seconds=self._intervals["camera_streaming"],
+                    seconds=self._intervals["neutron_count"],
                     is_repeating=True,
                     execute_immediately=False,
                     function=self._transmitter.transmit_neutroun_count,
