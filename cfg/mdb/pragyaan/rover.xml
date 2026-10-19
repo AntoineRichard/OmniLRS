@@ -670,12 +670,12 @@ See https://docs.yamcs.org/pymdb/
     <SpaceSystem name="images_streaming" shortDescription="Streaming capture metadata">
       <TelemetryMetaData>
         <ParameterTypeSet>
-          <FloatParameterType name="bandwidth" sizeInBits="32">
+          <IntegerParameterType name="bandwidth" signed="true" sizeInBits="32">
             <UnitSet>
               <Unit form="calibrated">bit/s</Unit>
             </UnitSet>
-            <ValidRange validRangeAppliesToCalibrated="true" minInclusive="0.0"/>
-          </FloatParameterType>
+            <ValidRange validRangeAppliesToCalibrated="true" minInclusive="1000"/>
+          </IntegerParameterType>
           <IntegerParameterType name="decode_errors" signed="false" sizeInBits="32">
             <UnitSet>
               <Unit form="calibrated">counts</Unit>
@@ -716,10 +716,10 @@ See https://docs.yamcs.org/pymdb/
           <Parameter name="number" parameterTypeRef="number" shortDescription="Sequence identifier for streaming captures">
             <ParameterProperties dataSource="local" persistence="true"/>
           </Parameter>
-          <Parameter name="packets_lost" parameterTypeRef="packets_lost" shortDescription="Cumulative streaming packets lost">
+          <Parameter name="packets_lost" parameterTypeRef="packets_lost" shortDescription="Cumulative streaming packets lost, wraps to 0 after 65535">
             <ParameterProperties dataSource="local" persistence="true"/>
           </Parameter>
-          <Parameter name="packets_sent" parameterTypeRef="packets_sent" shortDescription="Cumulative streaming packets sent">
+          <Parameter name="packets_sent" parameterTypeRef="packets_sent" shortDescription="Cumulative streaming packets sent, wraps to 0 after 65535">
             <ParameterProperties dataSource="local" persistence="true"/>
           </Parameter>
           <Parameter name="state" parameterTypeRef="state" shortDescription="Streaming pipeline state">
