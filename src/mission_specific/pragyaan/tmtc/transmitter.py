@@ -129,6 +129,8 @@ class PragyaanTransmitter:
         if compression_status is None:
             return
         self._transmit(self._parameters_conf["camera_bandwidth"], compression_status["bandwidth"])
+        # TODO: packets_sent/packets_lost are cumulative but 16-bit in the Yamcs MDB (max 65535); at 150 kbit/s and
+        # 1200-byte payloads they exceed it after ~70 min. Widen them in the MDB or wrap the values here.
         self._transmit(self._parameters_conf["camera_packets_sent"], compression_status["packets_sent"])
         self._transmit(self._parameters_conf["camera_packets_lost"], compression_status["packets_lost"])
         self._transmit(self._parameters_conf["camera_decode_errors"], compression_status["decode_errors"])

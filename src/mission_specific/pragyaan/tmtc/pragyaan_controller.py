@@ -84,8 +84,6 @@ class PragyaanController(YamcsTMTC):
                 "crf",
                 "keyframe_interval",
                 "max_payload_size",
-                "loss_probability",
-                "seed",
                 "bandwidth_window_seconds",
             ],
         )

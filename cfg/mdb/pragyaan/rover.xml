@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <!--
 This file was generated with Yamcs PyMDB.
-See https://github.com/yamcs/pymdb
+See https://docs.yamcs.org/pymdb/
 -->
 <SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.omg.org/spec/XTCE/20180204 https://www.omg.org/spec/XTCE/20180204/SpaceSystem.xsd" name="Rover">
   <TelemetryMetaData>
@@ -456,7 +456,7 @@ See https://github.com/yamcs/pymdb
           </UnitSet>
           <IntegerDataEncoding sizeInBits="32" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
           <ValidRangeSet validRangeAppliesToCalibrated="true">
-            <ValidRange minInclusive="1"/>
+            <ValidRange minInclusive="1000"/>
           </ValidRangeSet>
         </IntegerArgumentType>
         <IntegerArgumentType name="set_camera_streaming_params__crf" signed="true" sizeInBits="8">
@@ -465,13 +465,13 @@ See https://github.com/yamcs/pymdb
             <ValidRange minInclusive="-1" maxInclusive="51"/>
           </ValidRangeSet>
         </IntegerArgumentType>
-        <IntegerArgumentType name="set_camera_streaming_params__keyframe_interval" signed="false" sizeInBits="16">
+        <IntegerArgumentType name="set_camera_streaming_params__keyframe_interval" signed="false" sizeInBits="8">
           <UnitSet>
             <Unit form="calibrated">frames</Unit>
           </UnitSet>
-          <IntegerDataEncoding sizeInBits="16" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+          <IntegerDataEncoding sizeInBits="8" encoding="unsigned"/>
           <ValidRangeSet validRangeAppliesToCalibrated="true">
-            <ValidRange minInclusive="1"/>
+            <ValidRange minInclusive="1" maxInclusive="255"/>
           </ValidRangeSet>
         </IntegerArgumentType>
         <IntegerArgumentType name="set_camera_streaming_params__max_payload_size" signed="false" sizeInBits="16">
@@ -480,19 +480,7 @@ See https://github.com/yamcs/pymdb
           </UnitSet>
           <IntegerDataEncoding sizeInBits="16" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
           <ValidRangeSet validRangeAppliesToCalibrated="true">
-            <ValidRange minInclusive="1"/>
-          </ValidRangeSet>
-        </IntegerArgumentType>
-        <FloatArgumentType name="set_camera_streaming_params__loss_probability" sizeInBits="32">
-          <FloatDataEncoding sizeInBits="32" encoding="IEEE754_1985" byteOrder="mostSignificantByteFirst"/>
-          <ValidRangeSet validRangeAppliesToCalibrated="true">
-            <ValidRange minInclusive="0.0" maxInclusive="1.0"/>
-          </ValidRangeSet>
-        </FloatArgumentType>
-        <IntegerArgumentType name="set_camera_streaming_params__seed" signed="true" sizeInBits="32">
-          <IntegerDataEncoding sizeInBits="32" encoding="twosComplement" byteOrder="mostSignificantByteFirst"/>
-          <ValidRangeSet validRangeAppliesToCalibrated="true">
-            <ValidRange minInclusive="-1"/>
+            <ValidRange minInclusive="1" maxInclusive="65535"/>
           </ValidRangeSet>
         </IntegerArgumentType>
         <FloatArgumentType name="set_camera_streaming_params__bandwidth_window_seconds" sizeInBits="32">
@@ -574,14 +562,12 @@ See https://github.com/yamcs/pymdb
           <DefaultSignificance consequenceLevel="normal"/>
           <VerifierSet/>
         </MetaCommand>
-        <MetaCommand name="set_camera_streaming_params" abstract="false" shortDescription="Set the camera streaming compression and packet loss parameters">
+        <MetaCommand name="set_camera_streaming_params" abstract="false" shortDescription="Set the camera streaming compression parameters">
           <ArgumentList>
             <Argument name="bitrate" argumentTypeRef="set_camera_streaming_params__bitrate" shortDescription="Target bitrate, used only when crf is not set"/>
             <Argument name="crf" argumentTypeRef="set_camera_streaming_params__crf" shortDescription="Constant rate factor 0-51 (lower is higher quality), -1 to use the bitrate instead"/>
             <Argument name="keyframe_interval" argumentTypeRef="set_camera_streaming_params__keyframe_interval" shortDescription="Number of frames between keyframes"/>
             <Argument name="max_payload_size" argumentTypeRef="set_camera_streaming_params__max_payload_size" shortDescription="Maximum payload size of one transport packet"/>
-            <Argument name="loss_probability" argumentTypeRef="set_camera_streaming_params__loss_probability" shortDescription="Probability of dropping each transport packet"/>
-            <Argument name="seed" argumentTypeRef="set_camera_streaming_params__seed" shortDescription="Seed for reproducible packet loss, -1 for a random seed"/>
             <Argument name="bandwidth_window_seconds" argumentTypeRef="set_camera_streaming_params__bandwidth_window_seconds" shortDescription="Duration of the rolling bandwidth measurement window"/>
           </ArgumentList>
           <CommandContainer name="set_camera_streaming_params">
@@ -607,16 +593,6 @@ See https://github.com/yamcs/pymdb
                 </LocationInContainerInBits>
               </ArgumentRefEntry>
               <ArgumentRefEntry argumentRef="max_payload_size" shortDescription="Maximum payload size argument">
-                <LocationInContainerInBits referenceLocation="previousEntry">
-                  <FixedValue>0</FixedValue>
-                </LocationInContainerInBits>
-              </ArgumentRefEntry>
-              <ArgumentRefEntry argumentRef="loss_probability" shortDescription="Loss probability argument">
-                <LocationInContainerInBits referenceLocation="previousEntry">
-                  <FixedValue>0</FixedValue>
-                </LocationInContainerInBits>
-              </ArgumentRefEntry>
-              <ArgumentRefEntry argumentRef="seed" shortDescription="Seed argument">
                 <LocationInContainerInBits referenceLocation="previousEntry">
                   <FixedValue>0</FixedValue>
                 </LocationInContainerInBits>
@@ -707,12 +683,12 @@ See https://github.com/yamcs/pymdb
           </IntegerParameterType>
           <StringParameterType name="name"/>
           <IntegerParameterType name="number" signed="false" sizeInBits="32"/>
-          <IntegerParameterType name="packets_lost" signed="false" sizeInBits="32">
+          <IntegerParameterType name="packets_lost" signed="false" sizeInBits="16">
             <UnitSet>
               <Unit form="calibrated">counts</Unit>
             </UnitSet>
           </IntegerParameterType>
-          <IntegerParameterType name="packets_sent" signed="false" sizeInBits="32">
+          <IntegerParameterType name="packets_sent" signed="false" sizeInBits="16">
             <UnitSet>
               <Unit form="calibrated">counts</Unit>
             </UnitSet>
