@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-STARTUP_TIMEOUT = int(os.environ.get("OMNILRS_TEST_TIMEOUT", "600"))
+# LargeScale cold start on CI (fresh container: crater/DEM generation, uncached mesh backbone,
+# robot loading) takes well over 10 minutes. Keep within the Artefacts job timeout (30 min).
+STARTUP_TIMEOUT = int(os.environ.get("OMNILRS_TEST_TIMEOUT", "1200"))
 TELEMETRY_TIMEOUT = int(os.environ.get("OMNILRS_TELEMETRY_TIMEOUT", "120"))
 
 YAMCS_ADDRESS = os.environ.get("YAMCS_ADDRESS", "localhost:8090")
@@ -117,16 +119,21 @@ class SimProcess:
         return self.log_path.read_text(errors="replace")
 
     def wait_for_startup(self, timeout):
+        """Returns False only if the timeout expired while the sim was still starting up."""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             log = self.log
             if FINAL_MARKER in log:
-                return
+                return True
             if any(fatal in log for fatal in FATAL_MARKERS):
-                return
+                return True
             if self.proc.poll() is not None:
-                return
+                return True
             time.sleep(2)
+        return FINAL_MARKER in self.log
+
+    def log_tail(self, num_lines=20):
+        return "\n".join(line[:200] for line in self.log.splitlines()[-num_lines:])
 
     def assert_marker(self, marker):
         assert marker in self.log, (
@@ -223,7 +230,13 @@ def subscription(yamcs_server):
 def sim(yamcs_server, subscription):
     process = SimProcess()
     try:
-        process.wait_for_startup(STARTUP_TIMEOUT)
+        if not process.wait_for_startup(STARTUP_TIMEOUT):
+            # Fail every dependent test with the real cause instead of misleading marker/telemetry failures.
+            pytest.fail(
+                f"Sim startup timed out: final marker {FINAL_MARKER!r} not reached within "
+                f"{STARTUP_TIMEOUT}s (see {process.log_path.name}). Last sim output:\n{process.log_tail()}",
+                pytrace=False,
+            )
         yield process
     finally:
         process.stop()
