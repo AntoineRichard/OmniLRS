@@ -117,12 +117,11 @@ def _query_point_index(point, ctx, points, counters):
 
 
 @nb.jit(nopython=True, cache=True)
-def _add_triangle(A, B, C, ctx, points, uvs, indices, counters):
+def _add_triangle(A, B, C, ctx, points, indices, counters):
     """
     Add a triangle to the mesh. To add the triangle, the indices of the vertices are querried.
     If the vertices are not in the mesh, they are added. Once the vertices are in the mesh, the
-    indices are written to the buffer of indices to form the triangle. The UV coordinates of the
-    vertices are also written to the buffer of UV coordinates.
+    indices are written to the buffer of indices to form the triangle.
 
     Args:
         A (Tuple[int, int]): Doubled (x, y) coordinates of the first vertex of the triangle.
@@ -130,7 +129,6 @@ def _add_triangle(A, B, C, ctx, points, uvs, indices, counters):
         C (Tuple[int, int]): Doubled (x, y) coordinates of the third vertex of the triangle.
         ctx (tuple): Level context (level, grid, step, radius, prev_grid, prev_step, prev_radius).
         points (np.ndarray): Buffer of vertices in the mesh (N, 3).
-        uvs (np.ndarray): Buffer of UV coordinates of the vertices in the mesh (M, 2).
         indices (np.ndarray): Buffer of indices of the vertices in the mesh (M,).
         counters (np.ndarray): Number of points and number of indices in the buffers.
     """
@@ -138,8 +136,6 @@ def _add_triangle(A, B, C, ctx, points, uvs, indices, counters):
     for vertex in (A, B, C):
         n = counters[1]
         indices[n] = _query_point_index(vertex, ctx, points, counters)
-        uvs[n, 0] = vertex[0] * 0.5
-        uvs[n, 1] = vertex[1] * 0.5
         counters[1] = n + 1
 
 
@@ -152,20 +148,21 @@ def _build_mesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
     terrain at different levels of detail. At the center, the terrain is rendered at the highest
     level of detail. As the distance from the center increases, the level of detail decreases.
 
+    The UV coordinates of the triangle corners are the (x, y) coordinates of their vertices, so they
+    are not built here: they can be obtained with points[indices, :2].
+
     Args:
         start_level (int): Starting level of the mesh backbone.
         num_levels (int): Number of levels in the mesh backbone.
         meshBaseLODExtentHeightfieldTexels (int): Heightfield texels in the mesh backbone.
 
     Returns:
-        Tuple[np.ndarray, np.ndarray, np.ndarray]: Vertices (N, 3), UV coordinates (M, 2), and
-        indices (M,) in the mesh backbone.
+        Tuple[np.ndarray, np.ndarray]: Vertices (N, 3) and indices (M,) in the mesh backbone.
     """
 
     print("Building the mesh backbone, this may take time...")
     num_triangles, max_points = _mesh_buffer_sizes(start_level, num_levels, meshBaseLODExtentHeightfieldTexels)
     points = np.empty((max_points, 3), dtype=np.float64)
-    uvs = np.empty((3 * num_triangles, 2), dtype=np.float64)
     indices = np.empty(3 * num_triangles, dtype=np.int64)
     counters = np.zeros(2, dtype=np.int64)
     prev_grid = np.full((0, 0), -1, dtype=np.int64)
@@ -213,30 +210,30 @@ def _build_mesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
                         #   |   / | \   |
                         #   | /   |   \ |
                         #   G-----H-----I
-                        _add_triangle(E, A, G, ctx, points, uvs, indices, counters)
+                        _add_triangle(E, A, G, ctx, points, indices, counters)
                     else:
-                        _add_triangle(E, A, D, ctx, points, uvs, indices, counters)
-                        _add_triangle(E, D, G, ctx, points, uvs, indices, counters)
+                        _add_triangle(E, A, D, ctx, points, indices, counters)
+                        _add_triangle(E, D, G, ctx, points, indices, counters)
 
                     if y == (radius - step):
-                        _add_triangle(E, G, I, ctx, points, uvs, indices, counters)
+                        _add_triangle(E, G, I, ctx, points, indices, counters)
                     else:
-                        _add_triangle(E, G, H, ctx, points, uvs, indices, counters)
-                        _add_triangle(E, H, I, ctx, points, uvs, indices, counters)
+                        _add_triangle(E, G, H, ctx, points, indices, counters)
+                        _add_triangle(E, H, I, ctx, points, indices, counters)
 
                     if x == (radius - step):
-                        _add_triangle(E, I, C, ctx, points, uvs, indices, counters)
+                        _add_triangle(E, I, C, ctx, points, indices, counters)
                     else:
-                        _add_triangle(E, I, F, ctx, points, uvs, indices, counters)
-                        _add_triangle(E, F, C, ctx, points, uvs, indices, counters)
+                        _add_triangle(E, I, F, ctx, points, indices, counters)
+                        _add_triangle(E, F, C, ctx, points, indices, counters)
 
                     if y == -radius:
-                        _add_triangle(E, C, A, ctx, points, uvs, indices, counters)
+                        _add_triangle(E, C, A, ctx, points, indices, counters)
                     else:
-                        _add_triangle(E, C, B, ctx, points, uvs, indices, counters)
-                        _add_triangle(E, B, A, ctx, points, uvs, indices, counters)
+                        _add_triangle(E, C, B, ctx, points, indices, counters)
+                        _add_triangle(E, B, A, ctx, points, indices, counters)
         prev_grid = grid
         prev_step = step
         prev_radius = radius
     # The points buffer was sized with an upper bound, trim it to the points actually added.
-    return points[: counters[0]].copy(), uvs, indices
+    return points[: counters[0]].copy(), indices
