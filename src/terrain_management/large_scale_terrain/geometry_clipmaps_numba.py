@@ -133,6 +133,9 @@ def _add_triangle(A, B, C, ctx, points, indices, counters):
         counters (np.ndarray): Number of points and number of indices in the buffers.
     """
 
+    # Numba does not bounds check: refuse to write past the buffer sized by _mesh_buffer_sizes.
+    if counters[1] + 3 > indices.shape[0]:
+        raise RuntimeError("Mesh backbone: more triangles than counted by _mesh_buffer_sizes.")
     for vertex in (A, B, C):
         n = counters[1]
         indices[n] = _query_point_index(vertex, ctx, points, counters)
@@ -235,5 +238,7 @@ def _build_mesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
         prev_grid = grid
         prev_step = step
         prev_radius = radius
+    if counters[1] != indices.shape[0]:
+        raise RuntimeError("Mesh backbone: fewer triangles than counted by _mesh_buffer_sizes.")
     # The points buffer was sized with an upper bound, trim it to the points actually added.
     return points[: counters[0]].copy(), indices
