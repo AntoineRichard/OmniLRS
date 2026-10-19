@@ -18,7 +18,7 @@ point2_list_type = nb.types.ListType(point2)
 idx_list_type = nb.types.ListType(nb.types.int32)
 
 
-@nb.jit(point2(point3), nopython=True)
+@nb.jit(point2(point3), nopython=True, cache=True)
 def _point3_to_point2(point):
     """
     Convert a 3D point to a 2D point by dropping the z coordinate.
@@ -42,6 +42,7 @@ def _point3_to_point2(point):
         nb.types.int32,
     ),
     nopython=True,
+    cache=True,
 )
 def _query_point_index(point, points, prev_indices, new_indices, index_count):
     """
@@ -83,6 +84,7 @@ def _query_point_index(point, points, prev_indices, new_indices, index_count):
         nb.types.int32,
     ),
     nopython=True,
+    cache=True,
 )
 def _add_triangle(
     A,
@@ -125,7 +127,7 @@ def _add_triangle(
     return index_count
 
 
-@nb.jit(nopython=True)
+@nb.jit(nopython=True, cache=True)
 def _build_mesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
     """
     Build the mesh backbone for the geometry clipmaps. The mesh backbone is a series of triangles
@@ -260,6 +262,7 @@ def _build_mesh(start_level, num_levels, meshBaseLODExtentHeightfieldTexels):
         idx_list_type,
     ),
     nopython=True,
+    cache=True,
 )
 def _mesh_to_numpy(points, uvs, indices):
     """
