@@ -73,7 +73,7 @@ class CameraCompressionModel(RobotPhysicsModel):
         keyframe_interval: int = 10,  # Group of pictures size: number of frames between keyframes.
         crf: int | None = None,  # Set 0-51 for quality-based mode; when set, bitrate is ignored.
         max_payload_size: int = 1200,  # Maximum NAL payload bytes per network packet.
-        loss_probability: float = 0.0,  # Independent probability of dropping each network packet.
+        loss_probability: float = 0.01,  # Independent probability of dropping each network packet.
         seed: int | None = None,  # Seed for reproducible packet loss.
         bandwidth_window_seconds: float = 10.0,  # Bitrate averaging window, rounded to whole frames (at least one).
     ) -> None:
@@ -81,6 +81,9 @@ class CameraCompressionModel(RobotPhysicsModel):
             raise ValueError("fps must be positive")
         if not 0 <= loss_probability <= 1:
             raise ValueError("loss_probability must be between 0 and 1")
+        if seed is not None and seed < 0:
+            raise ValueError("seed must be non-negative, or None")
+        self._validate_parameters(bitrate, keyframe_interval, crf, max_payload_size, bandwidth_window_seconds)
 
         self._image: Image.Image | None = None
         self._compressed_image: Image.Image | None = None
@@ -99,7 +102,7 @@ class CameraCompressionModel(RobotPhysicsModel):
         # Persistent H.264 decoder
         self._decoder = av.CodecContext.create("h264", "r")
         self._decoder.open()
-        self.update_parameters(bitrate, keyframe_interval, crf, max_payload_size, bandwidth_window_seconds)
+        self._apply_parameters(bitrate, keyframe_interval, crf, max_payload_size, bandwidth_window_seconds)
 
     def update_parameters(
         self,
@@ -114,6 +117,17 @@ class CameraCompressionModel(RobotPhysicsModel):
         The encoder is rebuilt on the next compute() so bitrate, crf and keyframe_interval apply; the decoder is kept
         and resynchronizes at the new keyframe. Packet loss settings are fixed at initialize().
         """
+        self._validate_parameters(bitrate, keyframe_interval, crf, max_payload_size, bandwidth_window_seconds)
+        self._apply_parameters(bitrate, keyframe_interval, crf, max_payload_size, bandwidth_window_seconds)
+
+    @staticmethod
+    def _validate_parameters(
+        bitrate: int,
+        keyframe_interval: int,
+        crf: int | None,
+        max_payload_size: int,
+        bandwidth_window_seconds: float,
+    ) -> None:
         # CRF: 0-51, lower means higher quality. None uses bitrate instead.
         if crf is not None and not 0 <= crf <= 51:
             raise ValueError("crf must be between 0 and 51, or None")
@@ -128,6 +142,14 @@ class CameraCompressionModel(RobotPhysicsModel):
         if not isfinite(bandwidth_window_seconds) or bandwidth_window_seconds <= 0:
             raise ValueError("bandwidth_window_seconds must be a finite positive number")
 
+    def _apply_parameters(
+        self,
+        bitrate: int,
+        keyframe_interval: int,
+        crf: int | None,
+        max_payload_size: int,
+        bandwidth_window_seconds: float,
+    ) -> None:
         with self._lock:
             self._bitrate = bitrate
             self._keyframe_interval = keyframe_interval
