@@ -15,11 +15,11 @@ robots_settings:
     camera_compression:
       bitrate: 150_000 # Target bits/s with Video Buffering Verifier (VBV) constraints
       crf: null # Set 0-51 for quality-based mode; higher means lower quality, bitrate is ignored
-      keyframe_interval: 10
-      max_payload_size: 1200
-      loss_probability: 0.0 # Per-network-packet drop probability; e.g. 0.01 to degrade the stream (not commandable)
+      keyframe_interval: 10 # Keyframe interval in number of frames
+      max_payload_size: 1200 # Maximum payload size in bytes
+      loss_probability: 0.0 # between 0.0 and 1.0; Per-network-packet drop probability; e.g. 0.01 to degrade the stream (not commandable)
       seed: null # Seed for reproducible packet loss (not commandable)
-      bandwidth_window_seconds: 10.0 # Rolling bitrate measurement window
+      bandwidth_window_seconds: 10.0 # Rolling bitrate measurement window in seconds
     lander_camera:
       prim_path: "/StaticAssets/lander/Lander/Cam_Right/Lander_Camera"
       resolution: [1440, 1080]
