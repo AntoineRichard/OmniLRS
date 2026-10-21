@@ -3,6 +3,7 @@ import threading
 from collections import deque
 from fractions import Fraction
 from math import isfinite
+from pathlib import Path
 from typing import Any, Dict
 
 import av
@@ -326,3 +327,103 @@ class CameraCompressionModel(RobotPhysicsModel):
             "packets_lost": self._packets_lost,
             "decode_errors": self._decode_errors,
         }
+
+
+# ---------------------------------------------------------------------------
+# Below: standalone functions for unit-testing of the camera compression model.
+# They enable the model to be tested in isolation, without needing to run the entire simulation
+# ---------------------------------------------------------------------------
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+TEST_INPUT_DIR = REPO_ROOT / "test" / "inputs" / "camera_compression"
+TEST_OUTPUT_DIR = REPO_ROOT / "test" / "outputs" / "camera_compression"
+
+# Per-network-packet loss levels
+LOSS_LOW = 0.01
+LOSS_MEDIUM = 0.05
+LOSS_EXTREME = 0.20
+
+TEST_SCENARIOS = {
+    # Bitrate sweep at low loss
+    "br50_loss_low": dict(bitrate=50_000, loss_probability=LOSS_LOW, keyframe_interval=10),
+    # Baseline: matches cfg/controller/pragyaan-controller.yaml; each other scenario changes one parameter from it
+    "br150_loss_low": dict(bitrate=150_000, loss_probability=LOSS_LOW, keyframe_interval=10),
+    "br300_loss_low": dict(bitrate=300_000, loss_probability=LOSS_LOW, keyframe_interval=10),
+    # Loss sweep at the default bitrate
+    "br150_loss_medium": dict(bitrate=150_000, loss_probability=LOSS_MEDIUM, keyframe_interval=10),
+    "br150_loss_extreme": dict(bitrate=150_000, loss_probability=LOSS_EXTREME, keyframe_interval=10),
+    # Frequent keyframes recover from loss faster
+    "br150_loss_medium_kf3": dict(bitrate=150_000, loss_probability=LOSS_MEDIUM, keyframe_interval=3),
+}
+
+
+def run_compression_test(
+    name: str,
+    params: Dict[str, Any],
+    image_paths: list[Path],
+    output_dir: Path,
+    fps: float = 1.0,
+    seed: int = 42,
+) -> Dict[str, Any]:
+    """Stream the images through one persistent model, as on the rover, and save the frames and a video.
+
+    Returns the model outputs after the last frame (cumulative packet counts, rolling bandwidth).
+    """
+    scenario_dir = output_dir / name
+    scenario_dir.mkdir(parents=True, exist_ok=True)
+
+    model = CameraCompressionModel()
+    model.initialize(fps=fps, seed=seed, **params)
+
+    frames = []
+    for path in image_paths:
+        # set inputs
+        with Image.open(path) as image:
+            model.set_inputs(image.convert("RGB"))
+        # perform computation
+        model.compute(1 / fps)
+        # get results
+        frame = model.get_outputs()["compressed_image"]
+        frame.save(scenario_dir / path.name)
+        frames.append(frame)
+
+    _write_lossless_video(frames, scenario_dir / f"{name}.mp4", fps)
+
+    return model.get_outputs()
+
+
+def _write_lossless_video(frames: list[Image.Image], path: Path, fps: float) -> None:
+    # RGB H.264 at CRF 0 reproduces the frames exactly, so the video only shows the model's artifacts.
+    # Plays in VLC/mpv/ffplay, not in browsers.
+    width, height = frames[0].size
+    with av.open(str(path), "w") as container:
+        stream = container.add_stream("libx264rgb", rate=Fraction(fps).limit_denominator(1000))
+        stream.width = width
+        stream.height = height
+        stream.pix_fmt = "rgb24"
+        stream.options = {"crf": "0", "preset": "medium"}
+        for frame in frames:
+            for packet in stream.encode(av.VideoFrame.from_ndarray(np.asarray(frame), format="rgb24")):
+                container.mux(packet)
+        for packet in stream.encode():
+            container.mux(packet)
+
+
+def main() -> None:
+    image_paths = sorted(TEST_INPUT_DIR.glob("*.png"))
+    if not image_paths:
+        raise FileNotFoundError(f"No test images found in {TEST_INPUT_DIR}")
+
+    for name, params in TEST_SCENARIOS.items():
+        outputs = run_compression_test(name, params, image_paths, TEST_OUTPUT_DIR)
+        print(
+            f"{name:24s} {outputs['bandwidth'] / 1000:7.1f} kbps  "
+            f"lost {outputs['packets_lost']}/{outputs['packets_sent']} packets  "
+            f"decode errors {outputs['decode_errors']}"
+        )
+    print(f"Camera compression outputs saved to {TEST_OUTPUT_DIR}")
+
+
+if __name__ == "__main__":
+    main()
