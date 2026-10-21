@@ -5,10 +5,34 @@ on:
   push:
     branches:
       - main
-  
+
 
 jobs:
+  # Skip the expensive artefacts run when the merged PR has the
+  # `skip-artefacts` label. Manual dispatches and direct pushes always run.
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      skip: ${{ steps.label.outputs.skip }}
+    steps:
+      - id: label
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          skip=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq 'any(.[] | select(.merged_at != null) | .labels[].name; . == "skip-artefacts")') || skip=false
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = "true" ]; then
+            echo "::notice::Merged PR has the 'skip-artefacts' label, skipping artefacts CI."
+          fi
+
   test:
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -24,7 +48,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      
+
       # Start up test
       - uses: art-e-fact/action-artefacts-ci@main
         with:
