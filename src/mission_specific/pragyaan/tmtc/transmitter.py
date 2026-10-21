@@ -23,9 +23,13 @@ class PragyaanTransmitter:
 
     """
 
-    def __init__(self, transmit_func, intervals_handler, robot, robot_RG, robot_name, parameters_conf):
+    # packets_sent/packets_lost are 16-bit unsigned in the Yamcs MDB, so they wrap from 65535 back to 0.
+    PACKET_COUNTER_MODULO = 1 << 16
+
+    def __init__(self, transmit_func, intervals_handler, robot, robot_RG, robot_name, parameters_conf, camera_handler):
         self._transmit = transmit_func
         self._robot: Robot = robot
+        self._camera_handler = camera_handler
         self._intervals_handler = intervals_handler
         self._parameters_conf = parameters_conf
         self._robot_RG = robot_RG
@@ -122,6 +126,21 @@ class PragyaanTransmitter:
         is_camera_streaming = self._intervals_handler.does_exist(IntervalName.CAMERA_STREAMING.value)
         state = PowerState.ON if is_camera_streaming else PowerState.OFF
         self._transmit(self._parameters_conf["camera_streaming_state"], state)
+
+    def transmit_camera_compression_info(self):
+        compression_status = self._camera_handler.get_compression_model_outputs()
+        if compression_status is None:
+            return
+        # The bandwidth is 0 until the first frame is encoded; skip it as it is below the Yamcs MDB minimum
+        bandwidth = compression_status["bandwidth"]
+        if bandwidth > 0:
+            self._transmit(self._parameters_conf["camera_bandwidth"], int(bandwidth))
+        # Packet counters roll over like hardware counters; the model keeps the full counts.
+        packets_sent = compression_status["packets_sent"] % self.PACKET_COUNTER_MODULO
+        packets_lost = compression_status["packets_lost"] % self.PACKET_COUNTER_MODULO
+        self._transmit(self._parameters_conf["camera_packets_sent"], packets_sent)
+        self._transmit(self._parameters_conf["camera_packets_lost"], packets_lost)
+        self._transmit(self._parameters_conf["camera_decode_errors"], compression_status["decode_errors"])
 
     def transmit_go_nogo(self):
         go_nogo_state = self._robot.subsystems.get_go_nogo_state().value

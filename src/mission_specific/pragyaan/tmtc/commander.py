@@ -142,6 +142,26 @@ class PragyaanCommander:
         else:
             print("Unknown action:", action)
 
+    def set_camera_streaming_params(
+        self,
+        bitrate: int,
+        crf: int,
+        keyframe_interval: int,
+        max_payload_size: int,
+        bandwidth_window_seconds: float,
+    ):
+        # MDB arguments can not be null, so crf = -1 stands for None (bitrate mode)
+        try:
+            self._camera_handler.set_streaming_compression_params(
+                bitrate=bitrate,
+                keyframe_interval=keyframe_interval,
+                crf=None if crf < 0 else crf,
+                max_payload_size=max_payload_size,
+                bandwidth_window_seconds=bandwidth_window_seconds,
+            )
+        except ValueError as error:
+            print("New camera streaming parameters are invalid:", error)
+
     def set_activity_of_neutron_streaming(self, power_state: PowerState):
         if power_state == PowerState.OFF:
             self._intervals_handler.remove_interval(IntervalName.NEUTRON_COUNT.value)
