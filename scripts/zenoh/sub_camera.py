@@ -3,6 +3,7 @@ __maintainer__ = "Louis Burtz"
 __email__ = "ljburtz@jaops.com"
 
 import asyncio
+import argparse
 
 import cv2
 import msgspec
@@ -11,8 +12,8 @@ from asyncio_for_robotics.zenoh.sub import Sub
 from environments_wrappers.zenoh.transport.zenoh_pub import WireNDArray
 
 
-async def main():
-    sub = Sub("OmniLRS/husky/camera/cam_color/high")
+async def main(robot_name: str, camera_name: str):
+    sub = Sub(f"OmniLRS/{robot_name}/camera/{camera_name}/high")
 
     try:
         async for sample in sub.listen_reliable():
@@ -25,5 +26,18 @@ async def main():
     finally:
         sub.close()
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="View camera stream over Zenoh.")
+    parser.add_argument(
+        "robot_name",
+        nargs="?",
+        default="husky"
+    )
+    parser.add_argument(
+        "camera_name",
+        nargs="?",
+        default="cam_color",
+    )
+    args = parser.parse_args()
 
-asyncio.run(main())
+    asyncio.run(main(args.robot_name, args.camera_name))
