@@ -88,14 +88,16 @@ class PragyaanCameraHandler:
         self._monitoring_cam = MonitoringCamerasManager.cameras[camera_name]
 
     def _snap_camera_view_rgb(self, resolution: str) -> Image:
-        frame = self._robot.get_rgba_camera_view(resolution)
+        # Note: from 1st camera (index 0) as default
+        frame = self._robot.get_rgba_camera_view_by_idx(0, resolution)
         frame_uint8 = frame.astype(np.uint8)
         camera_view = Image.fromarray(frame_uint8, CameraViewType.RGBA.value)
 
         return camera_view
 
     def _snap_camera_view_depth(self, resolution: str) -> Image:
-        frame = self._robot.get_depth_camera_view(resolution)
+        # Note: from 1st camera (index 0) as default
+        frame = self._robot.get_depth_camera_view_by_idx(resolution)
         depth = np.nan_to_num(frame, nan=0.0, posinf=0.0, neginf=0.0)
 
         valid = depth > 0
